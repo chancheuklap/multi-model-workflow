@@ -19,4 +19,4 @@ Every design and every implementation starts from what already exists.
 
 **Does not apply** to trivial changes in existing code, to fixing a bug in place, or when the implementation approach is already settled.
 
-Distinct from [First-Principles Thinking](../principle-first-principles-thinking/SKILL.md), which says, while reasoning, to use a proven pattern that already fits. This is the search you run before you build, and the record you leave of it.
+Distinct from [principle-first-principles-thinking](../principle-first-principles-thinking/SKILL.md), which says, while reasoning, to use a proven pattern that already fits. This is the search you run before you build, and the record you leave of it.

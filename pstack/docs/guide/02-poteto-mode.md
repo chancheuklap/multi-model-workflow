@@ -1,6 +1,6 @@
-# Route work through `/poteto-mode`
+# Route work through [poteto-mode](../../skills/poteto-mode/SKILL.md)
 
-`/poteto-mode` is the front door. You give it a goal, it matches one of twenty-three playbooks, copies that playbook's steps into the todo list, and calls the other skills as the steps need them. In this page you learn what a good prompt looks like, and how little of one you actually need.
+[poteto-mode](../../skills/poteto-mode/SKILL.md) is the front door. You give it a goal. It opens or reuses the GitHub work issue, matches one of twenty-three playbooks when the task needs one, copies that playbook's steps into the todo list, and calls the other skills as the steps need them. In this page you learn what a good prompt looks like, and how little of one you actually need.
 
 ![A dispatcher pulls a switch lever to route robots on rail handcars toward lit gates, under a /poteto-mode departure board listing BUG FIX, FEATURE, and INVESTIGATION.](./images/router.jpg)
 
@@ -10,14 +10,15 @@
 flowchart TD
     A[Your prompt] --> B[poteto-mode]
     B --> C[Read the Principles section]
-    C --> D{Match the task}
+    C --> T[Open or reuse the GitHub work issue]
+    T --> D{Match the playbook}
     D -->|Read-only question| E[Investigation]
     D -->|Defect| F[Bug fix]
     D -->|New behavior| G[Feature]
     D -->|Structure only| H[Refactoring]
     D -->|Measured slowness| I[Perf issue]
     D -->|Large work or no match| J[figure-it-out]
-    E --> K[Verify and report]
+    E --> K[Verify, record the outcome on the issue and report]
     F --> K
     G --> K
     H --> K
@@ -25,7 +26,7 @@ flowchart TD
     J --> K
 ```
 
-The diagram shows the common routes. There are also playbooks for hillclimbing a metric, diagnosing runtime symptoms and captured traces, prototypes, visual parity, authoring and evaluating skills, autonomous runs, opening a PR, babysitting a PR or stack to merge-ready, shipping a verified stack, running a PR queue or a stack on autopilot, orchestrating project-scale programs, session pickup, pausing safely, multi-phase plans, and worktree cleanup. The [playbook directory](../../skills/poteto-mode/playbooks/) has the full set.
+The diagram shows the common routes. The main chat uses [to-tickets](../../skills/to-tickets/SKILL.md) to record findings, decisions and handoffs on the work issue. Each subagent receives the work issue for its assignment. There are also playbooks for hillclimbing a metric, diagnosing runtime symptoms and captured traces, prototypes, visual parity, authoring and evaluating skills, autonomous runs, opening a PR, babysitting a PR or stack to merge-ready, shipping a verified stack, running a PR queue or a stack on autopilot, orchestrating project-scale programs, session pickup, pausing safely, multi-phase plans, and worktree cleanup. The [playbook directory](../../skills/poteto-mode/playbooks/) has the full set.
 
 ## Say the goal, not the ceremony
 
@@ -64,15 +65,15 @@ For a noisy report, such as a long thread or a vague bug, make the restatement t
 /poteto-mode read this thread. restate the underlying issue in your own words, in plain english. don't change any code yet.
 ```
 
-A misreading shows up in the restatement, before any code exists. Correct it there, and it costs you one message instead of one wrong fix. For the restatement alone, with no playbook, run [`/in-your-own-words`](../../skills/in-your-own-words/SKILL.md). It restates what the agent thinks your goals are and what problem you're trying to solve.
+A misreading shows up in the restatement, before any code exists. Correct it there, and it costs you one message instead of one wrong fix. For the restatement alone, with no playbook, run [in-your-own-words](../../skills/in-your-own-words/SKILL.md). It restates what the agent thinks your goals are and what problem you're trying to solve.
 
-When you're unsure whether a prompt is aimed right, run [`/sharpen`](../../skills/sharpen/SKILL.md) on it before you send it:
+When you're unsure whether a prompt is aimed right, run [sharpen](../../skills/sharpen/SKILL.md) on it before you send it:
 
 ```text
 /sharpen write a migration guide for the v2 config format.
 ```
 
-The agent says what a top professional would do that you didn't ask for, the rawest material they would start from, the methods and tools they would use, and what other than you or the agent would show the result is right. Then it rewrites your prompt to ask for exactly that, deeper but not bigger, and leaves your choices open. It doesn't do the task. Read the rewrite, then send it, for example with `/poteto-mode`.
+The agent says what a top professional would do that you didn't ask for, the rawest material they would start from, the methods and tools they would use, and what other than you or the agent would show the result is right. Then it rewrites your prompt to ask for exactly that, deeper but not bigger, and leaves your choices open. It doesn't do the task. Read the rewrite, then send it, for example with [poteto-mode](../../skills/poteto-mode/SKILL.md).
 
 ## Follow up short
 
@@ -100,7 +101,7 @@ A long chat accumulates context from the last task. When you change subjects, sa
 /poteto-mode new task. figure out why the cache entry survives logout. don't change any code yet.
 ```
 
-"new task" tells `/poteto-mode` to re-match rather than continue the prior playbook. "don't change any code yet" pins this one to Investigation. Without those two phrases, a mode mid-Feature tends to treat your question as the next feature step.
+"new task" tells [poteto-mode](../../skills/poteto-mode/SKILL.md) to re-match rather than continue the prior playbook. "don't change any code yet" pins this one to Investigation. Without those two phrases, a mode mid-Feature tends to treat your question as the next feature step.
 
 ## Give parallel work its own machine
 
@@ -130,10 +131,10 @@ When you step away, say what done means and go:
 /poteto-mode im stepping away. keep going until the migration check reports zero old callers. log your decisions.
 ```
 
-Work you'll review later routes through [`/figure-it-out`](../../skills/figure-it-out/SKILL.md), which designs the run's phases and keeps a [`/show-me-your-work`](../../skills/show-me-your-work/SKILL.md) decision log. [Run work while you sleep](./07-overnight.md) covers the full overnight contract.
+Work you'll review later routes through [figure-it-out](../../skills/figure-it-out/SKILL.md), which designs the run's phases and keeps a [show-me-your-work](../../skills/show-me-your-work/SKILL.md) decision log. [Run work while you sleep](./07-overnight.md) covers the full overnight contract.
 
 **Pitfall:** don't enumerate skills in your prompt ("use /how, then /architect, then /arena..."). The playbook already sequences them, and a hand-written sequence usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
 
-Read [`poteto-mode`](../../skills/poteto-mode/SKILL.md) itself for the full routing rules.
+Read [poteto-mode](../../skills/poteto-mode/SKILL.md) itself for the full routing rules.
 
 Next: [Understand the code](./03-understand.md).

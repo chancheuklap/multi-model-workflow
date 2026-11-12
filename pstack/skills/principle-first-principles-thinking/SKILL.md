@@ -12,7 +12,7 @@ Before refining the plan, decision, or idea, challenge its premise: invalid assu
 
 Then question the requirements and reduce their number, so the question being answered is the least wrong one possible. Otherwise you could get the perfect answer to the wrong question.
 
-Strip assumed constraints to independently supported primitives, then rebuild. Escape analogy when convention fails or looks artificially expensive. Distinguish the user's stated requirements from assumptions about how to meet them. Classify each assumed constraint as physics/math, regulation/contract, measured fact, or convention/analogy/authority. Keep only the first three as binding unless evidence upgrades a convention. Demand independent support (measurement, derivation, primary requirement), not past practice alone. For each convention, state a falsifier. Drop or renegotiate anything lacking support.
+Strip assumed constraints to independently supported primitives, then rebuild. Escape analogy when convention fails or looks artificially expensive. Distinguish the operator's stated requirements from assumptions about how to meet them. Classify each assumed constraint as physics/math, regulation/contract, measured fact, or convention/analogy/authority. Keep only the first three as binding unless evidence upgrades a convention. Demand independent support (measurement, derivation, primary requirement), not past practice alone. For each convention, state a falsifier. Drop or renegotiate anything lacking support.
 
 "Industry standard is...", "We've always done it like this...", "Best practice says...", "That's just how it works...": none of these are REASONS. They're appeals to convention. Ask: "But WHY? What fundamental truth makes this necessary?"
 

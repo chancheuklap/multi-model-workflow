@@ -22,4 +22,4 @@ When debugging, fix the fault, not the place where it surfaced. The symptom is w
 - If the deciding fact took a deep dig to find, propose the cheap, always-on signal that would have shown it at first look.
 - A failing check is a symptom too. Fix the implementation if it violates the requirement. If the check is wrong, correct it against the requirement. When the playbook freezes the baseline or harness, report the discrepancy and leave it intact. Never relax a valid check just to turn it green.
 
-When two or more fixes that share one premise fail the same gate, apply [Attack the Premise](../principle-attack-the-premise/SKILL.md) before the next fix.
+When two or more fixes that share one premise fail the same gate, apply [principle-attack-the-premise](../principle-attack-the-premise/SKILL.md) before the next fix.

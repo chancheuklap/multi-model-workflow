@@ -18,7 +18,7 @@ Before fanning out, inspect the ten most recent transcript files in this workspa
 
 Spawn three reviewers in parallel. Give them read access to the tickets, chat threads, and observability traces the transcript references.
 
-Use the role lines in the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Use the role lines in the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill.
 
 | Lens | Role line | Prompt template |
 |---|---|---|
@@ -34,7 +34,7 @@ Spawn one synthesizer using the `reflect judgment, divergent, synthesizer` role.
 
 ## 4. Structural enforcement check
 
-Move any Accepted item that a lint rule, script, metadata flag, or runtime check would enforce more reliably to Backlog. See the **encode-lessons-in-structure** principle skill.
+Move any Accepted item that a lint rule, script, metadata flag, or runtime check would enforce more reliably to Backlog. See the [principle-encode-lessons-in-structure](../principle-encode-lessons-in-structure/SKILL.md) principle skill.
 
 ## 5. Apply
 
@@ -47,9 +47,9 @@ Before approval, show the editable destination in the project or personal skills
 Follow each approved row's Routing exactly:
 
 - Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.
-- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to the [`create-skill` skill](../create-skill/SKILL.md) and run its draft / test / iterate loop.
-- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand to `create-skill` and run its description-optimization loop.
-- `new skill via create-skill: <kebab-name>`: hand creation to `create-skill`. Do not invent the shape ad hoc.
+- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to the [create-skill](../create-skill/SKILL.md) and run its draft / test / iterate loop.
+- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand to [create-skill](../create-skill/SKILL.md) and run its description-optimization loop.
+- `new skill via create-skill: <kebab-name>`: hand creation to [create-skill](../create-skill/SKILL.md). Do not invent the shape ad hoc.
 
 If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
 

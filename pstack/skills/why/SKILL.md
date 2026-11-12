@@ -6,9 +6,9 @@ disable-model-invocation: true
 
 # Why
 
-Investigate the motivation and intent behind code. The companion `how` skill answers what the code does and how it works. `why` answers what forces led to its shape.
+Investigate the motivation and intent behind code. The companion [how](../how/SKILL.md) skill answers what the code does and how it works. [why](SKILL.md) answers what forces led to its shape.
 
-Use each role's configured model from the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Use each role's configured model from the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill.
 
 Give the investigators read access to their assigned evidence sources and the synthesizer access to the sources it needs for citation checks. Investigators still shouldn't write anything.
 

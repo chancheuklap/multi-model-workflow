@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 A guided flow for turning the user's working conventions into a skill agents will follow. The output is one `-mode` skill tailored to them (e.g. `jay-mode`, `priya-mode`).
 
-This skill orchestrates three others: an inline mining pass (see step 1), the bundled `create-skill` (authoring), and the **unslop** skill (prose discipline). It sequences them. It doesn't replace them.
+This skill orchestrates three others: an inline mining pass (see step 1), the bundled [create-skill](../create-skill/SKILL.md) (authoring), and the [unslop](../unslop/SKILL.md) skill (prose discipline). It sequences them. It doesn't replace them.
 
 ## Flow
 
@@ -28,7 +28,7 @@ Update mode changes the rest of the flow:
 
 Locate the active workspace's transcripts before fanning out. Read only conversations from that workspace. If none are accessible, gather preferences in step 2 instead.
 
-Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents with the `how explorer` model from the [pstack model rule](../setup-pstack/SKILL.md#model-rule) across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill. Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
+Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents with the `how explorer` model from the [pstack model rule](../setup-pstack/SKILL.md#model-rule) across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill. Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 
 - Response preferences (length, tone, format, "dumb it down" corrections)
 - Delegation habits (subagents, models, specialized workflows, parallelism)
@@ -60,21 +60,21 @@ Group the combined signals into sections. Common ones (use only what applies):
 - **Process**: git worktrees, commits, PRs, review/merge tooling.
 - **Skills**: skill-authoring habits, fix-the-skill-first, proposing new skills.
 
-The **poteto-mode** skill shows the shape. Read it for granularity. Don't copy its content. The user's rules are not the same as poteto-mode's.
+The [poteto-mode](../poteto-mode/SKILL.md) skill shows the shape. Read it for granularity. Don't copy its content. The user's rules are not the same as poteto-mode's.
 
 ### 4. Draft the skill
 
-Use the bundled [`create-skill` skill](../create-skill/SKILL.md) to author the skill. Placement:
+Use the bundled [create-skill](../create-skill/SKILL.md) to author the skill. Placement:
 
 - Path: preserve an existing mode skill's category. For a new mode, use `<handle>/<handle>-mode/SKILL.md` under the project skills directory when the repo already groups skills by handle. Otherwise use `<handle>-mode/SKILL.md` there, or in the personal skills directory if the user prefers.
 - Handle: the user's first name or chosen identifier.
 - Frontmatter `description`: trigger on their name + `/<handle>-mode` + "work in their style", not on generic keywords like "write code" or "review PR".
-- Frontmatter formatting: follow `create-skill`'s YAML rules. Keep `description` as one YAML scalar. Quote it or use `description: >-` with indented continuation lines when punctuation or wrapping requires it.
+- Frontmatter formatting: follow [create-skill](../create-skill/SKILL.md)'s YAML rules. Keep `description` as one YAML scalar. Quote it or use `description: >-` with indented continuation lines when punctuation or wrapping requires it.
 - State in the description that the user activates the mode. Set `disable-model-invocation: true` where supported. Opt into automatic invocation only if the user explicitly wants the mode to apply on every turn.
 
 ### 5. Iterate on prose
 
-Apply the **unslop** skill and `create-skill`'s writing guidelines to every line.
+Apply the [unslop](../unslop/SKILL.md) skill and [create-skill](../create-skill/SKILL.md)'s writing guidelines to every line.
 
 Show the draft to the user and take feedback. Expect multiple iterations. Cut ruthlessly. A mode skill is not a manual.
 
@@ -99,6 +99,6 @@ Run a description-optimization loop only if the skill's trigger accuracy turns o
 
 ## When not to use
 
-- User wants a task-specific skill (not working conventions): `create-skill` alone, no mining required.
+- User wants a task-specific skill (not working conventions): [create-skill](../create-skill/SKILL.md) alone, no mining required.
 - User wants to capture one narrow workflow (e.g. "how I write commit messages"). That's a regular skill, not a mode skill.
 

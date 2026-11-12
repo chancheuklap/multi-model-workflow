@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Sequence work into verifiable units
 
-Order work as a sequence of small units, each ending in a state you can check. Verify each unit before starting the next. For behavior-preserving edits, keep the baseline green at every step.
+Order work as a sequence of small units, each ending in a state you can check. Verify each unit before starting the next. For behavior-preserving edits, keep the checks green at every step.
 
 **Why:** A break caught at the unit that caused it is cheap to localize. A break caught after a batch is buried, and you have already built further on a broken base. Sequencing those same units into a delivery a reviewer can replay turns "trust me" into "watch it go red, then green."
 
@@ -14,4 +14,4 @@ Order work as a sequence of small units, each ending in a state you can check. V
 
 **Delivery.** Stack commits and PRs in the order that proves the work. The canonical shape is the failing test first, then the fix on top. Check the state each commit is meant to establish. The repro commit must fail for the expected reason, and the fix must make it pass. Other story orders are a subtraction before the reshape, a baseline capture before the treatment, the scaffold before the feature. Each commit lands on its own and the sequence reads as an argument.
 
-The sequencing complement to the **prove-it-works** principle skill, which keeps each check real, and the **build-the-lever** principle skill, which makes the per-unit check cheap.
+The sequencing complement to the [principle-prove-it-works](../principle-prove-it-works/SKILL.md) principle skill, which keeps each check real, and the [principle-build-the-lever](../principle-build-the-lever/SKILL.md) principle skill, which makes the per-unit check cheap.

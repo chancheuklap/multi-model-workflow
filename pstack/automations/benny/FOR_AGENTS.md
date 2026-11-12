@@ -18,7 +18,7 @@ i want two cursor automations that work together in one slack issue channel.
 - trigger: i want this automation to start from the same new top-level report, or another supported trigger chosen during setup, then wait for the trusted triage marker in the original thread.
 - gates: i want it to stop when someone clearly owns the fix. if an existing pull request or merged commit may fix the report, i want verification instead of a competing change.
 - behavior: i want it to use my configured control adapter and feature map, reproduce the exact symptom twice through the real ui, and capture screenshots, video, and a read-only state cross-check.
-- fix: i want it to verify existing pull requests without authoring over them. after a confirmed repro, it may attempt one bounded root-cause fix, use tdd when the test is cheap, smoke the blast radius, and open a draft pull request only when before-and-after proof passes.
+- fix: i want it to verify existing pull requests without authoring over them. after a confirmed repro, it may attempt one bounded root-cause fix, use `tdd` when the test is cheap, smoke the blast radius, and open a draft pull request only when before-and-after proof passes.
 - tools: i want slack thread read and reply access, repository and history access, draft pull request creation, my configured tracker, and my control adapter.
 - outcome: i want evidence and a verified result in the source or optional operations threads, plus an optional draft pull request. updates should be concise.
 - boundary: i never want this automation to post a root message in the source channel.

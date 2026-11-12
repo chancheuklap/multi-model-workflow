@@ -22,7 +22,7 @@ ${rule}
 ### Boot recipe
 Read the execution playbook from trunk. Schedule an hourly audit and send a status message when something changes.
 
-## PR 1
+## Phase 1. Restore both reading paths
 **Depends on.** None.
 **Files.**
 - [ ] Do the thing.
@@ -30,18 +30,9 @@ Read the execution playbook from trunk. Schedule an hourly audit and send a stat
 - [ ] Do the thing.
 **You see.**
 - [ ] Do the thing.
-**Verify, unit.** ${rule}
-- [ ] Check the thing.
-**Verify, live.** ${rule} Ten lanes on \`example-model\` at the PR head
-${Array.from({ length: 10 }, (_, i) => `- [ ] Lane ${i + 1}. Save \`lane-${i + 1}.png\`. Pass when evidence exists.`).join("\n")}
-**Verify, perf.** ${rule}
-- [ ] Metric. Recorded.
-- [ ] Probe. Recorded.
-- [ ] Baseline. Recorded.
-- [ ] Rule. Recorded.
+**Verify.**
+- [ ] Open each reading path and capture its expected result.
 **Review gate.** None.
-**Merge.**
-- [ ] Merge when approved.
 
 ## Close the program
 Close.
@@ -62,6 +53,15 @@ const runPlan = (example: string, expectedExit: number, plan = validPlan) => {
 		rmSync(directory, { recursive: true, force: true });
 	}
 };
+
+test("checks the phases before tickets or PRs exist", () => {
+	const result = runPlan("", 0);
+	expect(result.stdout).toContain("1 phase, 0 problems");
+	const preassigned = validPlan.replace("Phase 1. Restore both reading paths", "PR 1");
+	expect(runPlan("", 1, preassigned).stderr).toContain("expected a phase goal");
+	const noProof = validPlan.replace("- [ ] Open each reading path and capture its expected result.", "");
+	expect(runPlan("", 1, noProof).stderr).toContain("Verify. has no box");
+});
 
 test("requires the playbook from trunk and a scheduled hourly audit", () => {
 	const local = validPlan.replace("from trunk", "from the installed copy");

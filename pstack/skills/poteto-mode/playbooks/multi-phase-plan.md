@@ -1,29 +1,35 @@
-### Multi-phase or multi-PR plan
+### Multi-phase plan
 
 **You own the plan, not the code. The plan is a checklist an owner runs box by box and the operator audits from the evidence.** The plan is the deliverable. Do not implement.
 
-1. When the change is one or two files with an obvious approach, skip the plan. Say so and stop.
-2. Settle open questions by prototype before you write. Run `playbooks/prototype.md` for each. Keep the branch, the SHA, and the screenshots for Appendix A. Ask the operator only about a product or preference call that no run can settle. Give options (the **never-block-on-the-human** principle skill).
-3. Explore with `poteto-agent` subagents and an explicit model per the Subagents section (the **guard-the-context-window** principle skill). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section. Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
-4. Copy the skeleton below into the plan file and fill every placeholder. Unless the operator names a path, write the file under `docs/` in the coordinator's shared artifact store. Keep every heading and every sub-block in the order shown. One section per PR. One PR is one change with its own evidence (the **sequence-verifiable-units** principle skill). Name the execution playbook in **How to read this**. Pick `playbooks/autopilot-full.md` when the run may merge. Pick `playbooks/autopilot-stack.md` when the operator lands the PRs. A standing program takes `playbooks/orchestrate.md`.
-5. Write under `/technical-writing` in full, then `/unslop`. The body is one Diátaxis mode, how-to. Appendices hold explanation and reference. Each heading states the task or the finding. No long dashes. No mid-sentence colons.
-6. Run `node <poteto-mode-dir>/scripts/check-plan.mjs <plan.md>` using this skill's directory and fix every line it prints (the **encode-lessons-in-structure** principle skill).
-7. Hand back. Post the plan path and the script's output, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
+Start from the work issue and its agreed spec, or the agreed design in the discussion. Read the supplied spec and decision comments in full. Take the goal from Problem Statement and Solution, the outcomes from User Stories, and the constraints from Implementation Decisions, Testing Decisions, Out of Scope and Further Notes. Carry forward the prototype when it fixed a product decision.
 
-**Verification.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked (the **prove-it-works** principle skill). That sentence is the verification rule. Every verification block opens with it. The live block is mandatory. Ten lanes at the PR head drive the real surface through its control skill, per the **swarm** skill, on the `swarm workers` model. Each lane is one box with a concrete scenario, the screenshot it saves, and its pass predicate. One lane is the **Regression lane against trunk.** It runs the same load-bearing scenario on trunk and head. If trunk does not have the feature, the lane records that fact and gates the behavior the diff adds plus the end state the user waits for instead of inventing a trunk result. The perf gate is dual-sided. Trunk and head must both produce the named metric. If trunk lacks the feature, also isolate the work the diff adds and set an absolute budget for that work plus the end-to-end state the user waits for. Do not claim a ratio between unlike scenarios. The perf block names the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. A PR that changes an interaction is review-gated. The operator reviews it in chat with screenshots and a video before merge. A PR that changes no interaction writes `**Review gate.** None. <PR id> is not review-gated.` and no boxes under it.
+1. When the change is one or two files with an obvious approach, skip the plan. Say so. If tickets were also requested, return the agreed scope to [to-tickets](../../to-tickets/SKILL.md). Otherwise stop.
+2. Settle open questions by prototype before you write. Run `playbooks/prototype.md` for each. Keep the branch, the SHA, and the screenshots for Appendix A. Ask the operator only about a product or preference call that no run can settle. Give options (the [principle-never-block-on-the-human](../../principle-never-block-on-the-human/SKILL.md) principle skill).
+   If a prototype changes an agreed product decision, record the evidence on the work issue and settle it with the operator. If the decision came from a [published spec](../../to-spec/SKILL.md#publish), update that spec before planning from it.
+3. Explore with `poteto-agent` subagents and an explicit model per the Subagents section (the [principle-guard-the-context-window](../../principle-guard-the-context-window/SKILL.md) principle skill). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section. Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
+   Compare each agreed outcome with the current implementation at its test seam. Record the evidence for behavior already in place. Plan the changes needed to close the remaining gaps.
+4. Copy the skeleton below into the plan file and fill every placeholder. Unless the operator names a path, write the file under `docs/` in the coordinator's shared artifact store. Keep every heading and every sub-block in the order shown. One section per phase. Put the outcomes in the order their prerequisites allow, with evidence for each (the [principle-sequence-verifiable-units](../../principle-sequence-verifiable-units/SKILL.md) principle skill). Name the execution playbook in **How to read this**. Pick `playbooks/autopilot-full.md` when the run may merge. Pick `playbooks/autopilot-stack.md` when the operator lands the PRs. A standing program takes `playbooks/orchestrate.md`.
+   In each phase, name the user stories or outcomes it delivers or enables. Use **Depends on** for the prerequisite results, **Build** for the changes that implement the agreed decisions, and **You see** for the results. Copy each user story's expected result sentence unchanged. In **Verify**, specify the check using its test seam, approved prototype, or measurement baseline. For preparatory work, name what it enables and how to prove the prerequisite is ready.
+5. Write under [technical-writing](../../technical-writing/SKILL.md) in full, then [unslop](../../unslop/SKILL.md). The body is one Diátaxis mode, how-to. Appendices hold explanation and reference. Each heading states the task or the finding. No long dashes. No mid-sentence colons.
+6. Run `node <poteto-mode-dir>/scripts/check-plan.mjs <plan.md>` using this skill's directory and fix every line it prints (the [principle-encode-lessons-in-structure](../../principle-encode-lessons-in-structure/SKILL.md) principle skill).
+   Account for every in-scope outcome with the phase that delivers it or evidence that it already works. Check the plan against the spec's scope boundaries. Run [ambiguity-scan](../../ambiguity-scan/SKILL.md) at the **Plan** stage on the complete plan. If the review changes the plan, rerun the checker on the version you hand back.
+7. Hand back. For a draft-only request, return the checked file and the script's output. Otherwise use [to-tickets](../../to-tickets/SKILL.md#open) to publish the checked plan as a direct sub-issue of its spec. If tickets were requested, give [to-tickets](../../to-tickets/SKILL.md#split) the plan issue to split its remaining work and publish the approved tickets. Post the plan issue URL and the script's output, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
 
-**Control skill.** Pick it by surface. Browser, Electron, and web UIs use `control-ui`. CLIs and TUIs use `control-cli`. Native mobile uses whatever simulator-driving skill the repo has. A PR that touches two surfaces gets lanes on both. A surface with no control skill is a risk in Appendix C, and its live block still names how each lane drives it.
+**Verification.** Plan how to prove each outcome on the real surface (the [principle-prove-it-works](../../principle-prove-it-works/SKILL.md) principle skill). Name the scenario, the artifact to save and its pass predicate. For performance, name the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. For an interaction change, name the screenshots and video the operator reviews. The execution checklist below applies those checks to the PR opened for each code ticket.
+
+**Control skill.** Pick it by surface. Browser, Electron, and web UIs use [control-ui](../../control-ui/SKILL.md). CLIs and TUIs use [control-cli](../../control-cli/SKILL.md). Native mobile uses whatever simulator-driving skill the repo has. For an outcome that touches two surfaces, cover both. A surface with no control skill is a risk in Appendix C. Name how to drive it in **Verify**.
 
 ````markdown
 # <Program> plan
 
-<Under ten lines. What changes, for whom, the rule the program enforces, and the PR ids in order.>
+<Under ten lines. What changes, for whom, the rule the program enforces, and the outcomes in phase order. Link the source spec or agreed design.>
 
 ## How to read this
 
 One box is one unit of work. Every box names the evidence that checks it. A nested box is a sub-step of the box above it. Check a box only when its evidence exists, a file, a log line, a screenshot, a test run, or a SHA. The body is a how-to. The appendices explain and record.
 
-The program runs `<poteto-mode-dir>/playbooks/<execution playbook>.md`. <Who merges, and which PR ids are the operator's items that stop at merge-ready.>
+The program runs `<poteto-mode-dir>/playbooks/<execution playbook>.md`. <Who merges, and which changes the operator reserves for review.>
 
 Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
@@ -44,17 +50,15 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 ### Spawn owners
 
-- [ ] Spawn one owner per PR with the full lifecycle the execution playbook names.
-- [ ] Follow this dependency graph. Start dependent work only after its parent merges, or base it on the parent branch when the execution playbook stacks.
-  - [ ] <PR id> and <PR id> are independent and first. Both branch from `main`.
-  - [ ] <PR id> after <PR id>.
-- [ ] Hold the file boundaries. <PR id or class> touches only `<glob>`.
-- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.
+- [ ] Use the spec's execution tickets that link to this plan. If the tickets have yet to be published, use `to-tickets` to split the checked plan and publish the approved tickets.
+- [ ] On the operator's go, assign a PR owner to each code ticket that can start. Give the owner the ticket URL, its acceptance criteria and the relevant plan material. Include the existing PR URL if work has already started on that PR.
+- [ ] Follow the tickets' direct blockers. Independent changes branch from trunk. When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
+- [ ] Hold the file boundaries and the operator's review gates for the assigned work.
 
 ### PR mechanics, for every PR
 
 - [ ] Resolve the forge once per **Opening a PR** and use it throughout the run.
-- [ ] Open the PR ready on its intended base, per **Opening a PR**. A stack child targets its parent branch.
+- [ ] Open the ticket's PR ready on its intended base and link the two records, per **Opening a PR**. A stack child targets its parent branch.
 - [ ] Run the repo's lint and typecheck once before the PR-facing push. Push with hooks on.
 - [ ] Run `/deslop` before each commit and `/no-comments` before review.
 - [ ] Triage every Bugbot and security-reviewer comment per `<poteto-mode-dir>/references/bugbot-triage.md`.
@@ -62,7 +66,13 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 ### Verdict and merge, for every PR
 
-- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head, and a wording-only change gets none. Run each full swarm per the `swarm` skill. One gates lane. The ten live lanes from the PR's **Verify, live** block. The perf lane from its **Verify, perf** block. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The root audits the receipts in the merge-ready report before the verdict.
+For each code ticket, use its acceptance criteria and the relevant phase checks to fill the unit, live and perf boxes in the decision trail for its actual PR. Give each verifier the PR URL and the commit it must check.
+
+- [ ] Unit. Run the named tests at the committed head and save the results.
+- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head, and a wording-only change gets none. Run each full swarm per the `swarm` skill. One gates lane. The live and perf lanes below. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The root audits the receipts in the merge-ready report before the verdict.
+- [ ] Live. Run ten lanes on the configured swarm workers model at the PR head. Give each a concrete scenario, a screenshot to save and a pass predicate. Run the regression lane on the same load-bearing scenario at trunk and head. If trunk lacks the feature, record that and gate the behavior the diff adds plus the end state the user waits for.
+- [ ] Perf. Record the metric, interleaved probe, trunk baseline and failure rule. Measure both sides when comparable. Otherwise set absolute budgets for the new work and the user-visible end state.
+- [ ] For an interaction change, post the screenshots and a 30 to 60 second video in chat. Stop at merge-ready and wait for the operator's approval.
 - [ ] Judge every finding by the execution playbook's blocking rule. The verdict is clean when none blocks. A failure on trunk behavior in a lane marked `Regression lane against trunk.` is recorded against trunk and does not block the PR. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `<poteto-mode-dir>/playbooks/shipping.md`.
 - [ ] <The merge or handoff rule from the execution playbook, with the patch-id rule from `<poteto-mode-dir>/playbooks/shipping.md`.>
 
@@ -75,60 +85,27 @@ Each live lane runs on its own remote machine at the PR head. Drive through `con
 - [ ] <Deliver input only through the control skill's commands. Name the read-only diagnostics.>
 - [ ] Save every screenshot to `/tmp/swarm-<pr-id>/worker-<n>/<slug>.png` and return links or paths the operator can open.
 
-## <Task as a verb phrase> (<PR id>)
+## Phase 1. <Goal as a verb phrase>
 
-**Depends on.** <PR id, or None.>
+**Depends on.** <The result that must be available first, or None.>
 
 **Files.**
 
-- [ ] Edit `<path>`.
-- [ ] Create `<path>`.
-- [ ] Delete `<path>`.
+- [ ] <The files this phase changes and why.>
 
 **Build.**
 
-- [ ] <One change. Name the symbol and the file.>
+- [ ] <One change. Name the symbol and the file. Identify the user story or outcome it enables.>
 
 **You see.**
 
-- [ ] <One observable result, with the exact log line or screen state.>
+- [ ] <One observable result, with the exact log line or screen state. Copy the user story's expected result sentence unchanged when one exists.>
 
-**Verify, unit.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
+**Verify.**
 
-- [ ] <Test file and the case it gains.> Run `<command>`.
+- [ ] <The check to run, what passes and where to find its evidence. Name the test case, live scenario or performance probe that proves this result.>
 
-**Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on `<swarm workers model>` at the PR head, per the boot recipe.
-
-- [ ] Lane 1. Regression lane against trunk. Run <the same load-bearing scenario> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 2. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 3. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 4. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 5. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 6. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 7. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 8. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 9. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-- [ ] Lane 10. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
-
-**Verify, perf.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
-
-- [ ] Metric. <What is measured at both trunk and head. If trunk lacks the feature, also name the diff-added work and the end-to-end state the user waits for.>
-- [ ] Probe. <The command or procedure, run at trunk and at the head, interleaved. Both sides must produce the metric.>
-- [ ] Baseline. Record the trunk <value> first.
-- [ ] Rule. <Head against trunk, with the number that fails. If the scenarios differ, add absolute budgets for the diff-added work and the user-visible end state instead of an invalid ratio.>
-
-**Review gate.** The operator reviews before merge.
-
-- [ ] Copy lane <n> screenshots into `<media path>/<pr-id>-review-<slug>.png`.
-- [ ] Record a 30 to 60 second video of the change on a lane's machine. Save it as `<media path>/<pr-id>-review.mp4`.
-- [ ] Post the screenshots and the video in chat. Stop at merge-ready. Wait for the operator's approval.
-
-**Merge.**
-
-- [ ] Root's clean verdict at the exact head SHA.
-- [ ] Bugbot triage done.
-- [ ] Rebased onto current trunk after the verdict, patch-id unchanged.
-- [ ] <The owner squash-merges its own PR, or the root appends it to the base-branch stack and the operator lands it bottom-up.>
+**Review gate.** <None. Or name the operator's decision.>
 
 ## Close the program
 
@@ -145,11 +122,11 @@ Each live lane runs on its own remote machine at the PR head. Drive through `con
 
 ## Appendix C. Risks
 
-<Each risk with the PR it lands in and what the owner watches.>
+<Each risk with the outcome it affects and what to watch.>
 
 ## Appendix D. Links and reading list
 
-<Docs to read before editing. Which PRs get the `how` and `interrogate` skills. The trail per the `show-me-your-work` skill.>
+<Docs to read before editing. Which changes need the `how` and `interrogate` skills. The trail per the `show-me-your-work` skill.>
 ````
 
-**Reply:** the plan path, the PR ids with their dependencies and the review-gated set, what the prototypes proved and what stays unproven, and the check script's output.
+**Reply:** the plan issue URL or draft path, the phases, their prerequisites and review gates, what the prototypes proved and what stays unproven, and the check script's output.

@@ -12,4 +12,4 @@ A person may read the result in this conversation or on a web page. A model may 
 
 **The test:** a thing that only makes sense from where you sit has not been built yet.
 
-Distinct from the **technical-writing** skill, which shapes the sentences. This decides, before any sentence, whom they are for and what that reader can see.
+Distinct from the [technical-writing](../technical-writing/SKILL.md) skill, which shapes the sentences. This decides, before any sentence, whom they are for and what that reader can see.
