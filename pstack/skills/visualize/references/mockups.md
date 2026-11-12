@@ -5,7 +5,7 @@ The interface copy rules in `references/foundations.md` still apply.
 ## Product identity
 - Match the product context in the request, including its chrome, navigation, typography, colors, and content.
 - If the product design is unavailable, infer a coherent design from the platform and request.
-- For Cursor or another host-product mockup, use host classes and tokens unchanged.
+- For a mockup of the surrounding product, match its existing components and theme.
 - For an external product, create an original root-scoped visual language. Use embedded or system fonts; never load an external font.
 ## Surfaces and theming
 - Leave the chat-adjacent area transparent. Apply an opaque fill to every depicted product surface, including dialogs and floating menus.

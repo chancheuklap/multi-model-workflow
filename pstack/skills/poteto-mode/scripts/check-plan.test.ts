@@ -20,7 +20,7 @@ ${rule}
 ### PR mechanics
 ### Verdict and merge
 ### Boot recipe
-\`git show origin/main:\` /loop 1h status message
+Read the execution playbook from trunk. Schedule an hourly audit and send a status message when something changes.
 
 ## PR 1
 **Depends on.** None.
@@ -50,10 +50,10 @@ Close.
 Recorded.
 `;
 
-const runPlan = (example: string, expectedExit: number) => {
+const runPlan = (example: string, expectedExit: number, plan = validPlan) => {
 	const directory = mkdtempSync(join(tmpdir(), "check-plan-test-"));
 	const file = join(directory, "plan.md");
-	writeFileSync(file, validPlan + example);
+	writeFileSync(file, plan + example);
 	try {
 		const result = spawnSync("node", [checker, file], { encoding: "utf8" });
 		expect(result.status).toBe(expectedExit);
@@ -62,6 +62,20 @@ const runPlan = (example: string, expectedExit: number) => {
 		rmSync(directory, { recursive: true, force: true });
 	}
 };
+
+test("requires the playbook from trunk and a scheduled hourly audit", () => {
+	const local = validPlan.replace("from trunk", "from the installed copy");
+	expect(runPlan("", 1, local).stderr).toContain("read from trunk");
+	const unrelated = local.replace("from the installed copy", "from the installed copy after reading `git show origin/main:README.md`");
+	expect(runPlan("", 1, unrelated).stderr).toContain("read from trunk");
+	const unscheduled = validPlan.replace("Schedule an hourly audit", "Show hourly build statistics");
+	expect(runPlan("", 1, unscheduled).stderr).toContain("scheduled hourly audit");
+});
+
+test("accepts the existing command-based plan checklist", () => {
+	const legacy = validPlan.replace("Read the execution playbook from trunk. Schedule an hourly audit", "`git show origin/main:pstack/skills/poteto-mode/playbooks/shipping.md` /loop 1h");
+	runPlan("", 0, legacy);
+});
 
 test("accepts ordinary, indented, and longer closing fences", () => {
 	for (const indent of ["", " ", "  ", "   "])

@@ -1,6 +1,6 @@
 # HTML diagram reference
 Read this file for HTML flowcharts, structural diagrams, technical schematics, data layouts, and illustrative mechanisms.
-Use Mermaid for static labeled relationships, ERDs, database schemas, and class diagrams.
+Use Mermaid for static labeled relationships, ERDs, database schemas, and class diagrams when the chat can render it.
 ## Route by intent
 - Route on the user intent and verb, not only the subject. A reference request needs a map: a flowchart for sequence, a structural diagram for containment. An intuition request needs a mental model: an illustrative mechanism.
 - Default “How does X work?” to illustrative unless the user asks for architecture, steps, flow, or another reference form. Do not retreat to labeled process boxes when the user asks to understand a mechanism.
@@ -27,7 +27,7 @@ Diagrams use the same header lockup as charts, so both read as one system.
 </div>
 ```
 
-- The `h3` is the title. The `span` is one optional subtitle of at most six words with no period. The host sizes both; do not add margins, font sizes, or a bare `h3`/`p` pair anywhere in the fragment.
+- The `h3` is the title. The `span` is one optional subtitle of at most six words with no period. Use the shared heading styles for both.
 - When color carries meaning, put one `.vis-legend` inside `.vis-chart-meta` after `.vis-chart-meta-copy`, as charts do. Use `span.vis-legend-item` with `.vis-swatch` and a palette modifier. No legend for a single hue; no legend below the drawing.
 - Do not give the diagram SVG the `.vis-chart` class or wrap it in `figure.vis-chart-figure`; those set chart heights and margins.
 ## No prose inside the diagram
@@ -38,7 +38,7 @@ Explanation belongs in the chat response, not in the fragment.
 - In SVG, give each `<text>` the `.vis-chart-text` class. SVG text does not wrap; use explicit rows and short labels.
 - Keep at least 8px between text and unrelated marks. Never let a stroke cross text.
 ## Sizing
-The chat column is about 736px wide and shrinks to 320px. The host scales an SVG to its container, so a fixed `viewBox` scales text with it.
+Size for chat widths from 320px to about 736px. Scaling a fixed `viewBox` to fit also scales its text.
 - Lay out a full-width figure from the measured container width and re-run on resize. A static 736 `viewBox` halves label size in a narrow column.
 - Match a static `viewBox` to its rendered width: about 350 for one of two grid panels, 736 for a full-width figure. Never set a pixel height; keep every mark inside the viewBox.
 ## Geometry

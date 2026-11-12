@@ -4,8 +4,10 @@
 # operated in it. Emits a table sorted by size with a suggested bucket. Never
 # deletes anything; deletion stays a human-gated step in the playbook.
 #
-# Usage: worktree-audit.sh [-b|--base <ref>] [repo-path]
+# Usage: worktree-audit.sh [-b|--base <ref>] [--transcripts <directory>] [repo-path]
 #   repo-path defaults to the current repo.
+#   --transcripts searches this workspace's exported or local chat transcripts.
+#   Without readable transcripts, LAST_CHAT is unknown.
 #   -b sets the ref the MERGED column checks against (e.g. origin/integration).
 #   Without it the base is origin/HEAD, then origin/main, then origin/master.
 #   origin/HEAD is the remote's default branch, not necessarily the branch PRs
@@ -13,9 +15,14 @@
 set -u
 
 base=""
+transcripts=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 	-b|--base) [ $# -ge 2 ] || { echo "error: $1 needs a ref" >&2; exit 2; }; base="$2"; shift 2 ;;
+	--transcripts)
+		[ -n "${2:-}" ] || { echo "error: $1 needs a directory" >&2; exit 2; }
+		case "$2" in /*) transcripts="$2" ;; *) transcripts="$PWD/$2" ;; esac
+		shift 2 ;;
 	-h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
 	-*) echo "error: unknown option: $1" >&2; exit 2 ;;
 	*) break ;;
@@ -28,7 +35,7 @@ cd "$repo" || exit 1
 git rev-parse --git-dir >/dev/null 2>&1 || { echo "error: not a git repo: $repo" >&2; exit 1; }
 
 # Main worktree is the first entry; everything else is a candidate.
-main_wt=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+main_wt=$(git worktree list --porcelain | sed -n '/^worktree /{s/^worktree //;p;q;}')
 
 if [ -z "$base" ]; then
 	for cand in "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" origin/main origin/master; do
@@ -50,15 +57,17 @@ git rev-parse --verify --quiet "$base^{commit}" >/dev/null 2>&1 || { echo "error
 # GNU coreutils (Linux, Homebrew gnubin) reads `stat -f` as file system status
 # and `date -r` as a file, so pick the stat and date flags once.
 if stat -c %Y / >/dev/null 2>&1; then
-	stat_fmt=(-c '%Y %n'); fmt_day() { date -d "@$1" '+%Y-%m-%d'; }
+	stat_fmt=(-c '%Y'); fmt_day() { date -d "@$1" '+%Y-%m-%d'; }
 else
-	stat_fmt=(-f '%m %N'); fmt_day() { date -r "$1" '+%Y-%m-%d'; }
+	stat_fmt=(-f '%m'); fmt_day() { date -r "$1" '+%Y-%m-%d'; }
 fi
 
 # PR state by branch, fetched once as [{number, state, head}] with a lowercase
 # state. Origin when its CLI can read this repo's PRs, otherwise gh. Empty when
 # neither can.
 prs=$(mktemp)
+chat_files=$(mktemp)
+trap 'rm -f "$prs" "$chat_files"' EXIT
 if command -v origin >/dev/null 2>&1 \
 	&& raw=$(origin pr list --author "@me" --state all --limit 1000 \
 		--json number,status,headRef 2>/dev/null); then
@@ -69,15 +78,15 @@ elif raw=$(gh pr list --author "@me" --state all --limit 1000 \
 fi
 [ -s "$prs" ] || echo "[]" > "$prs"
 
-# Transcripts dir: ~/.cursor/projects/<slugified-repo-path>/agent-transcripts.
-slug=$(printf '%s' "$main_wt" | sed 's#^/##; s#/#-#g')
-transcripts="$HOME/.cursor/projects/$slug/agent-transcripts"
+if [ -d "$transcripts" ] && ! rg --hidden --no-ignore -q . -- "$transcripts"; then
+	transcripts=""
+fi
 now=$(date +%s)
 
 echo "# base: $base"
 printf "SIZE\tAGE\tMERGED\tDIRTY\tREMOTE\tPR\tLAST_CHAT\tBUCKET\tWORKTREE\n"
 
-git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt; do
+git worktree list --porcelain | sed -n 's/^worktree //p' | while IFS= read -r wt; do
 	[ "$wt" = "$main_wt" ] && continue
 
 	size=$(du -sh "$wt" 2>/dev/null | awk '{print $1}')
@@ -110,12 +119,16 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 
 	# Most recent chat whose transcript operated in this worktree. Match path
 	# followed by "/" or a quote so glint-482 does not match glint-482-r37.
-	last="-"; last_ts=0
+	last=unknown; last_ts=0
 	if [ -d "$transcripts" ]; then
-		f=$(rg -l -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null \
-			| xargs stat "${stat_fmt[@]}" 2>/dev/null | sort -rn | head -1)
-		if [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
-			last=$(fmt_day "$last_ts" 2>/dev/null); fi
+		if rg --hidden --no-ignore -F -l -0 -e "${wt}/" -e "${wt}\"" -- "$transcripts" > "$chat_files"; then
+			if times=$(xargs -0 stat "${stat_fmt[@]}" < "$chat_files"); then
+				last_ts=$(printf '%s\n' "$times" | sort -nr | head -1)
+				last=$(fmt_day "$last_ts")
+			fi
+		elif [ "$?" -eq 1 ]; then
+			last="-"
+		fi
 	fi
 	recent=$([ "$last_ts" -gt 0 ] 2>/dev/null && [ $(( (now - last_ts) / 86400 )) -le 4 ] && echo yes || echo no)
 
@@ -130,5 +143,3 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
 		"$size" "$age" "$merged" "$dirty" "$remote" "$pr" "$last" "$bucket" "$wt"
 done | sort -t$'\t' -k1,1 -rh
-
-rm -f "$prs"

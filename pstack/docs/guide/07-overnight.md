@@ -1,6 +1,6 @@
 # Run work while you sleep
 
-This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe isn't hope. It's a checkable finish condition, an isolated worktree or cloud agent, and a decision log you audit in the morning.
+This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe isn't hope. It's a checkable finish condition, an isolated worktree or remote worker, and a decision log you audit in the morning.
 
 ![She waves goodnight from the door while robots keep the factory running, one updating a DECISION LOG wall board under a BUILD LOOP ACTIVE sign.](./images/overnight.jpg)
 
@@ -23,7 +23,7 @@ A good handoff has the goal, the finish condition, permissions, and an escape ha
 /poteto-mode im going to bed. migrate every caller to the new parser in a fresh worktree off <base>.
 done means zero old callers, all parser fixtures pass, old api deleted.
 keep a decision log. don't ask me before committing.
-/loop until done. if you're truly stuck after a few hours, stop and write up why.
+keep checking until done. if you're truly stuck after a few hours, stop and write up why.
 ```
 
 Walk through what each line buys you:
@@ -32,12 +32,12 @@ Walk through what each line buys you:
 - "done means..." turns the goal into checks every iteration can run.
 - "fresh worktree off `<base>`" keeps the run from colliding with anything else you have open.
 - "don't ask me before committing" pre-answers the permission the agent would otherwise block on.
-- `/loop` is Cursor's built-in wake mechanism, not a pstack skill. The [Autonomous run playbook](../../skills/poteto-mode/playbooks/autonomous-run.md) uses it to re-check the finish condition on events or a heartbeat.
+- The [Autonomous run playbook](../../skills/poteto-mode/playbooks/autonomous-run.md) re-checks the finish condition when an event arrives or a timer wakes the agent. To continue while your machine is offline, the coordinator and its wake-up must run elsewhere.
 - The escape hatch lets it stop at a genuine dead end and write up why, which beats eight hours of creative goal reinterpretation.
 
 Because you'll review this work after stepping away, `/poteto-mode` routes it through [`/figure-it-out`](../../skills/figure-it-out/SKILL.md), which designs the run's phases before any code and wires in the decision log.
 
-To stop a run on purpose, tell the agent to pause, or that you're about to go offline or restart Cursor. The [Pause safely playbook](../../skills/poteto-mode/playbooks/pause-safely.md) finishes or backs out of the current step, commits a work-in-progress checkpoint, and writes a resume note. A fresh chat picks the work up from that note through the Session pickup playbook. Saying "keep going" never triggers a pause.
+To stop a run on purpose, tell the agent to pause, or that you're about to go offline or restart the session. The [Pause safely playbook](../../skills/poteto-mode/playbooks/pause-safely.md) finishes or backs out of the current step, commits a work-in-progress checkpoint, and writes a resume note. A fresh chat picks the work up from that note through the Session pickup playbook. Saying "keep going" never triggers a pause.
 
 ## What the loop does all night
 
@@ -93,16 +93,16 @@ The contract above drives one task to one finish condition. Some nights hold mor
 
 ## Run many projects in parallel
 
-A [Cursor Project](https://cursor.com/blog/projects) gives one coordinator agent a persistent thread. The coordinator doesn't write code. It directs subagents, which run in the cloud by default, so the work continues when your laptop is closed. That's the shape the Orchestrate playbook expects. Start your prompts to the coordinator with `/poteto-mode`, and the subagents it spawns follow the playbooks.
+Give each project a persistent coordinator conversation. The coordinator doesn't write code. It directs workers on separate remote machines so they can keep going with your laptop closed. The coordinator and its wake-up must stay online too. Start your prompts to the coordinator with `/poteto-mode`, and the subagents it spawns follow the playbooks.
 
 A few habits help:
 
-- Give each body of work its own Project, such as a feature, a migration, a perf push, or a tech-debt cleanup. Several can run side by side.
-- Drag related chats into the Project, finished ones included. They become context for every agent in it.
+- Give each body of work its own coordinator, such as a feature, a migration, a perf push, or a tech-debt cleanup. Several can run side by side.
+- Keep related chats, including finished ones, in the project's shared context so each agent can read them.
 - Give each PR a verification swarm before it merges, and let Autopilot-stack or Autopilot-full carry the queue.
 - Ask the coordinator for a plan backed by data, and have it answer open questions with prototypes before it asks you.
 
-One prompt can carry a whole Project, from research through execution:
+One prompt can carry a whole project, from research through execution:
 
 ```text
 /poteto-mode refactor this repo so its architecture is more agent friendly. use /correct and /architect on past commits and review comments to find the mistakes agents make most here. use /recall for context from past chats. answer open questions with prototypes instead of asking me. come back with a plan backed by real data. once i approve it, run it with autopilot-stack or autopilot-full, and ask me which.
@@ -115,8 +115,8 @@ Every loop above still waits for you to start it. A scheduled or event-driven au
 - Every stage can stop the line. Triage can decide the report is expected behavior, repro can fail to reproduce it, and the fixer can judge the change too risky. Each of those outcomes is useful, because it keeps bad work from reaching the next stage, where it costs more to undo.
 - Every stage hands over evidence. Repro attaches screenshots and video of the broken state, and the fix attaches before-and-after proof. A human can then check that the agent fixed the right thing before reading a line of code.
 
-pstack ships this as a dormant [automation pack](../../automations/benny/README.md) for Slack issue reports. One automation triages each report. The other reproduces confirmed bugs and may prepare a small draft fix. Point an agent at its [`FOR_AGENTS.md`](../../automations/benny/FOR_AGENTS.md) and name the target repository to set it up.
+pstack ships this as a dormant [automation pack](../../automations/benny/README.md) for Slack issue reports. One automation triages each report. The other reproduces confirmed bugs and may prepare a small draft fix. To deploy it to Cursor Automations, give your agent its [`FOR_AGENTS.md`](../../automations/benny/FOR_AGENTS.md) and the target repository.
 
-**Pitfall:** a duration is not a finish condition. "work on this for 4 hours" gives the agent nothing to check, and you'll wake up to four hours of motion instead of a result. Give `/loop` a predicate that can pass or fail.
+**Pitfall:** a duration is not a finish condition. "work on this for 4 hours" gives the agent nothing to check, and you'll wake up to four hours of motion instead of a result. Give the agent a predicate that can pass or fail.
 
 Next: [Steer with principle names](./08-principles.md).

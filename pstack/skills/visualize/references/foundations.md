@@ -20,10 +20,10 @@ Read this file for every HTML visualization. It implements the constitution in `
 - Keep one control and its label, value, input, and validation message in the same region.
 - Give peer components equal columns, outer geometry, padding, and internal order.
 - Reject fixed-width roots, horizontal page spill, nested scroll regions, CSS `position: fixed`, and viewport-sized shells.
-- The host supplies the edge inset and lets charts span the full width. Do not add duplicate root padding, chart insets, or negative outer margins.
+- Let charts span the available width. Do not add duplicate root padding, chart insets, or negative outer margins.
 - Use `minmax(0, 1fr)` for a grid track that must stay inside its container.
 - Use `.vis-table-responsive` only when table columns cannot fit after reasonable wrapping.
-- Size every chart SVG from its actual container through the host chart API in `references/charts.md`. Size a diagram SVG from its measured container per `references/diagrams.md`. Artwork uses the SVG setup in `references/art.md`.
+- Size every chart SVG from its actual container as described in `references/charts.md`. Size a diagram SVG from its measured container per `references/diagrams.md`. Artwork uses the SVG setup in `references/art.md`.
 - At narrow widths, reduce ticks and optional annotations. Keep visible text at least 11 screen pixels.
 ## Accessibility
 - Start a complex interactive HTML view with one `.vis-sr-only` sentence that summarizes its purpose.
@@ -35,9 +35,9 @@ Read this file for every HTML visualization. It implements the constitution in `
 - Add one concise heading only when the visualization needs it for interpretation.
 - Do not add a redundant heading to a chart, table, tool, mockup, or structured view whose purpose is clear.
 - Do not apply text size, weight, color, or utility classes to `h1`–`h6`.
-- Do not set custom font sizes or line heights outside a UI mockup. The host sizes chart titles, labels, and legends.
+- Use the renderer's type scale for chart titles, labels, and legends. Reserve custom typography for UI mockups.
 - Do not use all caps for decoration or bold words inside a sentence.
-- Do not use emoji as icons or decoration. Use an approved host icon when one exists.
+- Do not use emoji as icons or decoration. Use a recognizable icon from the catalog when one fits.
 - Use `.vis-text-muted` for necessary supporting copy and `.vis-text-tertiary` for placeholders and timestamps.
 - Put caveats in an accessible description or metric label, not a visible caption.
 - Do not apply opacity to normal text for hierarchy. Use the documented text class.
@@ -74,7 +74,7 @@ Read this file for every HTML visualization. It implements the constitution in `
 - Validate required input in the action handler. On invalid input, stop and show a clear inline error beside the control.
 - Clear a validation error when the user edits the related input.
 - Do not use fullscreen APIs or controls. For expansion, toggle an in-flow layout and update the control label synchronously.
-- Never load an external script, style, or module. Host runtimes are injected, not loaded; the exact D3 marker in `references/charts.md` is the only opt-in hook.
+- Never load an external script, style, or module.
 - Place the inline behavior script after every HTML element that it queries or changes.
 - Mutate existing interactive elements. Do not replace them with `innerHTML` after listeners are attached.
 - Omit HTML and CSS comments from generated fragments.

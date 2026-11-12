@@ -1,73 +1,71 @@
 ---
 name: setup-pstack
-description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and writes an always-applied rule that overrides the skill defaults. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
+description: Configure which models pstack uses per role and at what reasoning budget. Detects your available models and saves the user's choices for future tasks. Use for /setup-pstack, "configure pstack models", "pstack budget", or changing pstack's model choices.
 ---
 
 # Setup pstack
 
-Write `~/.cursor/rules/pstack-models.mdc`, an always-applied rule that sets pstack's model per role.
+## Model rule
+
+In a new session, read `~/.agents/pstack-models.md` or the pstack model rule the user supplies. For each delegation, use the model and settings assigned to its role. Give a subagent that will delegate in turn a readable path to the same rule or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. If an assignment cannot run, report the unfilled role.
 
 ## Steps
 
 ### 1. Detect available models
 
-Enumerate the model slugs you can pass to a `Task` subagent in this session. That is the dependable source. If Cursor also exposes a models API or CLI that lists the user's entitled models, prefer it for completeness. If you cannot detect any, ask the user to paste the slugs they have access to. Never write a real slug you have not confirmed is available. The aliases `inherit-parent` and `auto` are always valid even though they are not detected slugs.
+List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
 
 ### 2. Load current state
 
-The default role-to-model mapping is the rule shape shown in step 5 below. If `~/.cursor/rules/pstack-models.mdc` already exists, read it and treat its `# budget` line and its role values as the current choices. Otherwise start from those defaults. A line whose role is not in step 5, such as `how critics`, is from a retired role. Drop it.
+If the rule exists, read its `# budget` line and each role's current assignment. On first setup, use the roles in step 5. Drop retired role names, such as `how critics`.
 
 ### 3. Budget, map, and confirm
 
-**(a) Ask for a budget.** Prefer AskQuestion over free text. Offer these four options with these exact labels, and name the current budget when the rule records one. With no rule, say that `large` matches the skill defaults.
+**(a) Ask for a budget.** Prefer a structured choice when available. Offer these four options with these exact labels, and name the current budget when the rule records one.
 
 - `unlimited — max reasoning`
 - `large — xhigh reasoning`
 - `medium — high reasoning`
 - `small — medium reasoning`
 
-**(b) Apply it.** Build the working table from the skill defaults, and on a re-run keep any role you changed by family, list, or alias (`inherit-parent`, `auto`). `unlimited`, `large`, `medium`, and `small` set the effort token of every real slug, panel entries included, to `max`, `xhigh`, `high`, or `medium`. The effort token is the last token, or the one before a trailing `fast`, on the ladder `max` > `xhigh` > `high` > `medium` > `low`. If the result is not a detected slug, use the same family's detected slug with the highest effort at or below the target, else mark the role as needing a choice. `inherit-parent` and `auto` do not change. So `unlimited` turns `claude-opus-5-5-xhigh` into `claude-opus-5-5-max`. Grok slugs top out at `xhigh`, so under `unlimited` the fallback puts Grok at `xhigh` and keeps `grok-4.7-xhigh-fast` as it is. `large` keeps both defaults. `small` turns them into `claude-opus-5-5-medium` and `grok-4.7-medium-fast`.
+**(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, and speeds. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any real slug not in the detected set as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` (both mean: this role runs on the parent chat model, which is how Auto users stay on Auto) as the options. Prefer AskQuestion over free text. For panel roles (arena runners, architect runners, interrogate reviewers) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but Arena runs one judge. It tries only values from a family other than the parent's, in list order, so order it by preference. An `inherit-parent` or `auto` value never judges. `swarm workers` is the default model for every worker unless a race or comparison assigns another model per arm.
+**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners, interrogate reviewers) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but Arena runs one judge. It tries only values from a family other than the parent's, in list order, so order it by preference. An `inherit-parent` or `auto` value never judges. `swarm workers` assigns the workers. For a model race, each arm names its model from this configuration.
 
 ### 4. Validate
 
-Every real slug written must be in the detected set. `inherit-parent` and `auto` always pass. If a chosen real slug is not available, stop and ask again.
+Confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
 
 ### 5. Write the rule
 
-Write `~/.cursor/rules/pstack-models.mdc` with `alwaysApply: true`, a `# budget` line with the chosen label and its target effort, and one line per role, using the same labels poteto-mode uses. Overwrite the whole file so re-runs stay idempotent. Shape:
+Save the confirmed budget label and target effort, then one line per role in `~/.agents/pstack-models.md` or the rule file the user supplied. Overwrite the role table so re-runs stay idempotent. Fill the template with the user's choices. Use the model names and settings their subagents accept.
 
 ```
----
-description: pstack per-role model choices (overrides skill defaults)
-alwaysApply: true
----
-# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
-# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
-# budget: large (xhigh)
-feature, refactoring: grok-4.7-xhigh-fast
-bug-fix: grok-4.7-xhigh-fast
-perf-issue: grok-4.7-xhigh-fast
-hillclimb: grok-4.7-xhigh-fast
-judgment and prose: claude-opus-5-5-xhigh
-hardest tasks: claude-opus-5-5-xhigh
-how explorer: grok-4.7-xhigh-fast
-how explainer: claude-opus-5-5-xhigh
-why investigators: grok-4.7-xhigh-fast
-why synthesizer: claude-opus-5-5-xhigh
-reflect tooling: grok-4.7-xhigh-fast
-reflect judgment, divergent, synthesizer: claude-opus-5-5-xhigh
-arena runners: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
-arena cross-judge pool: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
-swarm workers: grok-4.7-xhigh-fast
-architect runners: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
-interrogate reviewers: claude-opus-5-5-xhigh, grok-4.7-xhigh-fast
+# pstack model configuration. One line per role.
+# Use inherit-parent or auto for an explicitly inherited model.
+# budget: <chosen budget> (<target effort>)
+feature, refactoring: <model and settings>
+bug-fix: <model and settings>
+perf-issue: <model and settings>
+hillclimb: <model and settings>
+judgment and prose: <model and settings>
+hardest tasks: <model and settings>
+how explorer: <model and settings>
+how explainer: <model and settings>
+why investigators: <model and settings>
+why synthesizer: <model and settings>
+reflect tooling: <model and settings>
+reflect judgment, divergent, synthesizer: <model and settings>
+arena runners: <one model and its settings per seat, comma-separated>
+arena cross-judge pool: <judge models in preference order>
+swarm workers: <model and settings>
+architect runners: <one model and its settings per seat, comma-separated>
+interrogate reviewers: <one model and its settings per seat, comma-separated>
 ```
 
 ### 6. Confirm
 
-Tell the user the rule was written and that it applies to new sessions. Re-running this skill updates it.
+Tell the user where you saved the rule and that it applies to new sessions. Re-running this skill updates it.
 
 ### 7. Offer a verification skill (optional)
 

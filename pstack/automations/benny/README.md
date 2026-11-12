@@ -6,7 +6,7 @@ the files in this directory are dormant setup and automation sources. they do no
 
 ## set it up
 
-1. point cursor at [`FOR_AGENTS.md`](./FOR_AGENTS.md) and name the target repository.
+1. give your setup agent [`FOR_AGENTS.md`](./FOR_AGENTS.md) and name the target repository.
 2. let setup merge this whole directory into the target at `.cursor/automations/benny/`. it must preserve destination-only files and review conflicts instead of overwriting local edits.
 3. let setup enable pstack in the target repository's `.cursor/settings.json` for shared dependencies:
 

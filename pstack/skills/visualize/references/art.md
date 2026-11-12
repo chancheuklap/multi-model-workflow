@@ -19,7 +19,7 @@ Use SVG. Keep the viewBox and safe-area rules below. Use a different aesthetic f
 ## SVG setup
 - Emit one root SVG with `width="100%"` and a `viewBox` that contains the finished drawing.
 - Keep a unique root `id` on the SVG or a wrapping element.
-- Do not set a fixed outer pixel width. Do not use `chart.draw` or `.vis-chart`.
+- Do not set a fixed outer pixel width. Use the artwork's viewBox rather than chart sizing.
 - Set `role="img"` and give the drawing a `<title>` and `<desc>`.
 - Keep every mark inside the viewBox. Do not use negative `x` or `y`.
 - After layout, set viewBox height from the lowest mark plus a small buffer.

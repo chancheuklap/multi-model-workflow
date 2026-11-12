@@ -1,19 +1,19 @@
 ---
 name: create-skill
 description: >-
-  Create Cursor Agent Skills. Use when authoring a new skill or asking about
+  Create Agent Skills. Use when authoring a new skill or asking about
   SKILL.md structure.
 ---
-# Creating Skills in Cursor
+# Creating Agent Skills
 
-This skill guides you through creating effective Agent Skills for Cursor. Skills are markdown files that teach the agent how to perform specific tasks: reviewing PRs using team standards, generating commit messages in a preferred format, querying database schemas, or any specialized workflow.
+This skill guides you through creating effective Agent Skills. Skills are markdown files that teach the agent how to perform specific tasks: reviewing PRs using team standards, generating commit messages in a preferred format, querying database schemas, or any specialized workflow.
 
 ## Before You Begin: Gather Requirements
 
 Before creating a skill, gather essential information from the user about:
 
 1. **Purpose and scope**: What specific task or workflow should this skill help with?
-2. **Target location**: Should this be a personal skill (~/.cursor/skills/) or project skill (.cursor/skills/)?
+2. **Target location**: Should this be a personal skill or a project skill?
 3. **Trigger scenarios**: When should the agent automatically apply this skill?
 4. **Key domain knowledge**: What specialized information does the agent need that it wouldn't already know?
 5. **Output format preferences**: Are there specific templates, formats, or styles required?
@@ -29,15 +29,13 @@ If you have previous conversation context, infer the skill from what was discuss
 
 ### Gathering Additional Information
 
-If you need clarification, use the AskQuestion tool when available:
+If you need clarification, ask the user:
 
 ```
-Example AskQuestion usage:
-- "Where should this skill be stored?" with options like ["Personal (~/.cursor/skills/)", "Project (.cursor/skills/)"]
+Example questions:
+- "Where should this skill be stored?" with options like ["Personal", "Project"]
 - "Should this skill include executable scripts?" with options like ["Yes", "No"]
 ```
-
-If the AskQuestion tool is not available, ask these questions conversationally.
 
 ---
 
@@ -61,10 +59,10 @@ skill-name/
 
 | Type | Path | Scope |
 |------|------|-------|
-| Personal | ~/.cursor/skills/skill-name/ | Available across all your projects |
-| Project | .cursor/skills/skill-name/ | Shared with anyone using the repository |
+| Personal | `<personal skills directory>/skill-name/` | Available across all your projects |
+| Project | `<project skills directory>/skill-name/` | Shared with anyone using the repository |
 
-**IMPORTANT**: Never create skills in `~/.cursor/skills-cursor/`. This directory is reserved for Cursor's internal built-in skills and is managed automatically by the system.
+Choose a user-editable skills directory that the host discovers. Leave managed built-ins and installed plugin caches alone.
 
 ### SKILL.md Structure
 
@@ -86,7 +84,7 @@ Clear, step-by-step guidance for the agent.
 Concrete examples of using this skill.
 ```
 
-Default `disable-model-invocation: true` so the skill only loads when named explicitly. Omit it only when the agent should auto-invoke from ambient context.
+Default to explicit invocation. Say who calls the skill in the description and use `disable-model-invocation: true` where supported. Omit the flag and describe the trigger when the agent should select the skill from context.
 
 ### Required Metadata Fields
 
@@ -103,7 +101,7 @@ The description is **critical** for skill discovery. The agent uses it to decide
 
 ### Description Best Practices
 
-1. **Write in third person** (the description is injected into the system prompt):
+1. **Write in third person** (the agent sees the description before loading the skill):
    - ✅ Good: "Processes Excel files and generates reports"
    - ❌ Avoid: "I can help you process Excel files"
    - ❌ Avoid: "You can use this to process Excel files"
@@ -399,7 +397,7 @@ Gather information about:
 4. Any specific requirements or constraints
 5. Existing examples or patterns to follow
 
-If you have access to the AskQuestion tool, use it for efficient structured gathering. Otherwise, ask conversationally.
+Offer concrete options when asking the user for a choice.
 
 ### Phase 2: Design
 

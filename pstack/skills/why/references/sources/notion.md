@@ -15,17 +15,15 @@ Notion is where "why" often lives in long-form before it becomes code. A signifi
 
 ## How to search it
 
-Use the Notion MCP.
-
-1. **Keyword searches with `notion-search`.** Try:
+1. **Search by keyword.** Try:
    - The feature name
    - Key symbols / class names from the target code
    - Author handles (design docs are often authored before the code lands)
    - Error strings or user-visible terms
    - Time-bounded queries if you know when the code shipped
-2. **Fetch candidate pages with `notion-fetch`.** Read the full content, not the preview. Rationale is often buried mid-document.
+2. **Open candidate pages.** Read the full content, not the preview. Rationale is often buried mid-document.
 3. **Follow backlinks and child pages.** Design docs often have sub-pages for alternatives considered, appendices, or implementation notes.
-4. **Check related databases.** `notion-query-data-sources` and `notion-query-meeting-notes` can surface meeting notes that discussed the decision.
+4. **Check related databases.** Search their records and meeting notes for discussion of the decision.
 5. **Search author-specific spaces.** If the PR author has a personal notebook (common at some companies), it may hold exploratory thinking that preceded the code.
 
 ## What good evidence looks like here

@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Every spawn is a Task subagent with `subagent_type: generalPurpose` and `readonly: true`. Explorers use the `how explorer` line in the `pstack-models.mdc` rule (default `grok-4.7-xhigh-fast`), and every explainer uses the `how explainer` line (default `claude-opus-5-5-xhigh`). Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Assign read-only work to every subagent. Use read-only permissions when available. Use the `how explorer` and `how explainer` roles from the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
 
 ## 1. Assess complexity
 
@@ -21,7 +21,7 @@ When in doubt, take the simple path.
 
 ## 2. Explore (complex only)
 
-Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn all explorers in a single message, each with `references/explorer-prompt.md` and its angle filled in.
+Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn all explorers in parallel, each with `references/explorer-prompt.md` and its angle filled in.
 
 ## 3. Synthesize (complex only)
 

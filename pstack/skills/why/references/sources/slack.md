@@ -2,7 +2,7 @@
 
 ## How to search it
 
-Slack MCP tools vary. Check which Slack MCP is available and inspect its tool schema first. It may require `mcp_auth`. If authentication fails, stop and report the gap.
+Use the available Slack search and thread-reading tools. Check which channels they can read.
 
 1. **Author-bounded search.** Messages from the PR author around the PR merge date. Limits scope dramatically and often hits gold.
 3. **PR URL search.** Slack often links PRs when they're reviewed or discussed. Search for the PR URL (or just `/pull/<number>`).
@@ -14,4 +14,4 @@ Slack MCP tools vary. Check which Slack MCP is available and inspect its tool sc
 - **Unsearched DMs.** Many decisions happen in DMs that aren't searchable. You'll miss them. That's a known limitation.
 - **Speculative jokes as "decisions."** Slack is casual. "Lol just do the thing" isn't a decision, even if it preceded the commit. Look for considered discussion.
 - **Context collapse in single messages.** Without the thread, a single message often reads differently than in context. Always fetch threads.
-- **Auth failures.** If the MCP isn't authenticated, stop. Don't make up findings. Report that Slack wasn't searchable.
+- **Auth failures.** If the Slack connection isn't authenticated, stop. Don't make up findings. Report that Slack wasn't searchable.

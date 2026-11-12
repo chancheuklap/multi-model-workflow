@@ -17,7 +17,6 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_MARKERS = ["git show origin/main:", "/loop 1h", "status message"];
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -113,9 +112,10 @@ else {
 		if (at === -1) fail(program.n, `Program checklist lacks "### ${name}" in order`);
 		else cursor = at + 1;
 	}
-	for (const marker of PROGRAM_MARKERS) {
-		if (!bodyText(program).includes(marker)) fail(program.n, `Program checklist lacks "${marker}"`);
-	}
+	const checklist = bodyText(program);
+	if (!/git show origin\/main:\S*playbooks\/|read the execution playbook from trunk/i.test(checklist)) fail(program.n, "Program checklist lacks a read from trunk");
+	if (!/\/loop 1h\b|schedule an hourly audit/i.test(checklist)) fail(program.n, "Program checklist lacks a scheduled hourly audit");
+	if (!checklist.includes("status message")) fail(program.n, 'Program checklist lacks "status message"');
 }
 
 const close = find("Close the program");

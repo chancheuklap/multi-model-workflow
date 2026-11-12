@@ -6,18 +6,11 @@ description: >-
   inline HTML, and other supported in-transcript forms. You MUST read this
   skill whenever you create, edit, update, or show the user an
   in-conversation visualization, including one another agent made.
-metadata:
-  surfaces:
-    - ide
-environments:
-  - local
-  - cloud
 ---
 # Visualize
 ## Mission
 Help the user complete the job with the smallest truthful result.
 Choose Markdown, Mermaid, or inline HTML before you author the content.
-The host supplies styles and runtime behavior to HTML fragments.
 This entry file controls routing, output, conduct, design, and review. Its references add specialized rules and cannot override it.
 ## Workflow
 1. Route the request with the detailed rules below.
@@ -29,14 +22,14 @@ This entry file controls routing, output, conduct, design, and review. Its refer
 ## Routing
 Choose one representation:
 - Use a Markdown table for ordinary rows and columns. Return it directly and write no files.
-- Use fenced Mermaid for static labeled relationships, ERDs, database schemas, and class diagrams. Return it directly and write no files.
+- For static labeled relationships, ERDs, database schemas, and class diagrams, use fenced Mermaid when the chat can render it. Return it directly and write no files.
 - Use inline HTML when interaction, spatial layout, a chart, a simulation, a mockup, a structured view, or artwork adds material value.
-- Geographic maps are out of scope. The sandbox cannot load map data or mapping libraries; never hand-draw geographic outlines and present them as a map. Offer the closest truthful non-geographic view instead.
+- Geographic maps are out of scope. Never hand-draw geographic outlines and present them as a map. Offer the closest truthful non-geographic view instead.
 - If an explanation depends on sequence, containment, or mechanism, treat it as a diagram.
 - If the user asks for a picture, artwork, illustration, decorative scene, or poster, treat it as artwork.
 - A request to preview or explore a proposed UI in the conversation is an inline HTML visualization request.
 - A request for a new standalone file, website, app page, component, or other project change is **not** an in-transcript visual output. Build that in the open project.
-- Use `/visualize` when the output should be immutable and live inside the transcript.
+- Use `/visualize` when the output should be immutable and live inside the transcript. If the chat cannot display the requested inline form, say which capability is unavailable.
 For inline HTML, read every applicable reference:
 - Every HTML visualization MUST read `references/foundations.md`.
 - Every chart, plot, part-to-whole view, or parallel timeline MUST read `references/charts.md`.
@@ -80,31 +73,31 @@ These invariants apply to every inline HTML visualization. Only a rule that name
 Use this lifecycle only after routing selects HTML.
 
 ### Allocate
-**Location.** Use `CURSOR_AGENT_STORE_FILES_DIR` when it is set; otherwise use the path labeled "Current agent's store" in your context. Call it `<store-root>`. Write the fragment to `<store-root>/visualizations/<slug>.html`. Create the `visualizations/` directory beneath `<store-root>` if it does not exist. Use the write file tool; do not only show the path or code in chat. If neither store location is available, do not guess another location; tell the user that inline visualizations are unavailable in this environment.
+**Location.** Write the file to `visualizations/<slug>.html` in the session's artifact store. Create the directory if needed. If the session has no store its inline renderer can read, report that inline HTML is unavailable.
 
-**Naming.** `<slug>` is a short descriptive name for the visualization: lowercase ASCII letters, digits, and interior hyphens only, at most 64 characters, starting and ending with a letter or digit — for example `revenue-by-quarter`. No other characters, dots, slashes, or spaces. List the existing files under `<store-root>/visualizations/` first and pick a name that is not taken; when the natural name is taken, append `-2`, `-3`, and so on.
+**Naming.** `<slug>` is a short descriptive name for the visualization: lowercase ASCII letters, digits, and interior hyphens only, at most 64 characters, starting and ending with a letter or digit — for example `revenue-by-quarter`. No other characters, dots, slashes, or spaces. List the existing files in the output directory first and pick a name that is not taken; when the natural name is taken, append `-2`, `-3`, and so on.
 
 **File rules:**
-- Exactly one `.html` fragment file per visualization. Never create helper files, style files, supporting modules, or `meta.json`.
-- Never overwrite an existing file under `visualizations/` — a previously emitted tag must keep rendering the content it referenced.
-- Never reuse or modify a path after emitting its content-reference tag. Updates use a fresh file name (suffix the slug) and a new tag.
+- Write one `.html` file per visualization. Never create helper files, style files, supporting modules, or `meta.json`.
+- Keep published files intact so earlier replies still open the version they showed.
+- Use a fresh file name for an update.
 
 ### Author
-- Emit a literal HTML fragment only. Do not include `<!doctype>`, `<html>`, `<head>`, or `<body>`.
-- Store raw markup with actual line breaks. Do not serialize the fragment as an escaped language string. Inspect the saved file and remove encoded quotes or newline text.
+- Write the HTML form the inline renderer accepts.
+- Store raw markup with actual line breaks. Do not serialize it as an escaped language string. Inspect the saved file and remove encoded quotes or newline text.
 - Use one unique root element with an `id`; scope custom CSS and JavaScript to it.
 - Do not rely on `document.currentScript`.
-- Keep the fragment under 1 MB and embed all data.
-- The sandbox has no network access of any kind. There is no CDN allowlist; never write a script `src`, an `import` of an external module, or any external URL.
-- The only host runtime hook is the exact D3 marker documented in `references/charts.md`. It is required for every chart and any other use of `d3`.
+- Keep the file under 1 MB and embed all data.
+- Keep the HTML usable offline. Never write a script `src`, an `import` of an external module, or any external URL.
+- Use D3 for every chart, as described in `references/charts.md`.
 - Do not call `fetch`, `XMLHttpRequest`, `WebSocket`, or `navigator.sendBeacon`.
 - Do not create links, submit forms, open windows, or navigate the iframe.
-- The host uses `sandbox="allow-scripts"` without `allow-same-origin`. Do not depend on same-origin or parent-document access.
-- Conversation callbacks are unavailable. Do not invoke host bridges, parent-frame messaging, or undocumented global functions.
+- Keep the visualization independent of the parent document.
+- Keep interactions inside the visual.
 - Do not load external styles, images, fonts, media, frames, workers, or any other network resource.
 - Embed custom images and fonts as `data:` URLs. Use `blob:` URLs only for generated images.
 - Do not use React, shadcn, Radix, Tailwind utilities, or component-kit imports.
-- Use host tokens and classes before custom CSS, except inside a UI mockup.
+- Use catalog styles and behavior supplied by the renderer. Embed only the styles and behavior it lacks for this visual.
 
 ### Validate
 - Do not add visible eyebrows, method notes, source footers, or artifact-type labels.
@@ -113,15 +106,7 @@ Use this lifecycle only after routing selects HTML.
 - Do not group repeated peers with card chrome when spacing and dividers already group them.
 
 ### Publish
-After the file write completes, emit this content-reference tag on its own line in that same turn's final response. The virtual `src` contains the visualization file name from the managed file path, but never exposes the absolute path:
-
-```html
-<cursor-content kind="visualization" src="visualizations/<slug>.html"></cursor-content>
-```
-
-Emit the exact tag shown only after the write completes, with no other attributes. Updates emit their new tag in the same turn.
-
-**Completion gate.** If you wrote or updated an HTML visualization in this turn, do not finish until the final response contains exactly one content-reference tag for that file. Verify that the tag's `src` uses the same file name as the successful write and that the tag is on its own line. A prose description, file path, or successful write without the matching tag is incomplete.
+After saving the file, embed exactly one inline reference to that file in the same turn's final response. For an update, embed the new file.
 
 ## Review and return
 - Return Markdown and Mermaid as complete assistant text. Use GitHub-flavored Markdown and a fenced `mermaid` block.
@@ -132,7 +117,7 @@ For inline HTML, also check:
 - Does any element compete with that answer without a user need?
 - Is the first paint useful, and does the composition hold at 320–360px and about 736px?
 - Are all selectors, classes, tokens, functions, and identifiers defined, with valid semantic HTML and accessible names?
-- Does the final response contain exactly one content-reference tag matching the written file name on its own line?
+- Does the inline reference display the file just saved?
 
-Stop after you return Markdown or Mermaid, or after you write the `.html` file and emit its content-reference tag.
+Stop after you return Markdown or Mermaid, or after you write the HTML file and embed it in the conversation.
 Do not start servers, open browsers, or follow unrelated skills.

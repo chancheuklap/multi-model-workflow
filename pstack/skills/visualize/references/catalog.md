@@ -1,9 +1,7 @@
-# Host catalog
-This file is the closed lookup for host-provided names.
-If a host token, class, icon, or behavior is absent, the host does not provide it.
-Every host-provided class starts with `vis-`. Use these classes before custom CSS, and do not redefine them.
-A root-scoped custom selector is valid only when the fragment defines it.
-Scope custom SVG rules to `svg.vis-chart` or the custom diagram ID or class. Never target every descendant `svg` in a root that can contain Lucide icons.
+# Visualization styles
+
+Use only the catalog tokens, component classes, and icons listed here. Use the renderer's implementations where supplied. Define any missing styles the visual needs, scoped to its root. Scope chart and diagram rules to their SVG so they do not affect icons.
+
 ## Tokens
 Only these custom properties are public author tokens:
 - Base: `--background`, `--foreground`
@@ -15,8 +13,6 @@ Only these custom properties are public author tokens:
 - Border: `--border`
 - Palette: `--brown`, `--red`, `--orange`, `--yellow`, `--green`
 - Palette: `--cyan`, `--blue`, `--purple`, `--magenta`
-## Internal implementation tokens
-All other custom properties are internal. Do not use them in fragment CSS.
 ## Styled elements
 - `a`; `h1`–`h6`; `p`; `ul` and `ol` through three levels; inline `code`
 - `small`, `b`, `strong`, `th`, `hr`, `svg`
@@ -49,13 +45,10 @@ Tone classes are component modifiers. They are not container or layout classes.
 - `.vis-cyan`, `.vis-blue`, `.vis-purple`, `.vis-magenta`: compatible with `.vis-category-surface`, chart `.vis-mark`, `.vis-label`, and `.vis-swatch`.
 - `.vis-tone-secondary`, `.vis-tone-tertiary`: compatible with chart `.vis-mark`, `.vis-label`, and `.vis-swatch` that also has a palette or semantic tone class. Use them for lighter or darker fills of one series, not to tell line series apart.
 Use semantic tones only for the named meaning.
-## Host data attributes
-- `data-tooltip="text"`: adds a host tooltip to its element.
-- `data-tooltip-label="text"` with `data-tooltip-value="text"`: formats the host tooltip as one label-value row.
-- `data-lucide="name"`: hydrates an approved icon name inside `<i aria-hidden="true">`.
+## Tooltips and icons
+Show a tooltip on hover and focus. For a label and value, display both in one row. Embed the icon itself when the control needs one.
 A tooltip does not supply an accessible name.
 Use `aria-hidden="true"` on a decorative icon.
-No other author data attribute invokes host behavior.
 Approved icon names:
 - `search`, `arrow-up-right`, `check`, `x`, `info`, `alert`, `chart`
 - `refresh`, `settings`, `plus`, `minus`
@@ -65,5 +58,4 @@ Approved icon names:
 - `star`, `heart`, `home`
 - `file`, `folder`, `image`
 - `play`, `pause`, `trash`, `pencil`, `lock`
-The host creates tooltips and hydrates icons.
 Do not add tooltip libraries or icon packages.

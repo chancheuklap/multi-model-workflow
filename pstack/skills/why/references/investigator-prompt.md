@@ -29,6 +29,8 @@ Work like a **careful, cautious, and precise investigator**. Surface evidence an
 
 {SOURCE_NAME}
 
+Use the tools that can read this source to look up the records and filters in its playbook.
+
 {SOURCE_PLAYBOOK_SECTION}
 
 ## Investigation Loop

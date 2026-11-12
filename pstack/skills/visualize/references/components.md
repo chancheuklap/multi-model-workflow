@@ -50,7 +50,7 @@ A direct `.vis-table` or `.vis-table-responsive` child removes card padding.
 Use `.vis-controls` only when the job needs a responsive group of controls.
 Group controls by the visual they change. Use one control for one state.
 Derive selection from native `checked`, `selected`, or `:has`; keep hover, focus, selection, and recommendation distinct.
-Use `aria-pressed` for a toggle button. The host supplies its selected style. A selected `.vis-btn-tile` keeps its surface and gains a ring.
+Use `aria-pressed` for a toggle button. Use the renderer's selected style when supplied. Otherwise style `[aria-pressed="true"]`. A selected `.vis-btn-tile` keeps its surface and gains a ring.
 Do not disable an action for a correctable input error. Keep it enabled and validate inline after use.
 Use native `disabled` only when the action is genuinely unavailable; show its reason as visible nearby text, not only a tooltip.
 Wrap every text, select, or range control directly in one `.vis-form-label`; do not separate them with `.vis-column` or `.vis-row`.
@@ -63,7 +63,7 @@ For an immediate setting, add `.vis-switch` to the checkbox in that structure.
 - Set a range input `step` that matches the displayed precision.
 - Start with `.vis-btn`. Use at most one `.vis-btn-primary` in the complete view; use `.vis-btn` or `.vis-btn-ghost` for other actions.
 - Add `.vis-btn-block` for full width, `.vis-btn-tile` for a wrapping choice, or `.vis-btn-icon` only for an icon-only button.
-- Use host component classes unchanged. Do not restyle their descendants, pseudo-elements, geometry, colors, or states.
+- Use supplied component classes unchanged, including their geometry, colors, and states.
 - Use a `<button type="button">` for an action.
 - Do not use `<a>` links or navigation. Keep every interaction inside the visualization.
 Give optional inline messages `hidden` until text exists, then toggle content and `hidden` together.
@@ -98,5 +98,5 @@ For one command or path, `.vis-snippet` contains an optional hidden `.vis-snippe
 For multi-line source, `figure.vis-code-block` contains an optional `<figcaption>` and required `<pre><code>`.
 Use `.vis-text-destructive` only for errors or validation the user must notice.
 Give every icon button an `aria-label`; set `aria-hidden="true"` on every decorative icon.
-Use only approved `data-lucide` icons. Keep inline icons at 16–20px and decorative icons at 24px or less.
-Do not hand-draw an SVG path to replace an approved host icon.
+Use approved icons from the catalog. Embed the icon when the renderer does not supply it. Keep inline icons at 16–20px and decorative icons at 24px or less.
+Use a label when a suitable icon is unavailable.

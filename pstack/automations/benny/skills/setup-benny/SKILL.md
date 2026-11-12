@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Benny ships as a dormant automation pack inside pstack. The plugin manifest exposes only pstack's normal skill root; this file and the two operational files are not slash skills.
 
-The human enters setup by pointing Cursor at the pack's `FOR_AGENTS.md`. The bootstrap flow copies the whole pack into the target repository, then reads this file directly at `.cursor/automations/benny/skills/setup-benny/SKILL.md`.
+Setup starts when the user gives the agent the pack's `FOR_AGENTS.md`. The bootstrap flow copies the whole pack into the target repository, then reads this file directly at `.cursor/automations/benny/skills/setup-benny/SKILL.md`.
 
 Benny needs external configuration and two live Cursor automations.
 
@@ -16,7 +16,7 @@ Do not create or update an automation until the user explicitly asks. Never put 
 
 ## 1. Copy the pack and enable shared pstack skills
 
-Do this before asking for Benny configuration and before invoking the built-in `/automate` skill.
+Do this before asking for Benny configuration.
 
 Ask which repository will run the automations. The source pack is the directory containing `FOR_AGENTS.md`. The destination is `<target-repository>/.cursor/automations/benny/`.
 
@@ -45,7 +45,7 @@ Merge this entry into the existing JSON or JSONC:
 
 Preserve every unrelated top-level setting and every other plugin entry. If `plugins.pstack` already exists, change only its `enabled` value. Preserve comments and valid JSONC syntax when the file uses JSONC. Validate the file after editing it.
 
-Reload the target project or start a fresh agent rooted there. Verify that these shared pstack skills resolve from project scope:
+Reload the target project or start a fresh agent rooted there in the automation environment. Verify that these shared pstack skills resolve from project scope:
 
 - `how`
 - `why`
@@ -87,7 +87,7 @@ Fill one feature-map section for every user-facing feature the automation may re
 
 Do not edit the copied examples. Pack refreshes may update source-managed files after conflict review, but they must never touch the user-owned copies.
 
-Prefer committed, secret-free files in the target repository when a fresh automation checkout must read them. Otherwise paraphrase the required values into the live prompt. Reference a repository file only after the built-in `/automate` skill confirms that the file is committed in the repository where the automation runs.
+Prefer committed, secret-free files in the target repository when a fresh automation checkout must read them. Otherwise paraphrase the required values into the live prompt. Reference a repository file only after confirming it is committed on the branch the automation runs.
 
 Use stable repository-relative paths for committed pack and configuration files. Never reference the plugin source directory or a plugin cache path from a live automation.
 
@@ -100,7 +100,7 @@ Ask for or confirm:
 - Repository URL and default branch
 - Triage identity or Slack user ID
 - Issue tracker type, team, project, labels, and intake status
-- Tracker adapter skill or MCP actions
+- Tracker adapter skill or connected tracker tools
 - Optional routing map path
 - Required control skill name
 - Required user-facing feature-map path
@@ -109,7 +109,7 @@ Ask for or confirm:
 - Polling and effort budgets
 - Model slug for triage, repro, code work, and media review
 
-Use only model slugs shown as available in the user's Cursor model picker or supported model list. Do not guess a slug and do not carry over a private default.
+Use only models available to the deployed automations. Do not guess a slug and do not carry over a private default.
 
 The source channel, triage identity, repository, tracker adapter, control skill, and feature map must be explicit. Fail setup if any required value stays ambiguous.
 
@@ -133,7 +133,7 @@ The repro automation needs:
 - A pull request action that can open a draft pull request
 - The configured control-adapter skill
 
-Prefer configured Cursor Slack actions for reads and posts. The optional `BENNY_SLACK_BOT_TOKEN` may fill a narrow gap such as editing one operations status message or downloading an attachment. Store the value in a secret manager or environment, not in YAML.
+Prefer the automation's configured Slack connection for reads and posts. The optional `BENNY_SLACK_BOT_TOKEN` may fill a narrow gap such as editing one operations status message or downloading an attachment. Store the value in a secret manager or environment, not in YAML.
 
 Do not use undocumented integration endpoints.
 
@@ -172,7 +172,7 @@ Read `../../FOR_AGENTS.md` from the copied pack as the primary user-intent sourc
 
 ### First-time creation
 
-Create one automation at a time.
+Create one automation at a time. First confirm you can open an approved draft in the Automations editor. If the handoff is unavailable, tell the user and stop.
 
 For each automation:
 
@@ -180,13 +180,12 @@ For each automation:
 2. Turn `FOR_AGENTS.md`, the finished Benny configuration, and the template intent into a complete natural-language request.
 3. Tell the live prompt to read and follow its exact committed operational file under `.cursor/automations/benny/`.
 4. Use the stable repository-relative path, not a plugin source or cache path. Do not copy the operational file contents into the live prompt.
-5. Read and follow the built-in `automate` skill.
-6. Let `automate` discover Slack channels, the repository, and connected integrations.
-7. Let `automate` confirm that the copied pack and any referenced configuration files are committed in the same repository where the automation will run.
-8. Let `automate` show its draft table, obtain approval, ask readiness, and open the Automations editor.
-9. Finish the editor handoff for this automation before starting the next one.
+5. Resolve the Slack channels, repository, and integrations. Confirm the deployed automation can authenticate and use each required integration.
+6. Verify the copied pack and any referenced configuration files are committed on the branch the automation will run.
+7. Show one draft table with the name, description, trigger, prompt, tools, repository, model, and any fields the user explicitly deferred to the editor. Get approval for that draft.
+8. After approval, ask whether the user is ready to open it. On confirmation, open the populated draft in the Automations editor. Complete this handoff before starting the next automation.
 
-Give `automate` this complete triage intent, filled from configuration:
+Fill the triage draft from the finished configuration:
 
 - Name `benny-triage`.
 - Read and follow `.cursor/automations/benny/skills/triage-issue-reports/SKILL.md` for every run.
@@ -197,25 +196,21 @@ Give `automate` this complete triage intent, filled from configuration:
 - End one thread-only verdict with the configured `[benny:bug]`, `[benny:performance]`, or `[benny:other]` marker and optional tracker URL.
 - Never post a source-channel root message.
 
-After the triage editor handoff is complete, give `automate` this complete repro and fix intent:
+After handing off the triage draft, prepare the repro and fix draft:
 
 - Name `benny-reproduce`.
 - Read and follow `.cursor/automations/benny/skills/reproduce-and-fix-issues/SKILL.md` for every run.
 - Trigger on the same new top-level reports in the configured source Slack channel.
 - Use the configured repository and default branch.
 - Read the source thread and reply only inside it.
-- Include pull request creation and the configured tracker, control-adapter, and feature-map requirements. Paraphrase mapped user paths and states unless `automate` confirms an eligible committed file in the same repository.
+- Include pull request creation and the configured tracker, control-adapter, and feature-map requirements. Paraphrase mapped user paths and states unless the feature map is committed on the branch the automation will run.
 - Wait for a trusted triage marker before acting.
 - Reproduce the exact symptom twice through the mapped real UI and capture evidence.
 - Verify an existing fix without authoring over it.
 - Attempt an optional bounded fix only after confirmed repro, then open a draft pull request when proof and checks pass.
 - Never post a source-channel root message.
 
-Do not duplicate `automate`'s Slack, repository, integration, completeness, authentication, draft-review, approval, readiness, or editor-handoff work.
-
 ### Existing automations
-
-The built-in `automate` skill is creation-only. Do not use it to search for, inspect, or update existing automations.
 
 Finish configuration, routing, control-adapter, and feature-map validation. Then give the user this concise editor checklist.
 
@@ -243,7 +238,7 @@ Ask the user to update each existing automation directly in its Automations edit
 
 ### Creation boundary
 
-Never call a direct automation backend service or backend automation tool. Never use a browser URL that carries draft fields. Never build or open a Cursor protocol deep link. For new automations, the only finish path is the built-in `automate` skill's reviewed Automations editor handoff.
+Never call a direct automation backend service or backend automation tool. Never use a browser URL that carries draft fields. Never build or open a Cursor protocol deep link. Hand the approved draft to the user in the Automations editor. If the handoff fails, tell the user the draft did not open.
 
 Do not enable either automation until the thread-safety test passes after the editor save.
 
