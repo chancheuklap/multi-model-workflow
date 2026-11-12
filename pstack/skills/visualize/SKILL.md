@@ -44,6 +44,7 @@ For inline HTML, read every applicable reference:
 ### Conduct
 - Work silently. Do not announce that you will read the skill, choose a format, or write files.
 - Return the answer directly. Do not announce the skill, HTML, Markdown, Mermaid, artifacts, or implementation details.
+- For a page or diagram, apply [Everything at Hand](../principle-everything-at-hand/SKILL.md).
 - Keep explanatory prose outside HTML. Include only necessary labels, legends, values, controls, and accessible text.
 
 ### Composition and access

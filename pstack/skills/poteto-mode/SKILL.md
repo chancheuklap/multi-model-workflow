@@ -44,19 +44,22 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 - **Laziness Protocol.** Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
 - **Foundational Thinking.** Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
+- **First-Principles Thinking.** An unsettled plan, design, or recommendation. Test which requirements and constraints hold before refining the approach.
 - **Redesign from First Principles.** Integrating a new requirement into an existing design. Redesign as if it had been foundational from day one.
+- **The Baseline Is the Contract** (**principle-baseline-is-the-contract**). Implementing or documenting a settled decision. Preserve what the spec, prototype, or user actually fixed.
 - **Attack the Premise.** Two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it.
-- **Subtract Before You Add.** Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
-- **Minimize Reader Load.** Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
+- **Subtract Before You Add.** Sequencing an addition, refactor, or rewrite. Remove dead weight first. A new guard needs an observed failure or a requirement to enforce.
+- **Minimize Reader Load.** Reviewing code that's hard to trace or deciding whether to extract a helper. Collapse layers that cost more than they save and shrink the state the reader must hold.
 - **Outcome-Oriented Execution.** Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
 - **Experience First.** Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
+- **Start From What Exists.** A nontrivial change with no settled approach. Look for a working implementation in the repo, then look outside it if a gap remains.
 - **Exhaust the Design Space.** A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
 - **Build the Lever.** Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
 
 **Architecture**
 
 - **Model the Domain.** Writing stateful logic, or code that branches a lot or repeats a shape assumption across files. Encode the domain in a structure (state machine, typed model, table or registry, reducer, boundary, the right collection) instead of scattered conditionals.
-- **Boundary Discipline.** Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
+- **Boundary Discipline.** Wiring validation, error handling, or framework adapters. Validate at the boundary, trust internal types, and keep business logic pure. Catch errors where you can recover or translate them.
 - **Type System Discipline.** Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
 - **Make Operations Idempotent.** Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
 - **Migrate Callers Then Delete Legacy APIs.** Introducing a new internal API while old callers exist. Migrate and delete in one wave.
@@ -64,20 +67,25 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Verification**
 
-- **Prove It Works.** After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
-- **Fix Root Causes.** Debugging. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
-- **Sequence Work into Verifiable Units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
+- **Read Before You Conclude.** About to change a file or make a claim about it. Read the source and callers the claim depends on. Label what you inferred.
+- **Prove It Works.** Before acting on a finding or declaring a task done. Check the exact claim against the current artifact and the path or state it depends on.
+- **Fix Root Causes.** Debugging a symptom or a failing check. Test competing causes against the repro. A guard is a fix only when the state it handles is legitimate.
+- **Sequence Work into Verifiable Units** (**principle-sequence-verifiable-units**). Multi-step work and the order of commits and PRs. Check each unit before the next. A repro commit proves the failure before the fix makes it pass.
 - **Test Behavior, Not Implementation.** Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
-- **Explain the Number.** Apply before you measure, and before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
+- **Explain the Number.** Measuring, reporting, or acting on a performance number or an eval result. Find the performance limiter. For an eval, check what each trial did and what the results support.
 
 **Delegation**
 
-- **Guard the Context Window.** Context fills up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents, keep summaries in the main thread.
-- **Never Block on the Human.** Tempted to ask "should I do X?" on reversible work. Proceed, present the result, let the human course-correct.
+- **Guard the Context Window.** Large outputs, long files, repeated reads, or fan-out planning. Read the excerpt you need or delegate the bulk reading. Keep findings in the main thread.
+- **Never Block on the Human.** Tempted to ask "should I do X?" on reversible work. Proceed and present the result. If one step must wait, keep independent work moving.
 
 **Meta**
 
-- **Encode Lessons in Structure.** You catch yourself writing the same instruction a second time. Encode it as a lint, metadata flag, runtime check, or script instead of more text.
+- **Encode Lessons in Structure.** You catch yourself writing the same instruction a second time, or notice a recurring correction. Remove the opportunity for the mistake or enforce the rule in code.
+- **Write for Where It Is Read.** Writing a brief, spec, command, or other output for someone else. Write for the task and context its recipient will have.
+- **Anchor Every Reference.** Naming things in a reply, document, or diagram. Use the source or glossary name and make each reference clear where it appears.
+- **Everything at Hand.** Laying out a page or diagram for a person. Label the marks where people read them. Put comparable views together at the same scale.
+- **Files Describe the Present.** Writing or editing a file. Describe its subject as it is now. Keep history in records of decisions or changes.
 
 ## Autonomy
 

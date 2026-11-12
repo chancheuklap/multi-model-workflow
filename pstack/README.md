@@ -203,37 +203,45 @@ pstack also ships [Comment Sicko](./agents/comment-sicko.md), a read-only commen
 
 ## principles
 
-twenty-four short skills, one principle each. `poteto-mode` indexes them inline and reads that index at task start. the standalone files are there so other skills can reference a principle by name, and so the index can point at the full rule for each.
+thirty-two short skills, one principle each. `poteto-mode` indexes them inline and reads that index at task start. the standalone files are there so other skills can reference a principle by name, and so the index can point at the full rule for each.
 
 <details>
-<summary>all twenty-four principles</summary>
+<summary>all thirty-two principles</summary>
 
 | principle | group | rule |
 |---|---|---|
 | [laziness-protocol](./skills/principle-laziness-protocol/SKILL.md) | core | Bias toward deletion and the smallest change that solves the problem. |
 | [foundational-thinking](./skills/principle-foundational-thinking/SKILL.md) | core | Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious. |
+| [first-principles-thinking](./skills/principle-first-principles-thinking/SKILL.md) | core | Test the requirements and constraints behind an open approach before refining it. |
 | [redesign-from-first-principles](./skills/principle-redesign-from-first-principles/SKILL.md) | core | Redesign as if the requirement had been a foundational assumption from day one, instead of bolting it on. |
+| [baseline-is-the-contract](./skills/principle-baseline-is-the-contract/SKILL.md) | core | Build from the values, wording, and behavior the decision fixed. A prototype binds the question it settled. |
 | [attack-the-premise](./skills/principle-attack-the-premise/SKILL.md) | core | Apply when two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it. |
-| [subtract-before-you-add](./skills/principle-subtract-before-you-add/SKILL.md) | core | Remove dead weight, redundant validators, and stub references first, then build on the simpler base. |
-| [minimize-reader-load](./skills/principle-minimize-reader-load/SKILL.md) | core | Count layers between question and answer, and hidden state in the reader's head; collapse one-caller wrappers and shrink mutable scope. |
+| [subtract-before-you-add](./skills/principle-subtract-before-you-add/SKILL.md) | core | Remove dead weight first. Name the observed failure or requirement that calls for a new guard. |
+| [minimize-reader-load](./skills/principle-minimize-reader-load/SKILL.md) | core | Collapse layers that cost more than they save and shrink mutable scope. A helper should earn its place in the caller. |
 | [outcome-oriented-execution](./skills/principle-outcome-oriented-execution/SKILL.md) | core | Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code. |
 | [experience-first](./skills/principle-experience-first/SKILL.md) | core | Choose user delight over implementation convenience; ship fewer polished features over more rough ones. |
+| [start-from-what-exists](./skills/principle-start-from-what-exists/SKILL.md) | core | Look for working implementations before choosing whether to reuse, extend, or build. |
 | [exhaust-the-design-space](./skills/principle-exhaust-the-design-space/SKILL.md) | core | Build 2-3 competing prototypes and compare side by side before committing. |
 | [build-the-lever](./skills/principle-build-the-lever/SKILL.md) | core | Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun. |
 | [model-the-domain](./skills/principle-model-the-domain/SKILL.md) | architecture | Encode the domain in a structure instead of scattered conditionals. |
-| [boundary-discipline](./skills/principle-boundary-discipline/SKILL.md) | architecture | Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions. |
+| [boundary-discipline](./skills/principle-boundary-discipline/SKILL.md) | architecture | Validate at the boundary and trust internal types. Catch errors where the code can recover or translate them. |
 | [type-system-discipline](./skills/principle-type-system-discipline/SKILL.md) | architecture | Make illegal states unrepresentable, brand semantic primitives, parse external data at boundaries, exhaust variants, derive from authoritative schemas. |
 | [make-operations-idempotent](./skills/principle-make-operations-idempotent/SKILL.md) | architecture | Converge to the same end state regardless of partial prior runs. |
 | [migrate-callers-then-delete-legacy-apis](./skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md) | architecture | Migrate callers and delete the old API in the same wave instead of preserving compatibility layers. |
 | [separate-before-serializing-shared-state](./skills/principle-separate-before-serializing-shared-state/SKILL.md) | architecture | Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant. |
-| [prove-it-works](./skills/principle-prove-it-works/SKILL.md) | verification | Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or 'it compiles.'. |
-| [fix-root-causes](./skills/principle-fix-root-causes/SKILL.md) | verification | Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate. |
-| [sequence-verifiable-units](./skills/principle-sequence-verifiable-units/SKILL.md) | verification | Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer. |
+| [read-before-you-conclude](./skills/principle-read-before-you-conclude/SKILL.md) | verification | Read the source and callers a claim or edit depends on, and label what you inferred. |
+| [prove-it-works](./skills/principle-prove-it-works/SKILL.md) | verification | Before acting on a finding or declaring work done, check the claim against the current artifact and the path or state it depends on. |
+| [fix-root-causes](./skills/principle-fix-root-causes/SKILL.md) | verification | Test competing causes against the reproduction. Trace a failing check to the implementation or the check itself. |
+| [sequence-verifiable-units](./skills/principle-sequence-verifiable-units/SKILL.md) | verification | Check each unit before the next. A repro commit proves the expected failure and the fix proves the pass. |
 | [test-behavior-not-implementation](./skills/principle-test-behavior-not-implementation/SKILL.md) | verification | Apply when you write, change, or keep a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change. |
-| [explain-the-number](./skills/principle-explain-the-number/SKILL.md) | verification | Apply before you trust, report, or act on a number you measured: a speedup, a regression, a throughput, a latency, or an eval result. Find what limits it, and rule out that it measured something other than the work you think. |
-| [guard-the-context-window](./skills/principle-guard-the-context-window/SKILL.md) | delegation | Route bulk to subagents; keep summaries in the main thread, not raw payloads. |
-| [never-block-on-the-human](./skills/principle-never-block-on-the-human/SKILL.md) | delegation | Proceed, present the result, let the human course-correct after the fact; reserve confirmation for irreversible actions. |
-| [encode-lessons-in-structure](./skills/principle-encode-lessons-in-structure/SKILL.md) | meta | Encode the rule as a lint, metadata flag, runtime check, or script instead of more text. |
+| [explain-the-number](./skills/principle-explain-the-number/SKILL.md) | verification | Find the limiter for a performance number. For an eval, check what each trial did and how far the claim holds. |
+| [guard-the-context-window](./skills/principle-guard-the-context-window/SKILL.md) | delegation | Read the excerpt you need or delegate the bulk reading. Keep findings in the main chat. |
+| [never-block-on-the-human](./skills/principle-never-block-on-the-human/SKILL.md) | delegation | Make reversible engineering decisions and continue independent work while a required decision waits. |
+| [encode-lessons-in-structure](./skills/principle-encode-lessons-in-structure/SKILL.md) | meta | Remove the opportunity for a recurring mistake, or enforce the rule where it occurs. |
+| [write-for-where-it-is-read](./skills/principle-write-for-where-it-is-read/SKILL.md) | meta | Write for the recipient, the task, and the context they will have when the work reaches them. |
+| [anchor-every-reference](./skills/principle-anchor-every-reference/SKILL.md) | meta | Give each reference its source or glossary name and enough context to identify it where it appears. |
+| [everything-at-hand](./skills/principle-everything-at-hand/SKILL.md) | meta | Label marks where people read them and keep the views they need to compare together at the same scale. |
+| [files-describe-the-present](./skills/principle-files-describe-the-present/SKILL.md) | meta | Describe what is true now. Record changes in the files whose subject is the change. |
 
 </details>
 

@@ -1,6 +1,6 @@
 ---
 name: principle-subtract-before-you-add
-description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead code, redundant validators, and stub references first, then build on the simpler base."
+description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead weight first. A new guard should address an observed failure or enforce a requirement."
 disable-model-invocation: true
 ---
 
@@ -16,3 +16,6 @@ Make simplification a continual investment. Leave the design slightly simpler an
 - No speculative validators, parsers, or guards beyond what the spec demands
 - Simplify prompts (remove redundant instructions, excessive templates)
 - When a reference has no novel content, delete it rather than leaving a stub
+- When a fix adds a guard, name the observed failure it would have prevented or the requirement it enforces.
+
+**Keep intact.** Whatever you simplify, keep security, error handling that prevents data loss, accessibility, and anything the task explicitly asks for.

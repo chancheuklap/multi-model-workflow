@@ -1,6 +1,6 @@
 ---
 name: principle-fix-root-causes
-description: "Apply when debugging. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate."
+description: "Apply when debugging a symptom or a failing check. Test competing causes against the reproduction and trace the fault to the implementation or the check. Keep the required behavior fixed."
 disable-model-invocation: true
 ---
 
@@ -12,10 +12,14 @@ When debugging, fix the fault, not the place where it surfaced. The symptom is w
 
 **Pattern:**
 - Reproduce first.
-- Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one.
+- When several causes could produce the symptom, test predictions that distinguish them. If separate reproductions expose different faults, trace each one.
+- Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one. Would removing the suspected cause prevent this reproduction?
 - When stuck, instrument. Read the actual error and the actual state. Do not guess.
 - Ask whether the state that triggered the symptom is legitimate. If the system may be in that state, the code that broke on it is the root cause, and handling the state there is the fix. If the state should never exist, a check where it broke hides the bug. Find what produced the state. Guards, retries, swallowed errors, clamped values, and discarded state are the usual ways to hide a bug.
 - When something fails only after a restart, suspect persisted state first: config files, caches, lock files, serialized state.
 - Check for the pattern, not just the instance. Find every place with the same fault and fix them all.
 - If a workaround needs a paragraph-long comment to justify it, the code is wrong. Fix the code, not the comment.
 - If the deciding fact took a deep dig to find, propose the cheap, always-on signal that would have shown it at first look.
+- A failing check is a symptom too. Fix the implementation if it violates the requirement. If the check is wrong, correct it against the requirement. When the playbook freezes the baseline or harness, report the discrepancy and leave it intact. Never relax a valid check just to turn it green.
+
+When two or more fixes that share one premise fail the same gate, apply [Attack the Premise](../principle-attack-the-premise/SKILL.md) before the next fix.

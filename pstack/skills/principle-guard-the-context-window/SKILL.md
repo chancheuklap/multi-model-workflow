@@ -1,6 +1,6 @@
 ---
 name: principle-guard-the-context-window
-description: "Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads."
+description: "Apply when large outputs, screenshots, long files, or fan-out planning threaten the context window. Read a focused excerpt or delegate the bulk reading. Keep findings in the main thread."
 disable-model-invocation: true
 ---
 
@@ -9,4 +9,5 @@ disable-model-invocation: true
 **Why:** Context overflow degrades reasoning quality, creates compression artifacts, and halts progress.
 
 **Pattern:**
+- **Isolate large payloads.** Read a short excerpt when it answers the question. Give bulk reading to a subagent under the active playbook or skill. Return the finding and its source to the main thread.
 - **Size phases and cap scope.** Limit files per phase, set turn budgets, account for mechanism costs.
