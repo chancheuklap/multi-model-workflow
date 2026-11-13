@@ -18,7 +18,7 @@ Start from the work issue and its agreed spec, or the agreed design in the discu
 
 **Verification.** Plan how to prove each outcome on the real surface (the [principle-prove-it-works](../../principle-prove-it-works/SKILL.md) principle skill). Name the scenario, the artifact to save and its pass predicate. For performance, name the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. For an interaction change, name the screenshots and video the operator reviews. The execution checklist below applies those checks to the PR opened for each code ticket.
 
-**Control skill.** Pick it by surface. Browser, Electron, and web UIs use [control-ui](../../control-ui/SKILL.md). CLIs and TUIs use [control-cli](../../control-cli/SKILL.md). Native mobile uses whatever simulator-driving skill the repo has. For an outcome that touches two surfaces, cover both. A surface with no control skill is a risk in Appendix C. Name how to drive it in **Verify**.
+**Verification skill.** Choose the project's `verify-<app>` for each affected surface. Use [verify-this](../../verify-this/SKILL.md) only where no project verification skill matches. For an outcome that touches two surfaces, cover both. Name the selected skill and how to drive the surface in **Verify**. Record a surface you cannot exercise as a risk in Appendix C.
 
 ````markdown
 # <Program> plan
@@ -41,7 +41,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - [ ] Read these from trunk at program start. Re-read them at every tick. Fill in each source repository's trunk ref and tracked paths.
   - [ ] `git show origin/main:pstack/skills/poteto-mode/playbooks/<execution playbook>.md`
   - [ ] `git show origin/main:pstack/skills/swarm/SKILL.md`
-  - [ ] `git show origin/main:<control skill path>`
+  - [ ] `git show origin/main:<tracked SKILL.md path for the selected verification skill>`
   - [ ] `git show origin/main:pstack/skills/poteto-mode/playbooks/opening-a-pr.md`
   - [ ] `git show origin/main:pstack/skills/<each other leaf skill the program uses>`
 - [ ] On the operator's go, schedule an hourly audit with the prompt below. Never leave the cadence to memory.
@@ -78,11 +78,11 @@ For each code ticket, use its acceptance criteria and the relevant phase checks 
 
 ### Boot recipe, for every live lane
 
-Each live lane runs on its own remote machine at the PR head. Drive through `control-ui` or `control-cli`.
+Each live lane runs on its own remote machine at the PR head. Use the verification skill named in **Verify** for the lane's surface.
 
 - [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.
 - [ ] <Start the backend and the surface. Wait for ready.>
-- [ ] <Deliver input only through the control skill's commands. Name the read-only diagnostics.>
+- [ ] <Deliver input only through the user-facing driver named in Verify. Name the read-only diagnostics.>
 - [ ] Save every screenshot to `/tmp/swarm-<pr-id>/worker-<n>/<slug>.png` and return links or paths the operator can open.
 
 ## Phase 1. <Goal as a verb phrase>
@@ -103,7 +103,7 @@ Each live lane runs on its own remote machine at the PR head. Drive through `con
 
 **Verify.**
 
-- [ ] <The check to run, what passes and where to find its evidence. Name the test case, live scenario or performance probe that proves this result.>
+- [ ] <The check to run, what passes and where to find its evidence. Name the test case, live scenario or performance probe that proves this result. For a live check, name the selected verification skill and the driver command.>
 
 **Review gate.** <None. Or name the operator's decision.>
 

@@ -45,7 +45,7 @@ routing:
   allow_confirmed_regression_author_ping: false
 
 control:
-  skill_name: "control-target-app"
+  skill_name: "verify-target-app"  # Project skill for this surface, or verify-this if none matches.
   feature_map_path: ".cursor/benny/feature-map.md"
   environment: "safe-test-environment-placeholder"
   artifact_directory: "/tmp/benny-artifacts"

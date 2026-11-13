@@ -29,7 +29,7 @@ A decision about how to divide work. It records what must finish first, which wo
 An agent assigned a bounded part of the work. A routed skill can give it a role-specific brief. The parent remains responsible for the result. Under Guard the Context Window, a subagent that reads a large collection returns only its findings and their sources to its parent. [principle-guard-the-context-window](../../../skills/principle-guard-the-context-window/SKILL.md)
 
 **poteto-agent**:
-The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly, as the read-only reviewer in an ambiguity scan does.
+The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly.
 
 **Brief**:
 The instructions one delegate receives. They state the operator's goal and the delegate's scope. For repository work, the brief identifies the assigned work issue, an existing PR when relevant, and the exact revision for a PR verifier. The brief received by the agent writing the code identifies its execution ticket and assigned change.

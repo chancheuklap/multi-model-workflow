@@ -73,7 +73,7 @@ When setting up a repository, add this rule once to its persistent project instr
 
 ### 7. Offer a verification skill (optional)
 
-Check whether the project has a way to drive the real app for proof (a `verify-*` skill, or an existing harness). If not, offer once: "want a project-local verification skill, so agents can drive the app the way a user does and prove changes work? I can generate one with /create-verification-skill." On yes, invoke [create-verification-skill](../create-verification-skill/SKILL.md) (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
+Check whether the project has a way to drive the real app for proof (a project-local `verify-<app>` for the target surface, or an existing harness). If not, offer once: "want a project-local verification skill, so agents can drive the app the way a user does and prove changes work? I can generate one with /create-verification-skill." On yes, invoke [create-verification-skill](../create-verification-skill/SKILL.md) (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
 
 ### 8. Offer a formal verification skill (optional)
 

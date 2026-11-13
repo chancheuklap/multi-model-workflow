@@ -118,7 +118,7 @@ A person's explicit claim to fix the defect, concrete implementation plan, or in
 An open PR with relevant code changes, a merged PR, or a merged commit that could resolve this report. Benny can find one in the source thread, tracker, repository history, or PR search. The artifact sends the run to verification of that revision.
 
 **Control adapter**:
-The configured skill for starting the target app at a specified revision, driving mapped features through the real UI, inspecting state read-only, taking screenshots, recording a run, and cleaning up. It also resets the feature for an independent attempt and identifies the app and test environment.
+The driver the selected verification skill uses to start the target app at a specified revision, drive mapped features through the real UI, inspect state read-only, take screenshots, record a run, and clean up. It also resets the feature for an independent attempt and identifies the app and test environment.
 
 **Benny feature map**:
 The operator-owned description of each user-facing feature Benny may reproduce. A section gives the user's path, adapter actions and reset, stable selectors, relevant states, preconditions, expected captures, and a read-only cross-check. A report outside the map leaves reproduction blocked. [Product verification](../product-verification/GLOSSARY.md)

@@ -55,7 +55,7 @@ The part of a multi-phase plan that describes how the named playbook will execut
 A decision the plan reserves for the operator. For an interaction change, the plan names the screenshots and video the operator needs before merge. This condition follows the work into the affected ticket.
 
 **Ambiguity scan**:
-A fresh, read-only review of the complete draft and its sources at the Spec, Plan, or Ticket stage. One reviewer sees an entire batch of ticket drafts together and reports to the main chat. An empty stage brief means its review criteria are pending.
+A fresh, read-only review of the complete draft and its sources at the Spec, Plan, or Ticket stage. One reviewer sees an entire batch of ticket drafts together and reports to the main chat.
 
 ### Assignments and dependencies
 

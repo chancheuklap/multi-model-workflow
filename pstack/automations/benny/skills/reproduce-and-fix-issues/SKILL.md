@@ -1,6 +1,6 @@
 ---
 name: reproduce-and-fix-issues
-description: Reproduce triaged Slack bugs through a configured app-control adapter, verify existing fixes, and open a bounded draft pull request only after before-and-after proof. Use only from the configured Benny repro automation.
+description: Reproduce triaged Slack bugs with the target app's verification skill, verify existing fixes, and open a bounded draft pull request only after before-and-after proof. Use only from the configured Benny repro automation.
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Wait for a trusted triage marker in the source thread. Reproduce the exact symptom through the target app's real UI. Verify an existing fix when one exists. Attempt a bounded fix only after a confirmed repro.
 
-Load the external Benny configuration supplied by the automation. If the config, required actions, control adapter, or completed feature map is missing, fail closed.
+Load the external Benny configuration supplied by the automation. If the config, required actions, or completed feature map is missing, fail closed.
 
 ## Hard safety rules
 
@@ -123,9 +123,9 @@ Prefer the automation's configured Slack connection. Use `BENNY_SLACK_BOT_TOKEN`
 
 If no operations channel is configured, keep detailed status in the automation run output. Do not substitute a source-channel root message.
 
-## 5. Load and check the control adapter
+## 5. Select and check the verification skill
 
-Read `references/control-adapter.md` and the completed map at `control.feature_map_path`, then invoke the skill named by `control.skill_name`.
+Read `references/control-adapter.md` and the completed map at `control.feature_map_path`. Use the target project's `verify-<app>` that covers the reported UI. The configured `control.skill_name` identifies it when it matches. Use `verify-this` only if no project verification skill matches.
 
 Find the feature-map section that matches the reported user path. Read it before driving the app. If no section covers the feature, mark the run blocked instead of inventing a path or selector.
 
@@ -139,7 +139,7 @@ Require all seven capabilities:
 6. Start and stop a screen recording.
 7. Clean up processes, sessions, profiles, and temporary data.
 
-If the adapter is absent or any required capability is missing, mark the operations status as blocked and stop. Do not pretend a screenshot, unit test, state mutation, or source reading is a UI repro.
+If the selected skill and its tools lack any required capability, mark the operations status as blocked and stop. Do not pretend a screenshot, unit test, state mutation, or source reading is a UI repro.
 
 ## 6. Study the report
 
@@ -162,7 +162,7 @@ Use pstack's `how` skill to trace the action through the repository. Use `why` f
 
 ## 7. Reproduce
 
-Bring up the target app through the control adapter.
+Bring up the target app with the selected verification skill.
 
 Confirm the correct app, workspace, account, data set, and feature state before acting. Use stable app markers. Do not rely on window order or a familiar title alone.
 
@@ -233,7 +233,7 @@ Attempt a fix only when all of these hold:
 - No person claimed the fix during the rejection window.
 - Runtime evidence identifies the root cause.
 - The likely change fits the configured fix budget and repository scope.
-- The control adapter can run both baseline and patched builds.
+- The selected verification skill can exercise both baseline and patched builds.
 
 If any condition fails, keep the repro report and stop without a pull request.
 
@@ -307,4 +307,4 @@ Watch the configured operations thread for one follow-up window.
 - Stay out of human coordination and side chatter.
 - Stop when asked.
 
-Always call the control adapter's cleanup capability. Keep artifacts only as long as the configured retention policy allows.
+Always clean up the instances and sessions used for verification. Keep artifacts only as long as the configured retention policy allows.

@@ -25,7 +25,7 @@ Infer the need from the message and the conversation. A named situation, such as
 Check the state that changes the answer, and mention it only when it does:
 
 - When the question depends on which model runs, read the assigned role in the [pstack model rule](../setup-pstack/SKILL.md#model-rule).
-- No `verify-*` skill or other app harness in the project means agents have no scripted way to drive the app. Mention [create-verification-skill](../create-verification-skill/SKILL.md) when the question is about proving a change works.
+- For proof of app behavior, use the project's `verify-<app>` for the target surface, or [verify-this](../verify-this/SKILL.md) if none matches. For a reusable project harness, point to [create-verification-skill](../create-verification-skill/SKILL.md).
 - No formal verification skill in the project means no property is checked past what tests reach. Mention [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md) when the question is about a race, an invariant, or another case tests rarely hit. When one exists and the code it covers changed after the commit it records as last in sync, mention [maintain-formal-verification-skill](../maintain-formal-verification-skill/SKILL.md) if the question touches that code.
 
 When the model rule is missing and it matters, ask whether the user wants to pick a model for each role and a reasoning budget now. It matters when the user is new, the question is about setup or cost, or the answer depends on which models run. Ask at most once per chat. If the need is also unclear, ask both questions together. Offer two choices:

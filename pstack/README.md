@@ -256,12 +256,12 @@ thirty-two short skills, one principle each. [poteto-mode](skills/poteto-mode/SK
 
 Each link opens the instructions bundled with this copy.
 
-- From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. The control skills can supply before-and-after evidence to [verify-this](./skills/verify-this/SKILL.md). [Team Kit license](./licenses/cursor-team-kit.txt)
+- From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. [Team Kit license](./licenses/cursor-team-kit.txt)
 - [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
 - From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills.
 - The HTML skills come from MMW v5 Cloud. [to-spec](./skills/to-spec/SKILL.md) uses [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) to present the whole spec in HTML. [ketchup](./skills/ketchup/SKILL.md) uses [html](./skills/html/SKILL.md) for charts. [Plannotator license](./skills/html/LICENSE)
 
-Overnight runs need a watcher or timer that can wake the agent. Inside [poteto-mode](skills/poteto-mode/SKILL.md), PR-status requests go to the [Babysit playbook](./skills/poteto-mode/playbooks/babysit.md). Project-specific skills such as `verify-<app>` come from the project being verified.
+Overnight runs need a watcher or timer that can wake the agent. Inside [poteto-mode](skills/poteto-mode/SKILL.md), PR-status requests go to the [Babysit playbook](./skills/poteto-mode/playbooks/babysit.md). For app verification, use the project's `verify-<app>` for the target surface. Use [verify-this](./skills/verify-this/SKILL.md) only when no project verification skill matches.
 
 ## when do i need a spec, a plan, or tickets?
 

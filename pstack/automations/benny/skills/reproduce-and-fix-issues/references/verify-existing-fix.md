@@ -35,7 +35,7 @@ For an open pull request, use its base branch as the baseline.
 
 For a merged fix, use the revision immediately before the fix when that revision builds and represents the old behavior.
 
-Through the configured control adapter:
+Use the target project's `verify-<app>` for the reported UI, or `verify-this` only if none matches. Use the same skill on both revisions.
 
 1. Bring up the baseline app.
 2. Confirm the correct app and environment.

@@ -50,7 +50,7 @@ The verdict comes back as faster, slower, no measurable difference, or inconclus
 
 ## Create a project verification skill
 
-The UI bullet above hides a real requirement. The agent needs a scripted way to drive your app. If your project has one, great. If not, run:
+Use the project's `verify-<app>` for the surface being tested. If none matches, use [verify-this](../../skills/verify-this/SKILL.md) for this check. To give the project its own reusable verification skill, run:
 
 ```text
 /create-verification-skill

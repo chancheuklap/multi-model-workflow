@@ -75,7 +75,7 @@ Sources include [control-cli](../../../skills/control-cli/SKILL.md), [control-ui
 ### Feature map
 
 **Verification skill**:
-A project-local skill, usually named `verify-<app>`, for launching the real app, driving mapped features as a user would, and capturing evidence. Its instructions identify how to launch, check, drive, and clean up an instance and how to use any helper it ships.
+A project-local skill, usually named `verify-<app>`, for launching the real app, driving mapped features as a user would, and capturing evidence. Its instructions identify how to launch, check, drive, and clean up an instance and how to use any helper it ships. When no project skill covers the target app and surface, use [verify-this](../../../skills/verify-this/SKILL.md).
 
 **Launch**:
 The part of the verification skill that brings the named build to a usable state, including required migrations and seed data. For a short-lived CLI, launch prepares the executable and each drive starts its own session.

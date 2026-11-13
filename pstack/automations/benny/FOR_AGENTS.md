@@ -17,9 +17,9 @@ i want two cursor automations that work together in one slack issue channel.
 
 - trigger: i want this automation to start from the same new top-level report, or another supported trigger chosen during setup, then wait for the trusted triage marker in the original thread.
 - gates: i want it to stop when someone clearly owns the fix. if an existing pull request or merged commit may fix the report, i want verification instead of a competing change.
-- behavior: i want it to use my configured control adapter and feature map, reproduce the exact symptom twice through the real ui, and capture screenshots, video, and a read-only state cross-check.
+- behavior: i want it to use the target project's `verify-<app>` for the reported UI, or `verify-this` only if none matches. use my feature map to reproduce the exact symptom twice through the real ui, and capture screenshots, video, and a read-only state cross-check.
 - fix: i want it to verify existing pull requests without authoring over them. after a confirmed repro, it may attempt one bounded root-cause fix, use `tdd` when the test is cheap, smoke the blast radius, and open a draft pull request only when before-and-after proof passes.
-- tools: i want slack thread read and reply access, repository and history access, draft pull request creation, my configured tracker, and my control adapter.
+- tools: i want slack thread read and reply access, repository and history access, draft pull request creation, my configured tracker, and the selected verification skill.
 - outcome: i want evidence and a verified result in the source or optional operations threads, plus an optional draft pull request. updates should be concise.
 - boundary: i never want this automation to post a root message in the source channel.
 
@@ -32,7 +32,7 @@ i want two cursor automations that work together in one slack issue channel.
 - i want pstack enabled through the target repository's committed `.cursor/settings.json` only for shared dependencies such as `how`, `why`, `tdd`, `unslop`, and the required principle skills.
 - i want each live automation prompt to read its committed operational file directly. i do not want plugin cache paths, copied excerpts, or slash-skill discovery.
 - i keep user-owned configuration, feature maps, routing maps, and secrets outside `.cursor/automations/benny/` so pack refreshes cannot overwrite them.
-- i want both automations to fail closed when channel coordinates, tracker access, the control adapter, or the feature map are missing or uncertain.
+- i want both automations to fail closed when channel coordinates, tracker access, required verification capabilities, or the feature map are missing or uncertain.
 - i want draft pull requests only. do not merge or deploy.
 
 ### my configuration
@@ -43,7 +43,7 @@ i want two cursor automations that work together in one slack issue channel.
 - tracker: `<type, team, project, labels, intake status>`
 - routing map: `<path or none>`
 - triage identity: `<slack identity>`
-- control skill: `<configured skill or adapter>`
+- verification skill: the project's `verify-<app>` for the target surface, or `verify-this` if none matches
 - feature map: `<committed same-repo path outside the copied pack, or behavior to paraphrase>`
 - models: `<triage, reproduce, code, media review>`
 - status emoji strings: `<seen, reproducing, reproduced, blocked, fixing, failed, pull request opened>`

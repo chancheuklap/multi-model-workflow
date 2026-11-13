@@ -1,12 +1,10 @@
 # Control-adapter contract
 
-Benny does not know how to start or drive every app. The user must configure one control skill or adapter that implements this contract for the target app.
-
-Set its skill name in `control.skill_name`.
+Use the target project's `verify-<app>` for the reported UI. If no project skill covers it, use `verify-this`. Setup records the selected name in `control.skill_name`. Use the skill and its driving tools for the capabilities below.
 
 Set the completed user-facing feature map path in `control.feature_map_path`. Copy and fill [`feature-map.example.md`](./feature-map.example.md) outside `.cursor/automations/benny/` instead of editing the copied example.
 
-If the skill, feature map, or a required capability is absent, ambiguous, or incomplete, repro and fix work must fail closed.
+If the selected skill, feature map, or a required capability is absent, ambiguous, or incomplete, repro and fix work must fail closed.
 
 ## Required capabilities
 

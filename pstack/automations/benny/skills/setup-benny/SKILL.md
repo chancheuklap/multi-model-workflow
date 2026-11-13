@@ -1,6 +1,6 @@
 ---
 name: setup-benny
-description: Configure Benny and prepare its triage and repro automations. Use when installing Benny or changing its Slack, tracker, repository, routing, control, model, or budget settings.
+description: Configure Benny and prepare its triage and repro automations. Use when installing Benny or changing its Slack, tracker, repository, routing, verification, model, or budget settings.
 disable-model-invocation: true
 ---
 
@@ -102,7 +102,6 @@ Ask for or confirm:
 - Issue tracker type, team, project, labels, and intake status
 - Tracker adapter skill or connected tracker tools
 - Optional routing map path
-- Required control skill name
 - Required user-facing feature-map path
 - Status emoji strings
 - Pull request URL format
@@ -111,7 +110,7 @@ Ask for or confirm:
 
 Use only models available to the deployed automations. Do not guess a slug and do not carry over a private default.
 
-The source channel, triage identity, repository, tracker adapter, control skill, and feature map must be explicit. Fail setup if any required value stays ambiguous.
+Set `control.skill_name` to the project's `verify-<app>` for the target UI, or `verify-this` if none matches. The source channel, triage identity, repository, tracker adapter, and feature map must be explicit. Fail setup if any required value stays ambiguous.
 
 Use pstack's `unslop` skill on the final automation names, descriptions, and prompt shims before saving them.
 
@@ -131,7 +130,7 @@ The repro automation needs:
 - Optional post and edit access in the configured operations channel
 - Repository read and history access
 - A pull request action that can open a draft pull request
-- The configured control-adapter skill
+- The selected verification skill and the tools it uses to drive the real app
 
 Prefer the automation's configured Slack connection for reads and posts. The optional `BENNY_SLACK_BOT_TOKEN` may fill a narrow gap such as editing one operations status message or downloading an attachment. Store the value in a secret manager or environment, not in YAML.
 
@@ -148,11 +147,11 @@ If the user wants reroutes or owner pings:
 
 If no routing map is configured, triage may classify a report but must not guess a destination or owner.
 
-## 6. Verify the control adapter
+## 6. Check the verification skill
 
 Read `../reproduce-and-fix-issues/references/control-adapter.md` and the user's completed feature map.
 
-Confirm that the named skill can:
+Using the selected skill and its driving tools, confirm you can:
 
 - Bring up the target app
 - Navigate every mapped feature through the real UI
@@ -203,7 +202,7 @@ After handing off the triage draft, prepare the repro and fix draft:
 - Trigger on the same new top-level reports in the configured source Slack channel.
 - Use the configured repository and default branch.
 - Read the source thread and reply only inside it.
-- Include pull request creation and the configured tracker, control-adapter, and feature-map requirements. Paraphrase mapped user paths and states unless the feature map is committed on the branch the automation will run.
+- Include pull request creation and the configured tracker, verification skill, and feature-map requirements. Paraphrase mapped user paths and states unless the feature map is committed on the branch the automation will run.
 - Wait for a trusted triage marker before acting.
 - Reproduce the exact symptom twice through the mapped real UI and capture evidence.
 - Verify an existing fix without authoring over it.
@@ -212,7 +211,7 @@ After handing off the triage draft, prepare the repro and fix draft:
 
 ### Existing automations
 
-Finish configuration, routing, control-adapter, and feature-map validation. Then give the user this concise editor checklist.
+Finish configuration, routing, verification skill, and feature-map validation. Then give the user this concise editor checklist.
 
 For the existing triage automation, update:
 
@@ -231,7 +230,7 @@ For the existing repro automation, update:
 - Repository and default branch
 - Slack thread read and reply capabilities
 - Pull request action
-- Tracker, control-adapter, and feature-map requirements
+- Tracker, verification skill, and feature-map requirements
 - Paraphrased marker wait, evidence, verification, and bounded-fix instructions
 
 Ask the user to update each existing automation directly in its Automations editor. Do not create replacements or duplicates.
