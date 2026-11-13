@@ -9,6 +9,9 @@ An investigation can explain how code runs, why a decision was made, what a chan
 **Read-only investigation**:
 A task whose result is a cited explanation or, for a choice between alternatives, a recommendation with trade-offs. The Investigation playbook uses the current code to explain behavior and adds a historical search when the question concerns motivation.
 
+**Research report**:
+A dated answer to a specific question with each claim tied to a primary source. It identifies what remains unverified and gives the caller access to its supporting attachments. A research ticket links the report so a later session can use the evidence. [research](../../../skills/research/SKILL.md) · [Wayfinder decisions](../planning-and-tickets/GLOSSARY.md#wayfinder-decisions)
+
 **Mechanics**:
 What the code does now, including the trigger, the path through the code, the data passed between components, and the outcome. Under *Read Before You Conclude*, the investigator reads the relevant passage and its callers before describing the behavior. When a rule spans agents, that path includes their handoffs. If the conclusion depends on an unread part, the account identifies what the investigator observed and what they inferred. [principle-read-before-you-conclude](../../../skills/principle-read-before-you-conclude/SKILL.md)
 

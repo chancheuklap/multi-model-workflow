@@ -35,7 +35,7 @@ use [poteto-mode](./skills/poteto-mode/SKILL.md) at the start of a task. it open
 
 ### just use [poteto-mode](./skills/poteto-mode/SKILL.md)
 
-this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-three playbooks:
+this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-four playbooks:
 
 ```
 /poteto-mode this pr has a subtle bug where the scroll drifts every 750ms even when idle. repro
@@ -48,7 +48,7 @@ morning.
 ```
 
 <details>
-<summary>the twenty-three playbooks</summary>
+<summary>the twenty-four playbooks</summary>
 
 | playbook | for |
 |---|---|
@@ -61,6 +61,7 @@ morning.
 | [feature](./skills/poteto-mode/playbooks/feature.md) | new or changed behavior, built from a named data shape. |
 | [refactoring](./skills/poteto-mode/playbooks/refactoring.md) | a behavior-preserving change to structure or shape. |
 | [prototype](./skills/poteto-mode/playbooks/prototype.md) | a throwaway sketch to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it. |
+| [wayfinder](./skills/poteto-mode/playbooks/wayfinder.md) | chart unresolved decisions across sessions on a GitHub map, or continue from a decision ticket. |
 | [visual parity](./skills/poteto-mode/playbooks/visual-parity.md) | pixel-exact ui equivalence between two implementations. |
 | [authoring a skill](./skills/poteto-mode/playbooks/authoring-a-skill.md) | writing or editing a SKILL.md. |
 | [eval](./skills/poteto-mode/playbooks/eval.md) | test how a skill or prompt change affects agent behavior, blinded. |
@@ -123,7 +124,10 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [interrogate](./skills/interrogate/SKILL.md) | you have a diff and want different models to try to break it, keeping only findings a run proves. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |
 | [make-bot-ui](./skills/make-bot-ui/SKILL.md) | you want a page or dashboard whose buttons wake a Grok Bot over a webhook, including the sender-key handoff and Tailscale. |
-| [to-spec](./skills/to-spec/SKILL.md) | turn an existing discussion into a spec on its GitHub work issue. |
+| [grilling](./skills/grilling/SKILL.md) | work through a design question with the operator, one decision at a time. |
+| [domain-modeling](./skills/domain-modeling/SKILL.md) | sharpen the project's terms and record settled meanings and architectural decisions. |
+| [research](./skills/research/SKILL.md) | investigate a question against primary sources and return a cited report. |
+| [to-spec](./skills/to-spec/SKILL.md) | turn an existing discussion or map into a spec on its GitHub work issue. |
 | [to-tickets](./skills/to-tickets/SKILL.md) | open or update a GitHub work issue, or split agreed scope into independently verifiable tickets. |
 | [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) | explain a subject with large visuals and enough text to understand the details. |
 | [html](./skills/html/SKILL.md) | build a self-contained HTML artifact. use [html-wireframe](./skills/html-wireframe/SKILL.md) for layout, [html-prototype](./skills/html-prototype/SKILL.md) for a mockup or interactive prototype, [html-plan](./skills/html-plan/SKILL.md) for an HTML plan, or [html-diagram](./skills/html-diagram/SKILL.md) for relationships. |
@@ -257,7 +261,7 @@ thirty-two short skills, one principle each. [poteto-mode](skills/poteto-mode/SK
 Each link opens the instructions bundled with this copy.
 
 - From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. [Team Kit license](./licenses/cursor-team-kit.txt)
-- [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
+- [Wayfinder](./skills/poteto-mode/playbooks/wayfinder.md), the [Prototype methods](./skills/poteto-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
 - From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills.
 - The HTML skills come from MMW v5 Cloud. [to-spec](./skills/to-spec/SKILL.md) uses [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) to present the whole spec in HTML. [ketchup](./skills/ketchup/SKILL.md) uses [html](./skills/html/SKILL.md) for charts. [Plannotator license](./skills/html/LICENSE)
 
@@ -265,7 +269,9 @@ Overnight runs need a watcher or timer that can wake the agent. Inside [poteto-m
 
 ## when do i need a spec, a plan, or tickets?
 
-use [to-spec](./skills/to-spec/SKILL.md) to record the agreed behavior. [multi-phase plan](./skills/poteto-mode/playbooks/multi-phase-plan.md) describes what each phase should achieve, what it depends on, and how to verify it. [to-tickets](./skills/to-tickets/SKILL.md#split) splits that plan into independently assignable tickets with acceptance criteria and direct blockers. you can also request tickets directly from a settled discussion or spec.
+ask for [Wayfinder](./skills/poteto-mode/playbooks/wayfinder.md) to chart a direction across sessions or resume from its map or a decision ticket. once the questions are settled, give the map to [to-spec](./skills/to-spec/SKILL.md) to write the spec.
+
+use [to-spec](./skills/to-spec/SKILL.md) to record the agreed behavior. [multi-phase plan](./skills/poteto-mode/playbooks/multi-phase-plan.md) describes what each phase should achieve, what it depends on, and how to verify it. [to-tickets](./skills/to-tickets/SKILL.md#split) splits that plan into independently assignable tickets with acceptance criteria and direct blockers. you can also request tickets directly from an agreed spec.
 
 for a standalone problem with one outcome, reuse the original issue as the ticket. the spec issue is the direct parent of the plan issue and each execution ticket. each ticket drawn from the plan links to it. once you authorize execution, the agent writing the code receives its ticket. each code ticket gets its own PR. the PR links to the ticket, and the ticket records the PR URL. the [issue template](./skills/to-tickets/SKILL.md#issue-template) covers the first report through the verified result.
 

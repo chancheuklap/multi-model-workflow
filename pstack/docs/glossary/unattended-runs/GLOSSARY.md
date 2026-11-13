@@ -73,7 +73,7 @@ The operator's zero-writes order to every Autopilot owner. Owners report their s
 ### The decision trail
 
 **Decision trail**:
-The append-only decision log the operator can audit after a run. Each row names its time, phase, decision, reason, evidence pointer, and result. A correction adds a row that supersedes the original. A hillclimb uses an attempt log with measured results. [Hillclimb experiments](../performance/GLOSSARY.md#hillclimb-experiments)
+The record of decisions the operator can audit after a run. In an unattended execution, it is an append-only log. Each row names its time, phase, decision, reason, evidence pointer, and result. A correction adds a row that supersedes the original. Wayfinder keeps its trail across sessions in the map index and the linked decision tickets. A hillclimb uses an attempt log with measured results. [Hillclimb experiments](../performance/GLOSSARY.md#hillclimb-experiments)
 
 **Run (decision trail)**:
 One agent conversation, including later turns and context summaries. A replacement agent, a pickup, or a new chat starts a new run, even when the same task and decision trail continue.

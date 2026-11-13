@@ -1,6 +1,6 @@
-# Split a discussion, spec or plan
+# Split a spec or plan
 
-Break a plan, spec, or conversation into **execution tickets**. Each ticket delivers one independently verifiable outcome and names its direct blockers.
+Break a spec or plan into **execution tickets**. Each ticket delivers one independently verifiable outcome and names its direct blockers.
 
 ## From a checked plan
 
@@ -12,9 +12,9 @@ Read the checked plan, its source spec or agreed scope, and any existing tickets
 
 Check the breakdown against the plan. Each remaining change belongs to one ticket, and every ticket identifies its source and how to prove its result. Reuse matching tickets. If the evidence already demonstrates every outcome, return it. Otherwise continue at **Draft the tickets**.
 
-## From a spec or discussion
+## From a spec
 
-Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments. If a plan was requested, or the approach, dependencies or checks across phases still need planning, use the existing plan or run [Multi-phase plan](../../poteto-mode/playbooks/multi-phase-plan.md) for the plan alone. Resume at **From a checked plan**, or draft the agreed ticket directly if the playbook skips the plan for an obvious change. If the operator requests tickets directly from settled scope, identify the slices below.
+Work from the agreed spec and the discussion behind it. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments. If a plan was requested, or the approach, dependencies or checks across phases still need planning, use the existing plan or run [Multi-phase plan](../../poteto-mode/playbooks/multi-phase-plan.md) for the plan alone. Resume at **From a checked plan**, or draft the agreed ticket directly if the playbook skips the plan for an obvious change. If the operator requests tickets directly from the spec, identify the slices below.
 
 If you have not already explored the codebase, use [how](../../how/SKILL.md) for the area these tickets will change. Use [principle-anchor-every-reference](../../principle-anchor-every-reference/SKILL.md) for ticket titles and descriptions, and respect ADRs in the area you're touching.
 
@@ -53,7 +53,7 @@ For a draft-only request, return the proposed breakdown. Get the operator's appr
 
 For a standalone problem with one agreed result and no separate spec or multi-phase plan, publish the reviewed ticket on the same work issue with `mmw:ticket` and its queue label. Read it back and return its URL.
 
-For work drawn from a spec or plan, or for several results, use the spec issue as the parent. Use Open in [to-tickets](../SKILL.md#open) to publish the spec or checked plan if needed. In each ticket drawn from the plan, link its plan issue and name the phase or outcomes that ticket delivers.
+For work drawn from a spec or plan, use the spec issue as the parent. Publish a reviewed spec with [to-spec](../../to-spec/SKILL.md#publish) or a checked plan with Open in [to-tickets](../SKILL.md#open) if needed. In each ticket drawn from the plan, link its plan issue and name the phase or outcomes that ticket delivers.
 
 Publish child tickets in dependency order (blockers first) so you can link each ticket to its direct blockers. Reuse each matching execution ticket or open one for that outcome. Each ticket carries `mmw:ticket` and its queue label. Attach each as a direct GitHub sub-issue of the spec issue. Set GitHub's native **Blocked by** relationship for each direct blocker.
 

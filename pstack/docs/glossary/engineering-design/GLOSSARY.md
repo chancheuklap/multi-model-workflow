@@ -78,7 +78,14 @@ Several modules write the same state or maintain copies that must agree. Under S
 ### Domain rules and types
 
 **Domain model**:
-The data structures that express the rules and relationships of the system being changed. Under Model the Domain, a state machine can replace flags that must stay synchronized, or a registry can replace the same choice repeated across callers. A change earns the extra structure when it removes duplicated rules, invalid states, or branches.
+The concepts, rules and relationships of the system being changed. [domain-modeling](../../../skills/domain-modeling/SKILL.md) settles what those terms mean with the operator and records them in the project's glossary. The data structures express those rules in code. Under Model the Domain, a state machine can replace flags that must stay synchronized, or a registry can replace the same choice repeated across callers. A change earns the extra structure when it removes duplicated rules, invalid states, or branches.
+
+**Architecture decision record (ADR)**:
+The record of an architectural choice and its reason. A decision warrants an ADR when it is hard to reverse, would surprise a future reader without context, and involved a real trade-off. [domain-modeling](../../../skills/domain-modeling/SKILL.md#offer-adrs-sparingly)
+
+**Design tree**:
+A design discussion organized by which decisions depend on which answers. Its *frontier* is the set of questions whose prerequisites are settled. The operator considers one question at a time. [grilling](../../../skills/grilling/SKILL.md)
+_Avoid_: decision frontier for this set when discussing the separately claimable GitHub tickets on a Wayfinder map.
 
 **Boundary validation**:
 The conversion of external input into a domain type where it enters the system. Under Boundary Discipline, internal code can then rely on the established guarantee. Code handles an error where it can recover or translate the error for its caller.

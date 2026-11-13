@@ -85,8 +85,11 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Vet a performance number before reporting or acting on it | [benchmark-checklist](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change, or one to review after stepping away | [figure-it-out](../figure-it-out/SKILL.md) |
 | Keep a decision log during a run, and review it afterward | [show-me-your-work](../show-me-your-work/SKILL.md) |
-| Turn an existing discussion into a published spec | [to-spec](../to-spec/SKILL.md) |
-| Open or update a GitHub work issue, or draft execution tickets from a plan, spec, or discussion | [to-tickets](../to-tickets/SKILL.md) |
+| Discuss a design tree one decision at a time | [grilling](../grilling/SKILL.md) |
+| Settle the project's domain terms and record them in its glossary | [domain-modeling](../domain-modeling/SKILL.md) |
+| Investigate a question against primary sources and return a cited report | [research](../research/SKILL.md) |
+| Turn an existing discussion or a Wayfinder map into a published spec | [to-spec](../to-spec/SKILL.md) |
+| Open or update a GitHub work issue, or draft execution tickets from a spec or plan | [to-tickets](../to-tickets/SKILL.md) |
 | Pick a model for each role and a reasoning budget | [setup-pstack](../setup-pstack/SKILL.md) |
 | Turn their own working habits into a personal mode skill | [automate-me](../automate-me/SKILL.md) |
 | Turn what a finished task taught into skill edits | [reflect](../reflect/SKILL.md) |
@@ -115,6 +118,7 @@ Other skill providers:
 Playbooks are step lists inside [poteto-mode](../poteto-mode/SKILL.md), not skills, so they have no slash command. Inside [poteto-mode](../poteto-mode/SKILL.md), describing the task picks one, and these phrases name one directly:
 
 - "babysit this pr" or "check on pr 123" runs Babysit. It drives the PR to merge-ready and stops there. It doesn't merge unless the user asks to merge, land, or ship.
+- "use Wayfinder to map the open decisions" or "continue Wayfinder with this decision ticket" runs [Wayfinder](../poteto-mode/playbooks/wayfinder.md).
 - "land the stack" runs Shipping.
 - "take over this branch" runs Session pickup.
 - "pause safely" runs Pause safely.

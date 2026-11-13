@@ -7,7 +7,7 @@ Here's what you'll learn:
 1. [Set up pstack](./01-setup.md). Install the plugin and pick your models.
 2. [Route work through `/poteto-mode`](./02-poteto-mode.md). Give it a goal and watch it pick a playbook.
 3. [Understand the code](./03-understand.md). A read-only investigation, then [how](../../skills/how/SKILL.md), [why](../../skills/why/SKILL.md), [teach](../../skills/teach/SKILL.md), and [recall](../../skills/recall/SKILL.md) before you edit anything.
-4. [Design the change](./04-design.md). [architect](../../skills/architect/SKILL.md), [arena](../../skills/arena/SKILL.md), [swarm](../../skills/swarm/SKILL.md), [interrogate](../../skills/interrogate/SKILL.md), prototypes, and plans before code locks in a shape.
+4. [Design the change](./04-design.md). [architect](../../skills/architect/SKILL.md), [arena](../../skills/arena/SKILL.md), [swarm](../../skills/swarm/SKILL.md), [interrogate](../../skills/interrogate/SKILL.md), prototypes, cross-session decisions with [Wayfinder](../../skills/poteto-mode/playbooks/wayfinder.md), and plans before code locks in a shape.
 5. [Build and clean the change](./05-build-and-clean.md). The build playbooks, [tdd](../../skills/tdd/SKILL.md), [unslop](../../skills/unslop/SKILL.md), and [no-comments](../../skills/no-comments/SKILL.md).
 6. [Verify and ship](./06-verify-and-ship.md). Prove behavior on the real app, formally verify what tests rarely reach, vet numbers with [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md), then open a focused PR and drive it to merged.
 7. [Run work while you sleep](./07-overnight.md). Trust before loops, an overnight contract, a decision log you can audit, and Projects and automations that scale past one agent.

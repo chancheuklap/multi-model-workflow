@@ -57,7 +57,7 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 The operator's saved assignments of models and settings to roles, normally in `~/.agents/pstack-models.md`. Nested delegates receive the same rule or the role lines they need. An assignment that cannot run leaves an unfilled role.
 
 **Model role**:
-A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, and `judgment and prose` covers writing and judgment. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
+A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, and `judgment and prose` covers writing and judgment. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
 
 **Reasoning budget**:
 The operator's target reasoning level. The targets for `unlimited`, `large`, `medium`, and `small` are `max`, `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.

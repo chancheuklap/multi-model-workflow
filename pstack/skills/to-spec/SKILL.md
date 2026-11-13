@@ -1,15 +1,15 @@
 ---
 name: to-spec
-description: "Turn the current conversation into a spec and publish it to the GitHub work issue: no interview, just synthesis of what you've already discussed."
+description: "Turn a discussion or the decisions on a settled Wayfinder map into a spec and publish it to the GitHub work issue: no interview, just synthesis of what you've already discussed."
 ---
 
 # To spec
 
-Use Open in [to-tickets](../to-tickets/SKILL.md#open) to open or reuse the work issue.
+Use Open in [to-tickets](../to-tickets/SKILL.md#open) to open or reuse the work issue for this spec. When given a Wayfinder map, link it as a source and use a separate work issue for the spec.
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
-A spec is the text the operator checks before agents build from it unattended: whatever it leaves open, the implementing agent decides alone, and whatever it states is built as written, including what nobody decided. So record decisions rather than make them. An engineering call the sources leave open (a module boundary, a data shape, the choice of test seam) is yours: make it and mark it "this spec's decision". Use [principle-never-block-on-the-human](../principle-never-block-on-the-human/SKILL.md) for the decisions the sources leave open. Before publishing, raise any decision only the operator can make. Read a supplied issue with its full body and comments.
+A spec is the text the operator checks before agents build from it unattended: whatever it leaves open, the implementing agent decides alone, and whatever it states is built as written, including what nobody decided. So record decisions rather than make them. An engineering call the sources leave open (a module boundary, a data shape, the choice of test seam) is yours: make it and mark it "this spec's decision". Use [principle-never-block-on-the-human](../principle-never-block-on-the-human/SKILL.md) for the decisions the sources leave open. Before publishing, raise any decision only the operator can make. Read a supplied issue with its full body and comments. When the source is a Wayfinder map, follow `Decisions so far` to the relevant decision tickets and read `Result` in their bodies. Read the original report, evidence, approved prototypes and scope exclusions before drafting.
 
 ## Process
 
@@ -27,13 +27,13 @@ Choose the test seam yourself.
 
 4. Use [big-pics-little-words](../big-pics-little-words/SKILL.md) to visualize the whole spec.
 
-For a spec alone, stop after showing it. If the operator requests a plan, or the approach, dependencies or checks across phases still need planning, run [Multi-phase plan](../poteto-mode/playbooks/multi-phase-plan.md) with the work issue and reviewed spec. Pass the reviewed text when the spec is a draft. Tell the playbook if tickets were also requested. For tickets requested directly from settled scope, give [to-tickets](../to-tickets/SKILL.md#split) the spec and work issue.
+For a spec alone, stop after showing it. If the operator requests a plan, or the approach, dependencies or checks across phases still need planning, run [Multi-phase plan](../poteto-mode/playbooks/multi-phase-plan.md) with the work issue and reviewed spec. Pass the reviewed text when the spec is a draft. Tell the playbook if tickets were also requested. For tickets requested directly from the spec, give [to-tickets](../to-tickets/SKILL.md#split) the spec and work issue.
 
 ## Publish
 
-Run [ambiguity-scan](../ambiguity-scan/SKILL.md) at the **Spec** stage with the complete draft and the discussion it came from. Use the report when settling the draft. If the scope came from an approved plan, reuse the agreed scope and link its plan issue when available. For a draft-only request, return the reviewed draft.
+Run [ambiguity-scan](../ambiguity-scan/SKILL.md) at the **Spec** stage with the complete draft and the discussion it came from, including any source decisions and approved prototypes. Use the report when settling the draft. If the scope came from an approved plan, reuse the agreed scope and link its plan issue when available. For a draft-only request, return the reviewed draft.
 
-Use Update in [to-tickets](../to-tickets/SKILL.md#update) to publish the spec on the same work issue with `mmw:spec`. Preserve the original report and its evidence. Read the work issue back to confirm the spec text and the issue labels. Return the issue URL to the calling step.
+Use Update in [to-tickets](../to-tickets/SKILL.md#update) to publish the spec on the work issue returned by Open. Set its type to `mmw:spec`. Preserve the original report and its evidence. Read the work issue back to confirm the spec text and the issue labels. When the source is a Wayfinder map, link it from the spec issue and add the published spec link to the map's `Destination`. Close the map if the published spec fulfills its destination. Return the issue URL to the calling step.
 
 <spec-template>
 

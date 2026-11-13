@@ -70,6 +70,12 @@ Reach for it when parallelism buys coverage or lets independent checks race. [ar
 
 Read the Dropped list too. You can override the verdict.
 
+## Settle decisions across sessions
+
+Suppose you're deciding how a desktop app should update while a job is running. The restart rule, the update prompt and recovery may each need a conversation. Ask the main chat to chart those questions with [Wayfinder](../../skills/poteto-mode/playbooks/wayfinder.md). It creates a map and a decision ticket for each question you can already state.
+
+In a new chat, ask `/poteto-mode` to continue Wayfinder with the prototype ticket for the restart rule. The chat follows it to the map, claims the question and gives you a demo to try. The ticket body records your choice and links the demo. If you step away before choosing, the ticket stays open. Once the map's questions are settled, give it to [to-spec](../../skills/to-spec/SKILL.md) to write the spec. If the behavior is already agreed, start with the spec or plan you need.
+
 ## Prototype instead of debating
 
 Never take the first design. Ask for a few, and pick from evidence you can see:
@@ -78,7 +84,7 @@ Never take the first design. Ask for a few, and pick from evidence you can see:
 /poteto-mode prototype a few options for the new dropdown menu. take screenshots or videos for me to compare.
 ```
 
-The [Prototype playbook](../../skills/poteto-mode/playbooks/prototype.md) builds throwaway sketches in a scratch directory, puts the variants behind one switcher, drives each one, and captures screenshots or timings. It also works for behavior and algorithms, not just UI. Prototypes are planning with code. They let the agent answer its own open questions by running something instead of asking you, and they leave room for an option you wouldn't have thought of.
+The [Prototype playbook](../../skills/poteto-mode/playbooks/prototype.md) builds throwaway sketches in a scratch directory, puts the variants behind one switcher, drives each one, and captures screenshots or timings. To try business rules, you can open a single HTML file and drive the state transitions yourself. To compare layouts against an existing page, switch between them on that route in an isolated worktree. If the question arose in a discussion, the same chat resumes it with the result. It also works for behavior and algorithms, not just UI. Prototypes are planning with code. They let the agent answer its own open questions by running something instead of asking you, and they leave room for an option you wouldn't have thought of.
 
 The same idea scales up to a real design. Pair [architect](../../skills/architect/SKILL.md) with prototypes and keep a review gate:
 
@@ -110,7 +116,7 @@ The [Multi-phase plan playbook](../../skills/poteto-mode/playbooks/multi-phase-p
 
 When you request tickets, [to-tickets](../../skills/to-tickets/SKILL.md#split) splits the remaining plan into independently assignable outcomes. Each execution ticket is a direct child of the spec issue. It links the plan issue, names the relevant phase or outcomes, states its acceptance criteria and names its direct blockers. A standalone problem with one deliverable uses the original issue as its ticket. Once you authorize execution, the agent writing the code receives the ticket and its assignment. Each code ticket links to its corresponding PR and the PR links back. A human action or an investigation can finish with evidence on the issue.
 
-You can also ask [to-tickets](../../skills/to-tickets/SKILL.md#issue-template) to draft tickets directly from a settled discussion or spec. If the approach, dependencies or checks across phases still need planning, the main chat runs the planning playbook first.
+You can also ask [to-tickets](../../skills/to-tickets/SKILL.md#issue-template) to draft tickets directly from an agreed spec. If the approach, dependencies or checks across phases still need planning, the main chat runs the planning playbook first.
 
 For a migration, state the bar in the prompt:
 

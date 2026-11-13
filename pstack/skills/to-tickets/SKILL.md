@@ -1,29 +1,29 @@
 ---
 name: to-tickets
-description: Open or update a GitHub work issue from the first report through the result. Draft one execution ticket or break a plan, spec, or discussion into independently verifiable tickets with their direct blockers.
+description: Open or update a GitHub work issue from the first report through the result. Draft one execution ticket or break a spec or plan into independently verifiable tickets with their direct blockers.
 ---
 
 # To Tickets
 
-Use Open for a new repository task or to publish a checked plan, Update as the work progresses, and Split to turn a checked plan, an agreed spec, or a settled discussion into tickets. All three use the [issue template](#issue-template).
+Use Open for a new repository task or to publish a checked plan, Update as the work progresses, and Split to turn a checked plan or an agreed spec into tickets. All three use the [issue template](#issue-template).
 
 ## Open
 
-If the caller supplies only an open PR, follow its execution ticket link. Read the supplied or linked issue and its comments. If neither the input nor the PR identifies the team's work issue, look for one that covers the same outcome. Reuse the matching work issue on follow-ups and retries. When the source is somebody else's report, link it from the team's work issue. Leave the reporter's issue intact.
+If the caller supplies only an open PR, follow its execution ticket link. Read the supplied or linked issue and its comments. Find and reuse the team's work issue that tracks the requested outcome, including on follow-ups and retries. Link separate source issues from that work issue. Leave the reporter's issue intact.
 
 If there is no work issue yet, open one with what is known now. A problem can start with just its title, type label, and Problem. Include evidence already at hand.
 
-For an already agreed assignment, draft an execution ticket and open its reviewed body directly with the approved scope, labels and relationships. Read back the issue and return its URL.
+For an already agreed implementation or delivery assignment, draft an execution ticket and open its reviewed body directly with the approved scope, labels and relationships. Read back the issue and return its URL.
 
-When publishing a plan or child tickets, use the spec issue as their parent. If the spec is unpublished, publish the reviewed draft on the original work issue, or call [to-spec](../to-spec/SKILL.md) for the spec alone if it still needs writing. For a checked plan, open or update its plan issue under that spec using the [Plan](#plan) field. Read back the plan issue and its parent, then return the plan issue URL.
+To publish a checked plan, open or update its plan issue under the spec whose scope it covers, using the [Plan](#plan) field. If the spec is unpublished, publish the reviewed draft on the work issue for that spec, or call [to-spec](../to-spec/SKILL.md) for the spec alone if it still needs writing. Read back the plan issue and its parent, then return the plan issue URL.
 
 ## Update
 
-Use the same issue whenever the work materially changes. Keep the current findings, agreed work and outcome in the body. Add a comment for new evidence, discussion and the decision it produced, or a change of direction and why. When work changes hands, record who took which assignment and what remained. Link the comment from the body when it holds the evidence or reasoning. Use links the next agent and the operator can open.
+Update the issue for that outcome whenever the work materially changes. Keep the current findings, agreed work and outcome in the body. On a Wayfinder decision ticket, keep the discussion in comments and write the answer under Result. On other issues, add a comment for new evidence, discussion and the decision it produced, or a change of direction and why. When work changes hands, record who took which assignment and what remained. Link the comment from the body when it holds the evidence or reasoning. Use links the next agent and the operator can open.
 
-When a standalone problem becomes one independently verifiable deliverable, draft the execution ticket on that issue using the template below. Keep the original report and evidence. Once its scope is approved, publish the reviewed draft on the same issue as `mmw:ticket`. Use the same drafting step when its execution scope changes. For several deliverables, use [Split](#split).
+When a standalone problem becomes one independently verifiable deliverable, draft the execution ticket on that issue using the template below. Keep the original report and evidence. Once its scope is approved, publish the reviewed draft on the same issue as `mmw:ticket`. Use the same drafting step when its execution scope changes. For several deliverables, use [Split](#split) with their spec or plan.
 
-Change only labels that describe this workflow. Create a missing label on first use. Read back the changed body, comment or labels. Return a `ready-for-agent` ticket to the execution playbook when its direct blockers clear. Close at the outcome the issue calls for. For a requested merge, record a verified stack handed to the operator as awaiting merge. Close the parent issue when its child tickets have delivered the agreed outcomes.
+Change only labels that describe this workflow. Create a missing label on first use. Read back the changed body, comment or labels. Return a `ready-for-agent` ticket to the execution playbook when its direct blockers clear. Close at the outcome the issue calls for. For a requested merge, record a verified stack handed to the operator as awaiting merge. Close a parent when its requested outcome and the required child outcomes are complete.
 
 ## Draft an execution ticket
 
@@ -35,17 +35,17 @@ When the draft is ready, run [ambiguity-scan](../ambiguity-scan/SKILL.md) at the
 
 ## Issue template
 
-Use the same template for a question, a spec issue, a plan issue, a standalone execution ticket, and a child ticket. Include every **Must have** field. Add an **Optional** section when its condition holds. Publish the filled headings and content, without annotations or empty sections.
+Use the same template for every work issue. Include every **Must have** field. Add an **Optional** section when its condition holds. Publish the filled headings and content, without annotations. Omit empty optional sections.
 
 <issue-template>
 
 **Title (GitHub field). Must have.** Name the affected behavior, the question to answer, or the outcome this ticket delivers.
 
-**Labels (GitHub field). Must have.** Keep one type label. Use `mmw:problem` during intake and investigation, `mmw:spec` for a spec issue, `mmw:plan` for a plan issue, and `mmw:ticket` for an execution ticket. Spec and plan issues have no queue label. An execution ticket carries `ready-for-agent` for agent work or `ready-for-human` for a human action. Use `needs-triage` when a problem or ticket awaits the operator's decision. Use one queue label at a time.
+**Labels (GitHub field). Must have.** Keep one type label. Use `mmw:problem` during intake and investigation, `mmw:spec` for a spec issue, `mmw:plan` for a plan issue, and `mmw:ticket` for an execution ticket. Use `mmw:map` for a Wayfinder map. A decision ticket takes one of `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling` or `wayfinder:task`. Maps and decision tickets have no queue label, as with spec and plan issues. An execution ticket carries `ready-for-agent` for agent work or `ready-for-human` for a human action. Use `needs-triage` when a problem or execution ticket awaits the operator's decision. Use one queue label at a time.
 
 ## Problem
 
-**Must have.** State what the user observed, wants, or needs answered. Keep the original report when the issue changes purpose. On a child ticket, name the part of the parent problem it resolves. The spec's Problem Statement or the plan's opening paragraph serves this field on its issue.
+**Must have.** State what the user observed, wants, or needs answered. Keep the original report when the issue changes purpose. On a child ticket, name the part of the parent problem it resolves. The spec's Problem Statement or the plan's opening paragraph serves this field on its issue. For a decision ticket, use `Question` as the heading and state the one question it resolves. For a map, use the five headings in the [Wayfinder map body](../poteto-mode/playbooks/wayfinder.md#the-map-body), including those still empty. `Destination` states the outcome.
 
 ## Evidence
 
@@ -79,11 +79,11 @@ When getting it wrong is wrong **silently** (money that has to reach a terminal 
 
 ## Parent
 
-**Must have for a plan issue or a child ticket. Optional otherwise.** Set the spec issue as the direct GitHub parent. The native sub-issue relationship supplies this field on a plan issue. On a child ticket, link the spec and the part of its scope this ticket delivers.
+**Must have for a child issue. Omit for standalone work.** Set the GitHub parent to the issue tracking the larger outcome this work is part of. The native sub-issue relationship supplies this field.
 
 ## Blocked by
 
-**Optional.** Name each direct blocker and the result it supplies. Set GitHub's native **Blocked by** relationship. Omit this section when the relationship already identifies the blockers.
+**Optional.** Set GitHub's native **Blocked by** relationship for each direct blocker: an issue whose result this work needs before it can start. Name the prerequisite result if the link alone does not make it clear.
 
 ## Handoff
 
@@ -91,10 +91,10 @@ When getting it wrong is wrong **silently** (money that has to reach a terminal 
 
 ## Result
 
-**Must have at close. Optional while open.** At handoff, record any result already verified. For a question, give the answer and its evidence. For delivery, state what actually landed or was verified and say what remains. Link the code ticket's PR and its proof. For work completed without a PR, link the artifact or evidence that establishes the result. For a parent issue, link the outcomes of its child tickets.
+**Must have at close. Optional while open.** At handoff, record any result already verified. For a question, give the answer and its evidence. If a decision ticket fell out of scope, record the reason here. On a map, `Destination` links to the delivered outcome and serves as its Result. For delivery, state what actually landed or was verified and say what remains. Link the code ticket's PR and its proof. For work completed without a PR, link the artifact or evidence that establishes the result. For a parent issue, link the outcomes of its child tickets. A map keeps those links in `Decisions so far` or `Out of scope`.
 
 </issue-template>
 
 ## Split
 
-Read [Split a discussion, spec or plan](references/split.md). Start at **From a checked plan** to split its remaining work into tickets, **From a spec or discussion** for tickets requested directly, or **Publish** for reviewed ticket drafts. The operator authorizes execution. The execution playbook assigns the tickets and opens the corresponding PR for each code ticket.
+Read [Split a spec or plan](references/split.md). Start at **From a checked plan** to split its remaining work into tickets, **From a spec** for tickets requested directly from an agreed spec, or **Publish** for reviewed ticket drafts. The operator authorizes execution. The execution playbook assigns the tickets and opens the corresponding PR for each code ticket.

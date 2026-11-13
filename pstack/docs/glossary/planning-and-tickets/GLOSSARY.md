@@ -4,26 +4,40 @@ A spec records what the product should do. A plan describes the work across phas
 
 ## Language
 
+Use the English issue and ticket names in every language. Their titles and descriptions can use the operator's language.
+
 ### The work issue and its scope
 
 **Work issue**:
 The team's GitHub issue for one repository task, from the first report through the result. A question can close with its answer and evidence. The team can link someone else's report from its work issue while the reporter keeps their original issue.
-_Avoid_: ticket as a name for every GitHub issue.
+_Avoid_: ticket as a name for every GitHub issue, 工单, 本地工单, 工作票, 原工作票, 工作 issue, 调查票, 首票, 原票.
+
+**Ticket**:
+The short form when the context already establishes a decision ticket or an execution ticket. Being open, blocked, claimed or standalone describes its state or scope.
+_Avoid_: 票, 单票, 多票, 新票. For actions, use the ticket name in full in place of 开票, 拆票, 领票 or 关票.
 
 **Issue template**:
-The common form for intake, a published spec, a plan issue, an execution ticket, and its final result. The issue body holds the current findings, decisions, and agreed work. Comments retain new evidence and the reasons for a change of direction. Open, Update, and Split are ways [to-tickets](../../../skills/to-tickets/SKILL.md) uses the form at different points in the work.
+The common form for intake, a Wayfinder map or decision ticket, a published spec or plan, an execution ticket, and its result. The issue body holds the current findings, decisions, and agreed work. Comments retain new evidence and the reasons for a change of direction. Open, Update, and Split are ways [to-tickets](../../../skills/to-tickets/SKILL.md) uses the form at different points in the work.
 
 **Type label**:
-The label for the work issue's current purpose. `mmw:problem` identifies intake or investigation, `mmw:spec` a published spec, `mmw:plan` a published plan, and `mmw:ticket` an execution ticket. An issue has one type at a time and keeps its original report and evidence when its purpose changes.
+The label for the work issue's current purpose. `mmw:problem` identifies intake or investigation, `mmw:spec` a published spec, `mmw:plan` a published plan, and `mmw:ticket` an execution ticket. `mmw:map` identifies a map issue. A `wayfinder:<type>` label selects the method for resolving a decision ticket. An issue has one type at a time and keeps its original report and evidence when its purpose changes.
 
 **Spec**:
 The record of the problem, agreed behavior, scope, and decisions that guide implementation and testing. The operator reviews it. An engineering choice the author makes while writing it is identified as "this spec's decision." A reviewed draft can supply a plan before publication.
 
 **Spec issue**:
-The work issue holding the complete published spec. Its `Problem Statement` retains the original report. A spec issue can exist before any tickets are drafted and has no queue label.
+The work issue holding the complete published spec. Its `Problem Statement` retains the original report. A spec issue can exist before any tickets are drafted and has no queue label. When it draws on a Wayfinder map, the two issues link to each other.
+
+**Parent issue**:
+The GitHub issue tracking the larger outcome a sub-issue contributes to. This relationship expresses scope. A source issue or a direct blocker has its own link.
+_Avoid_: 父票.
+
+**Sub-issue**:
+An issue with a GitHub parent. *Child issue* is the same relationship seen from the parent. A decision ticket can be a sub-issue of a map just as a plan issue can be a sub-issue of a spec.
+_Avoid_: 子票.
 
 **Parent spec**:
-The spec containing the agreed scope for a plan or execution tickets. The spec issue is the direct GitHub parent of the plan issue and of each **child ticket** for one assignment. The parent closes when the agreed child outcomes are complete.
+The spec containing the agreed scope for a plan or execution tickets. The spec issue is the direct GitHub parent of the plan issue and of each execution ticket split from its scope. The parent closes when the agreed child outcomes are complete.
 
 **User story**:
 A spec statement of what a product user wants and why. The actor in the story can be someone other than the operator commissioning the work.
@@ -33,6 +47,45 @@ A sentence in a user story that states an outcome a person can observe. The plan
 
 **Agreed work**:
 The ticket's statement of what the assignee will deliver, including the chosen approach and scope boundaries. For a human action it states what the person must do. The `Problem` field retains the observation or request that led to the assignment.
+
+### Wayfinder decisions
+
+**Map issue**:
+The shared GitHub issue for a cross-session exploration. Wayfinder calls it the *map*. It names the destination, holds the working notes and links to the decision tickets. Open questions are its open sub-issues. Completed decisions appear as linked summaries in `Decisions so far`.
+
+**Destination**:
+The outcome that ends this map and determines which questions belong on it. It can be a decision, a spec, or a change the operator authorized in `Notes`.
+
+**Decision ticket**:
+A sub-issue of the map that poses one question small enough for one session. The `Result` in its body records the agreed decision, fact or completed action and its evidence. Its type comes from its `wayfinder:<type>` label.
+_Avoid_: 决策票, 决策子票, 普通决策票, 普通票.
+
+**Research ticket**:
+A decision ticket for a fact outside the working directory. A fresh researcher returns a cited report. Independent research tickets can be resolved together.
+_Avoid_: 研究票, research 票.
+
+**Prototype ticket**:
+A decision ticket that needs a concrete artifact the operator can try or react to. It resolves when the operator makes the choice.
+_Avoid_: prototype 票.
+
+**Grilling ticket**:
+A decision ticket settled by discussing its question with the operator. This is Wayfinder's default type.
+_Avoid_: grilling 票.
+
+**Task ticket**:
+A decision ticket for a prerequisite action, such as obtaining access so an interface can be evaluated. It resolves when the action is done and the resulting facts are recorded.
+
+**HITL / AFK**:
+Who can resolve a decision ticket. A *human-in-the-loop* (HITL) question requires the operator's own answer. The agent can resolve an *AFK* (away from keyboard) ticket while the operator is away. A task ticket can be either.
+
+**Decision frontier**:
+The map's open, unblocked, unclaimed decision tickets. A *claim* is the GitHub assignee set before work starts. Choosing from the frontier leaves a ticket claimed by another session with its assignee.
+_Avoid_: 无阻塞票 or 可并行票 as a type. State which ticket is unblocked or available.
+
+**Fog of war**:
+An in-scope question the session cannot yet phrase precisely enough to put on a decision ticket. It lives in `Not yet specified`. A precise question with an open blocker already qualifies for a ticket. A question beyond the destination belongs in `Out of scope`.
+
+[Wayfinder playbook](../../../skills/poteto-mode/playbooks/wayfinder.md) · [Issue template](../../../skills/to-tickets/SKILL.md#issue-template)
 
 ### Phases and decisions
 
@@ -61,7 +114,11 @@ A fresh, read-only review of the complete draft and its sources at the Spec, Pla
 
 **Execution ticket**:
 An assignment with its own scope, acceptance criteria, and independently verifiable result. A standalone problem with one deliverable uses the original work issue as its ticket. During authorized implementation, a code ticket supplies the scope for its corresponding [pull request](../pull-request-delivery/GLOSSARY.md). A human action or a read-only assignment can finish with evidence on the issue.
-_Avoid_: PR as a synonym for the execution ticket.
+_Avoid_: PR as a synonym for the execution ticket, 执行票, 实施票, 实施 issue. Use *standalone execution ticket* when one issue supplies the entire assignment.
+
+**Code ticket**:
+An execution ticket whose deliverable changes code. Its implementer receives the ticket URL, scope, acceptance criteria and any existing PR URL. Once opened, its one corresponding PR and the ticket link to each other.
+_Avoid_: 代码票, 代码执行票, 修复票 as a ticket type.
 
 **Acceptance criterion**:
 A ticket checkbox pairing an action or check with its expected result. Evidence that the result occurred satisfies the criterion. An [approved prototype](../design-and-presentation/GLOSSARY.md) fixes the part of the result the operator accepted.
@@ -76,14 +133,15 @@ A preparatory change that makes the implementation easier. A shared prerequisite
 One mechanical change whose callers cannot all stay working through separate vertical slices. If the old and new forms must coexist, an **expand–contract** sequence adds the new form, migrates callers in batches, and removes the old form after the last migration. When batches need a shared integration branch, the final integration ticket supplies the combined proof.
 
 **Direct blocker**:
-A ticket that supplies a result another ticket needs before it can start. GitHub records this dependency as **Blocked by**. Two child tickets can share a parent or a phase and still proceed independently.
+An issue that supplies a result another issue needs before it can start. GitHub records this dependency as **Blocked by**. Two child tickets can share a parent or a phase and still proceed independently.
+_Avoid_: 前置票, 直接依赖票.
 
 **Queue label**:
-The single label indicating who can act next. `ready-for-agent` identifies agent work, `ready-for-human` an action for a person, and `needs-triage` a pending operator decision. A problem can also await triage. Spec and plan issues have no queue label.
+The single label indicating who can act next. `ready-for-agent` identifies agent work, `ready-for-human` an action for a person, and `needs-triage` a pending operator decision. A problem can also await triage. Spec issues, plan issues, map issues and decision tickets have no queue label.
 
 **Ticket frontier**:
 The set of open execution tickets whose direct blockers are complete. The execution playbook receives the `ready-for-agent` tickets on this frontier when the operator authorizes work.
-_Avoid_: frontier alone when the [merge frontier](../pull-request-delivery/GLOSSARY.md) could also be meant.
+_Avoid_: frontier alone when the decision frontier or [merge frontier](../pull-request-delivery/GLOSSARY.md) could also be meant.
 
 **Ticket handoff**:
 The record of who takes an assignment and what action comes next. Once a code ticket has an open PR, `Handoff` records the actual PR URL. The closing `Result` records what landed or was verified and its evidence. When the requested outcome is a merge, a verified stack handed to the operator is still awaiting merge.

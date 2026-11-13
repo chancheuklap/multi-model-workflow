@@ -2,32 +2,46 @@
 
 When working on pstack, follow the [pstack glossary map](docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms.
 
-Link a bundled skill by its exact name and the relative path to its `SKILL.md`. Instructions copied outside the bundle use the skill name available to the receiving agent.
-
 ## Bring v5 Cloud methods into pstack
 
-Migrate one item at a time. Keep the v5 Cloud instructions that teach the work. Fit them into pstack's routing and delegation. Read the v5 prompt and the relevant pstack guide in full, then trace the calls to the agent that uses the result. Identify who makes each decision and what they need at that point. [v5 Cloud skills](../mmw-v5-cloud/skills/) · [Routing guide](docs/guide/02-poteto-mode.md) · [Design guide](docs/guide/04-design.md)
+Use this repository's `pstack/` as the base. Migrate one v5 Cloud method at a time into pstack's routing, playbooks and delegation.
 
-When the two editions share a source, compare the v5 wording with the pstack copy and the original passage. Keep the pstack passage when it already does the job. Bring over applicable v5 instructions verbatim. Adapt the lines whose role, inputs or handoff actually change. Follow a conflict into an existing caller or recipient only as far as it affects this migration. [pstack source](../upstream/pstack/) · [Matt Pocock's skills](../upstream/mattpocock/skills/)
+1. Read the v5 skill, its pstack counterpart if one exists, and the relevant guide in full. Trace the calls to the agent that uses the result. Distinguish source requirements, agent judgment and operator decisions. Say where the source leaves a choice open. [v5 Cloud skills](../mmw-v5-cloud/skills/) · [Routing guide](docs/guide/02-poteto-mode.md) · [Design guide](docs/guide/04-design.md)
+2. For a shared upstream, compare the v5 wording, the pstack copy and the original passage. Separate the reusable method from the old v5 routing. Keep pstack wording that already does the job. Decide what to supplement, replace or split, and carry applicable v5 instructions over verbatim. [pstack source](../upstream/pstack/) · [Matt Pocock's skills](../upstream/mattpocock/skills/)
+3. Change only the lines whose responsibility, inputs, route or handoff change. Revisit a previous import or another pstack prompt only for a conflict in this call chain. Reuse an existing step when it already covers the requirement.
+
+For an investigation-only request, report findings. In a proposal, state the decision rule, illustrate it with a distinguishing example and identify what is proposed or already implemented. Honor requests to leave edits uncommitted.
+
+## Write instructions for agents
+
+Write English prompts with the host's installed `writing-for-agents`. Use pstack's authoring guidance for skills and custom modes. Keep one operation's steps together. Use a separate reference for a branch that other callers can skip in full. [Customization guide](docs/guide/09-make-it-yours.md)
+
+Keep a v5 term for a distinct concept. If both editions name the same concept, choose the clearer term for that context. Record each meaning in its domain glossary, qualifying a word that has different meanings across contexts. [pstack glossary map](docs/GLOSSARY-MAP.md)
+
+Use the canonical English names for issues and ticket types in every language, including replies and diagrams. Record discarded translations under `_Avoid_` beside the term they referred to. [Planning and tickets](docs/glossary/planning-and-tickets/GLOSSARY.md)
+
+Link a bundled skill by its exact name and the relative path to its `SKILL.md`. Instructions copied outside the bundle use the skill name available to the receiving agent.
+
+Use one set of instructions across hosts. Specify who acts, the trigger and the required result. Each host uses its available tools. Replace imported `loop` or `automate` calls with the required capability, such as a scheduled wake with the original cadence and stop condition. [Unattended runs](docs/guide/07-overnight.md)
 
 ## Decide where an instruction belongs
 
 | Where | What the instruction decides |
 | --- | --- |
-| Mode | In **Non-negotiables**, name the trigger and the action, route or stop it requires of the main chat, including when two routes overlap. Use **Principles** for decisions a principle changes, **Autonomy** for authorization, **Subagents** for shared delegation rules, and **Writing the reply** and **Comments** for shared style. **Playbooks** indexes routes by the request they serve. |
-| Playbook | How the main chat takes a class of task to its requested result. It owns the order, the condition for calling a method, and the decision to continue, switch paths, hand back or stop. |
-| Skill | How to perform one method on given inputs and produce a result the caller can judge. Its name and description identify when to use it. It can run several steps, call another skill or direct its own subagents. |
+| Mode | **Non-negotiables** gives the main chat the trigger and required action, route or stop, including which route takes precedence. **Principles** names decisions a principle changes, **Autonomy** sets authorization, **Subagents** governs delegation, and **Writing the reply** and **Comments** set shared style. **Playbooks** indexes tasks by requested outcome. |
+| Playbook | How the main chat advances a class of task to delivery. It owns step order, when to call a method and what lets the chat continue, switch, stop or hand off. |
+| Skill | How one method turns given inputs into a result the caller can judge. Its name and description identify when to use it. It can call other skills or direct its own subagents. |
 | Plan or brief | The files, symbols, targets and commands for this particular assignment. Put a fixed command or format in a playbook when its runs depend on that exact form. |
 
-When a prompt mixes workflow and method, split it where the method returns its result. Keep a short local action in the step that needs it. For example, the mode calls for a measurement check before reporting a speedup. **Perf issue** decides when to take the baseline and remeasure. The [benchmark-checklist](skills/benchmark-checklist/SKILL.md) skill checks whether failed requests made the run look faster. **Hillclimb** uses the same method before freezing its benchmark. [poteto-mode](skills/poteto-mode/SKILL.md) · [Perf issue](skills/poteto-mode/playbooks/perf-issue.md) · [Hillclimb](skills/poteto-mode/playbooks/hillclimb.md)
+Split a mixed prompt where the method returns its result. Keep a short local action in its step. Before reporting a speedup, the mode requires a measurement check. **Perf issue** applies it to the baseline. **Hillclimb** applies it before freezing a benchmark. The skill checks whether failed requests made the run look faster. [benchmark-checklist](skills/benchmark-checklist/SKILL.md) · [Perf issue](skills/poteto-mode/playbooks/perf-issue.md) · [Hillclimb](skills/poteto-mode/playbooks/hillclimb.md)
 
-Several workflows reuse **Opening a PR**. Its handoff is the open PR. A request to follow that PR goes to **Babysit**. The [figure-it-out](skills/figure-it-out/SKILL.md) skill supplies a method for designing and running a playbook for one large or unmatched task. **Orchestrate** runs a standing program. [Opening a PR](skills/poteto-mode/playbooks/opening-a-pr.md) · [Babysit](skills/poteto-mode/playbooks/babysit.md) · [Orchestrate](skills/poteto-mode/playbooks/orchestrate.md)
+Read each principle you change in full. Compare the mode index entries and skill descriptions across pstack's principles. Match both styles. Each entry should let an agent recognize when the principle changes a decision, even without an explicit call from another skill. [poteto-mode](skills/poteto-mode/SKILL.md#principles) · [Principles guide](docs/guide/08-principles.md)
 
 ## Write a playbook
 
-Use the input and requested outcome to distinguish the route in the mode's Playbooks index. A request to diagnose a captured startup profile selects **Trace forensics**. A request to fix measured startup slowness selects **Perf issue**. Put the body in `skills/poteto-mode/playbooks/<title>.md` using a lowercase, hyphenated title. Name the file in the index if it differs. [Trace forensics](skills/poteto-mode/playbooks/trace-forensics.md) · [Perf issue](skills/poteto-mode/playbooks/perf-issue.md)
+Route by input and requested outcome. **Trace forensics** diagnoses a captured startup profile. **Perf issue** fixes measured startup slowness. Put the playbook in `skills/poteto-mode/playbooks/<title>.md` using a lowercase, hyphenated title. Give the path in the mode index when the filename differs from that title. [Trace forensics](skills/poteto-mode/playbooks/trace-forensics.md)
 
-Write backward from the handoff. The main chat copies the numbered steps into its checklist and records a reason for a skipped step. Order the steps by the evidence each needs. At a skill call, name the input, the result needed and how the main chat uses it. In the reply, name the artifact, its evidence and anything still open. **Multi-phase plan** returns the checked plan and names the execution playbook. Implementation starts on the operator's go. [Multi-phase plan](skills/poteto-mode/playbooks/multi-phase-plan.md)
+Write backward from the handoff. The main chat uses the numbered steps as its checklist and records reasons for skips. Order steps by the evidence each needs. At a skill call, give the input, the required result and how the main chat uses it.
 
 ```markdown
 ### <Playbook name>
@@ -41,12 +55,20 @@ Write backward from the handoff. The main chat copies the numbered steps into it
 **Reply:** <Deliverable, evidence and open decisions.>
 ```
 
-Write just enough to choose the next step and know when the work is done. **Trace forensics** maps a hot frame to a source location and marks a single capture's finding as a hypothesis. The parser depends on the capture. When a playbook builds on another, write the differences once. **Autopilot-stack** reuses **Autopilot-full** and specifies the stacking rules and the verified handoff to the operator. [Trace forensics](skills/poteto-mode/playbooks/trace-forensics.md) · [Autopilot-stack](skills/poteto-mode/playbooks/autopilot-stack.md)
+Write just enough to choose the next step and recognize completion. **Opening a PR** returns the open PR. **Babysit** follows it. When a playbook builds on another, write only the differences, as **Autopilot-stack** does for stacking and handoff. [Opening a PR](skills/poteto-mode/playbooks/opening-a-pr.md) · [Babysit](skills/poteto-mode/playbooks/babysit.md) · [Autopilot-stack](skills/poteto-mode/playbooks/autopilot-stack.md)
 
 ## Choose the delegate by who defines the work
 
-**Direct playbook delegation.** The main chat runs the playbook, scopes an implementation or helper assignment, and checks the result. Give the `poteto-agent` the goal, scope, completion condition and the absolute path to the mode in its environment. It reads the mode and carries out the assigned step. **Feature** uses this path for a scoped implementation and keeps design and verification with the main chat. [Feature](skills/poteto-mode/playbooks/feature.md) · [poteto-agent role](agents/poteto-agent.md)
+**Direct playbook delegation.** The main chat owns the playbook, defines the assignment and checks the result. Give the `poteto-agent` its goal, scope, completion condition and the absolute path to the mode it must read. **Feature** delegates scoped implementation this way. **Multi-phase plan** delegates read-only lookup the same way. [Feature](skills/poteto-mode/playbooks/feature.md) · [poteto-agent role](agents/poteto-agent.md)
 
-**Delegation inside a skill.** The main chat reads the skill and follows its method. The skill defines each delegate's role, what it receives, what it returns and how the main chat judges the result. In **Feature**, competing implementations go through [arena](skills/arena/SKILL.md). For a contested design, [interrogate](skills/interrogate/SKILL.md) briefs its own reviewers and has the main chat rerun their commands before accepting findings.
+**Delegation inside a skill.** The skill defines each role, its inputs, its result and how the main chat judges it. **Feature** uses [arena](skills/arena/SKILL.md) for competing implementations. For Spec, Plan or Ticket review, [ambiguity-scan](skills/ambiguity-scan/SKILL.md) briefs one fresh, read-only general-purpose reviewer. It checks the draft against its sources and the stage's writing requirements. It reviews a ticket batch as a whole.
 
-Read access and model choice are separate from who gives the instructions. **Multi-phase plan** directly assigns a `poteto-agent` to look up files and test commands. For a plan review, [ambiguity-scan](skills/ambiguity-scan/SKILL.md) sends a fresh, read-only general-purpose reviewer the draft, sources and Plan brief. Select the model assigned to the work role in the operator's model rule. Give new work to a fresh subagent and resume one when the assignment needs state costly to transfer, such as its uncommitted changes. [Multi-phase plan](skills/poteto-mode/playbooks/multi-phase-plan.md) · [setup-pstack](skills/setup-pstack/SKILL.md#model-rule)
+In pstack delegation prompts, assign new work to a fresh subagent. Resume one when the assignment needs state costly to transfer, such as uncommitted changes. Name the work role in the prompt. Use only the model assigned to that role in the operator's model rule, including an explicit choice to inherit. [poteto-mode](skills/poteto-mode/SKILL.md#subagents) · [setup-pstack](skills/setup-pstack/SKILL.md#model-rule)
+
+## Connect a new workflow to the existing skills
+
+- **Work issues.** Route new repository tasks, including read-only work and directly named skills, through [to-tickets](skills/to-tickets/SKILL.md). **Open** creates or reuses the GitHub work issue before work starts. **Update** records evidence, decisions, handoffs and results. **Split** drafts independently verifiable tickets with direct blockers. This skill owns the labels and the shared template's **Must have** and **Optional** fields.
+- **Planning.** [Wayfinder](skills/poteto-mode/playbooks/wayfinder.md) records cross-session decisions on a map. A spec drawn from that map links back to it. [to-spec](skills/to-spec/SKILL.md) records agreed behavior. Use [Multi-phase plan](skills/poteto-mode/playbooks/multi-phase-plan.md) when requested or when the approach, dependencies or checks need planning across phases. The spec issue is the direct parent of the plan issue and execution tickets drawn from that scope. Each ticket drawn from the plan links to the plan issue and names its phase or outcome. A standalone problem with one deliverable becomes a ticket on the original issue. [Ticket splitting](skills/to-tickets/references/split.md)
+- **Code delivery.** On authorized execution, open or reuse one PR per code ticket and link them both ways. Pass the ticket URL, scope, acceptance criteria and any existing PR URL through each handoff to the agent writing the code.
+- **Visualization.** Replace imported `visualize` or `canvas` calls with the HTML skills. For visual explanations, including the whole spec, use [big-pics-little-words](skills/big-pics-little-words/SKILL.md) with [html](skills/html/SKILL.md).
+- **App verification.** Route the caller to the project's `verify-<app>` for the target app and surface. Only when none matches, use [verify-this](skills/verify-this/SKILL.md). Keep its internal calls to [control-cli](skills/control-cli/SKILL.md) for terminals and [control-ui](skills/control-ui/SKILL.md) for graphical interfaces.

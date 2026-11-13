@@ -58,16 +58,22 @@ _Avoid_: prototype alone when both an HTML fidelity mode and a throwaway experim
 ### Design decisions and evidence
 
 **Throwaway prototype**:
-An experiment built to answer one design or behavior question. A timing script and a set of screen layouts can both be throwaway prototypes. The implementation carries forward the decision the experiment supports. [Prototype playbook](../../../skills/poteto-mode/playbooks/prototype.md)
+An experiment built to answer one design or behavior question. A timing script, a logic prototype and a set of UI variants can each answer a different question. The implementation carries forward the decision the experiment supports. [Prototype playbook](../../../skills/poteto-mode/playbooks/prototype.md)
+
+**Logic prototype**:
+A single shareable HTML file for trying business rules or state transitions. Free-play actions and resettable walkthroughs show the relevant state after each action. [Logic prototype](../../../skills/poteto-mode/references/prototype/logic.md)
+
+**UI prototype**:
+A comparison of structurally different interfaces on one route. The operator can switch variants, revisit one by URL and choose elements from several. If the decision depends on the real app, the prototype uses its surrounding page in an isolated checkout. [UI prototype](../../../skills/poteto-mode/references/prototype/ui.md)
 
 **Prototype variant**:
 One of the alternatives built for the same decision. For a visual comparison, each variant has a name and shares a switcher so a reviewer can try the alternatives and compare the tradeoffs. [Prototype playbook](../../../skills/poteto-mode/playbooks/prototype.md)
 
 **Prototype evidence**:
-Observations from running a throwaway prototype, such as a screenshot of each layout or a measured response time. A multi-phase plan records which question each observation answered and which questions remain open. [Prototype playbook](../../../skills/poteto-mode/playbooks/prototype.md) · [Multi-phase plan playbook](../../../skills/poteto-mode/playbooks/multi-phase-plan.md)
+What a prototype run shows about its question, such as a screenshot of each layout or a measured response time. For a logic or UI prototype, the runnable demo or full comparison is the primary source. A Wayfinder prototype ticket links the evidence alongside the operator's choice. A multi-phase plan records which question each observation answered and which questions remain open. [Prototype playbook](../../../skills/poteto-mode/playbooks/prototype.md) · [Multi-phase plan playbook](../../../skills/poteto-mode/playbooks/multi-phase-plan.md)
 
 **Approved prototype**:
-A prototype the operator accepts as the reference for a particular decision. A timing experiment can settle a timing target. When the operator approves a recovery interaction, the ticket links the prototype and the implemented interaction must match. [principle-baseline-is-the-contract](../../../skills/principle-baseline-is-the-contract/SKILL.md) · [to-tickets](../../../skills/to-tickets/SKILL.md#acceptance-criteria)
+A prototype the operator accepts as the reference for a particular decision. The operator can use a timing run to set a target. When the operator approves a recovery interaction, the ticket links the prototype and the implemented interaction must match. [principle-baseline-is-the-contract](../../../skills/principle-baseline-is-the-contract/SKILL.md) · [to-tickets](../../../skills/to-tickets/SKILL.md#acceptance-criteria)
 
 **Screenshot baseline**:
 The reference screenshots frozen before the change. The baseline covers the current component across its states and includes the target when two implementations must match. [Visual parity playbook](../../../skills/poteto-mode/playbooks/visual-parity.md)

@@ -8,7 +8,7 @@ Each context defines the words pstack uses to make a particular kind of decision
 | --- | --- |
 | Who selects a playbook, which model gets the brief, and how does a panel divide or compare the work? | [Routing and delegation](glossary/routing-and-delegation/GLOSSARY.md) |
 | What lets a run continue without the operator, stop cleanly, or resume under another agent? | [Unattended runs](glossary/unattended-runs/GLOSSARY.md) |
-| What has been agreed, how is the plan split, and which ticket can start? | [Planning and tickets](glossary/planning-and-tickets/GLOSSARY.md) |
+| What questions remain on a map, what has been agreed, and which ticket can start? | [Planning and tickets](glossary/planning-and-tickets/GLOSSARY.md) |
 | Which principle changes a design decision, what does a sketch settle, and what qualifies for a refactoring or comment removal? | [Engineering design](glossary/engineering-design/GLOSSARY.md) |
 | What can an investigation establish about behavior, history, risk, or an earlier session? | [Investigation](glossary/investigation/GLOSSARY.md) |
 | What can a benchmark, live process, or captured trace establish about a regression, leak, or stalled operation? | [Performance](glossary/performance/GLOSSARY.md) |
@@ -25,6 +25,7 @@ For a named principle, the [principles guide](guide/08-principles.md) lists the 
 ## Relationships
 
 - The main chat selects a playbook and gives each [worker](glossary/routing-and-delegation/GLOSSARY.md#worker-assignments) a brief for its assignment. The model rule supplies the model for the role. A worker assigned as [PR owner](glossary/pull-request-delivery/GLOSSARY.md#the-pr-and-its-owner) owns that branch and PR. A replacement can take over both.
+- A map issue is the parent of its decision tickets. Its decision frontier shows which questions a session can claim. A spec written from the map links to the recorded answers and approved prototypes. [Wayfinder decisions](glossary/planning-and-tickets/GLOSSARY.md#wayfinder-decisions)
 - A spec issue is the direct parent of its [plan issue](glossary/planning-and-tickets/GLOSSARY.md#phases-and-decisions) and execution tickets. Tickets drawn from the plan link to it. Ticket splitting determines which outcomes can be assigned independently. During authorized implementation, a code ticket and its PR link to one another. The ticket frontier identifies work whose direct blockers are complete. The merge frontier identifies the lowest unmerged PR in a stack. [Ticket dependencies](glossary/planning-and-tickets/GLOSSARY.md#assignments-and-dependencies) · [PR stacks](glossary/pull-request-delivery/GLOSSARY.md#stacks-and-the-portion-that-can-land)
 - A product spec states the agreed behavior. Its expected result becomes a ticket acceptance criterion. An approved prototype fixes the design question the operator settled. A proof artifact records what happened when the implementation was checked.
 - A measurement baseline is a starting measurement. A visual parity baseline consists of frozen reference screenshots. A settled baseline records a decision the implementation must preserve. [Measurements](glossary/performance/GLOSSARY.md#benchmark-claims) · [Screenshot baselines](glossary/design-and-presentation/GLOSSARY.md#design-decisions-and-evidence) · [Settled decisions](glossary/engineering-design/GLOSSARY.md#engineering-decisions)
