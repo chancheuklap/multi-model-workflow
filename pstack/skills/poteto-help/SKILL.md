@@ -77,7 +77,7 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Strip comments before review, using a reviewer that didn't write them | [no-comments](../no-comments/SKILL.md) |
 | Clean AI tells out of prose | [unslop](../unslop/SKILL.md) |
 | Write docs, an RFC, a README, a PR description, or a commit message to a standard | [technical-writing](../technical-writing/SKILL.md) |
-| Hear the last reply again in plain words | [bro](../bro/SKILL.md) |
+| Align understanding: have the agent restate their goal, then restate its last message in plain words. They say what they need and it hands off to the matching skill | [bro](../bro/SKILL.md) |
 | Give agents a scripted way to drive the app and prove behavior | [create-verification-skill](../create-verification-skill/SKILL.md) |
 | Bring a verification skill and its feature map back in line with the app | [maintain-verification-skill](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md) |
@@ -107,6 +107,7 @@ Close calls:
 - [architect](../architect/SKILL.md) implements right after it settles the design. Add "with checkpoint" to review the design before it writes code. Inside a playbook that hands the code to another agent, it returns the design instead.
 - [interrogate](../interrogate/SKILL.md) reviews the diff. [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe. [code-review](../code-review/SKILL.md) checks a finished project branch once, on three axes, and the Code review playbook repairs it once.
 - [recall](../recall/SKILL.md) rebuilds context across recent chats. [ketchup](../ketchup/SKILL.md) covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
+- [bro](../bro/SKILL.md) is the one entry for aligning understanding. It hands off to [ketchup](../ketchup/SKILL.md), [ketchup-video](../ketchup-video/SKILL.md), [recall](../recall/SKILL.md), [teach](../teach/SKILL.md), [big-pics-little-words](../big-pics-little-words/SKILL.md), or [sharpen](../sharpen/SKILL.md) when the user's words call for one, and each still works on its own.
 - [figure-it-out](../figure-it-out/SKILL.md) designs one rigorous run. The Orchestrate playbook runs a program that spans days and many PRs. The Autonomous run playbook drives one task to a finish condition.
 
 Other skill providers:

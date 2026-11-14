@@ -103,7 +103,8 @@ A request for guidance on using pstack. The answer gives the relevant explanatio
 The agent's account, in its own words, of the operator's goal and the problem behind it. The operator can catch a misunderstanding before the work starts.
 
 **Reply restatement**:
-A shorter, plain-language version of the agent's preceding message. The input is the answer the operator just read.
+A plain-language restatement of the agent's preceding message, with a little context, in simplified technical English and the project's glossary terms. The input is the answer the operator just read.
+_Avoid_: wait-what.
 
 **Rewritten prompt**:
 The result of sharpening a task before the operator sends it. It names the original material a professional would inspect, the methods they would use, and an independent check on the result. Choices reserved for the operator remain open.

@@ -148,7 +148,7 @@ You rarely need more words. You need the right name, and [the principles page](.
 /bro
 ```
 
-That's the whole prompt. [bro](../../skills/bro/SKILL.md) restates the last message like one human talking to another, no jargon, shorter. Use it when a reply is technically thorough and you still don't know what it said.
+That's the whole prompt. [bro](../../skills/bro/SKILL.md) first restates your goal in its own words, so you can see whether the agent is working on the right problem. Then it restates its last message, with a little background, in simple English and the project's own terms. Use it when a reply is technically thorough and you still don't know what it said. To get something else from the same entry, say so: `/bro what changed while I was away`.
 
 ## Catch up on a chat you left running
 

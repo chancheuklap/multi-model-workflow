@@ -152,7 +152,7 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [maintain-formal-verification-skill](./skills/maintain-formal-verification-skill/SKILL.md) | code your formal verification covers has changed since it was last checked. updates the model, harness, or properties to match the code, reruns, and says whether each failure is drift in the verification or a bug in the code. |
 | [statechart](./skills/statechart/SKILL.md) | someone who owns the behavior needs to see it, not read a spec. checks a tla+ model, draws what the user sees as a mermaid statechart, marks each state that breaks a rule, and gives the shortest path to each one. |
 | [unslop](./skills/unslop/SKILL.md) | you're cleaning up writing. removes AI tells. |
-| [bro](./skills/bro/SKILL.md) | you want the last message restated in plain human language, no jargon. |
+| [bro](./skills/bro/SKILL.md) | you want the agent to restate your goal, then restate its last message in plain words. say what you need and it hands off to [ketchup](./skills/ketchup/SKILL.md), [ketchup-video](./skills/ketchup-video/SKILL.md), [recall](./skills/recall/SKILL.md), [teach](./skills/teach/SKILL.md), [big-pics-little-words](./skills/big-pics-little-words/SKILL.md), or [sharpen](./skills/sharpen/SKILL.md). |
 | [technical-writing](./skills/technical-writing/SKILL.md) | layered doc standard (Diátaxis + Google developer style + STE + Global English) for docs, RFCs, readmes, PR descriptions, commit messages. |
 
 </details>
