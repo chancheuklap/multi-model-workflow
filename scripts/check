@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """This repository's one check: the syntax of the changed files and the test suites, in three
-tiers. Only pstack's tests remain; every other suite was retired.
+tiers. Only mmwstack's tests remain; every other suite was retired.
 
     scripts/check            the default tier: syntax of the files changed against the base, then
                              each suite whose inputs in MAP hold a changed path
@@ -40,24 +40,24 @@ TAIL = 20
 
 # step: (command, tools it needs on PATH)
 STEPS = {
-    "pstack-exe-release": ("bash pstack/tests/exe-release/run.sh", ["bash", "python3", "uv", "jq"]),
+    "mmwstack-exe-release": ("bash mmwstack/tests/exe-release/run.sh", ["bash", "python3", "uv", "jq"]),
 }
 
 # Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
 # no changed path selects does not run.
 MAP = [
-    ("pstack/skills/exe-release/", ["pstack-exe-release"]),
-    ("pstack/tests/exe-release/", ["pstack-exe-release"]),
+    ("mmwstack/skills/exe-release/", ["mmwstack-exe-release"]),
+    ("mmwstack/tests/exe-release/", ["mmwstack-exe-release"]),
 ]
 
 # Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["pstack/tests"]
+TEST_ROOTS = ["mmwstack/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
-    "pstack/skills/statechart/scripts/test": "the upstream statechart skill's own tests (node --test with fast-check and a Java oracle), not run here",
+    "mmwstack/skills/statechart/scripts/test": "the upstream statechart skill's own tests (node --test with fast-check and a Java oracle), not run here",
 }
-NOT_RUN_HERE = ("exe-release's PowerShell checks (pstack/tests/exe-release/check-generated-powershell.sh,"
+NOT_RUN_HERE = ("exe-release's PowerShell checks (mmwstack/tests/exe-release/check-generated-powershell.sh,"
                 " check-template-behaviour.sh): they need a Windows build machine")
 
 
@@ -197,7 +197,7 @@ def main(argv: list[str]) -> int:
     else:
         if tier == "all":
             names = list(STEPS)
-            paths = git("ls-files", "pstack", "scripts").stdout.split()
+            paths = git("ls-files", "mmwstack", "scripts").stdout.split()
             print("tier --all: every step")
         else:
             base = os.environ.get("MMW_BASE_REF") or DEFAULT_BASE
