@@ -152,13 +152,25 @@ A suspected failure that the investigation checked and ruled out, with the reaso
 **Reproduction**:
 A repeatable trigger that produces the reported symptom on the affected product surface. The original reproduction supplies the before-and-after check for a fix. The report includes its failing output and its output after the fix. *Repro* is the short form. [Product surface](../product-verification/GLOSSARY.md#evidence-and-observation).
 
+**Feedback loop**:
+In bug diagnosis, one command that drives the reported symptom, has already run once, and can go red on this bug and green once it is fixed. It is tight when it is fast, deterministic, sharp enough to assert the exact symptom, and runnable by the agent unattended. For an intermittent bug the target is a high reproduction rate. The Skill authoring pattern of the same name is a different thing. [Skill authoring pattern](../skill-authoring/GLOSSARY.md)
+
+**Minimized reproduction**:
+The smallest scenario that still goes red. Every remaining element is load-bearing, so removing any one turns the feedback loop green.
+
+**Debug tag**:
+A unique prefix such as `[DEBUG-a4f2]` on every temporary log. One search for the prefix finds all of them, and an empty search shows the probes are withdrawn.
+
+**Correct test seam**:
+A [test seam](../product-verification/GLOSSARY.md) where a regression test exercises the real bug pattern as it occurs at the call site. A seam that is too shallow gives false confidence. When none exists, that absence is a finding about the architecture.
+
 **Candidate hypothesis**:
-A possible cause of the reproduced failure with a prediction that distinguishes it from other causes. Each diagnostic pass uses runtime evidence to eliminate candidates. A refuted hypothesis also invalidates the change it motivated.
+A possible cause of the reproduced failure with a prediction that distinguishes it from other causes. Three to five are ranked before any is tested. Each diagnostic pass uses runtime evidence to eliminate candidates. A refuted hypothesis also invalidates the change it motivated.
 
 **Root cause**:
 The first place the system makes the wrong decision or fails to handle a legitimate state. The symptom is where the resulting fault becomes visible. Under *Fix Root Causes*, the bug diagnosis confirms the surviving mechanism in a running reproduction before a fix is planned.
 
-[Bug fix playbook](../../../skills/poteto-mode/playbooks/bug-fix.md) · [principle-fix-root-causes](../../../skills/principle-fix-root-causes/SKILL.md)
+[Bug fix playbook](../../../skills/poteto-mode/playbooks/bug-fix.md) · [Diagnosis loop](../../../skills/poteto-mode/references/bug-fix/diagnosis-loop.md) · [principle-fix-root-causes](../../../skills/principle-fix-root-causes/SKILL.md)
 
 ### Reconstructing recent work
 

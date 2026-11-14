@@ -31,7 +31,7 @@ Wording the operator supplies for inclusion in a skill. The same words, in the s
 The choices a skill leaves to the agent. High freedom uses prose where several approaches work. Medium freedom supplies a template or preferred pattern. Low freedom prescribes a particular procedure or script where variation can cause failure.
 
 **Skill authoring pattern**:
-A way to express a task in a skill. A template fixes the output format. Worked examples show acceptable results. A workflow sets out steps, a conditional workflow selects a path, and a feedback loop repeats a check after a correction.
+A way to express a task in a skill. A template fixes the output format. Worked examples show acceptable results. A workflow sets out steps, a conditional workflow selects a path, and a feedback loop repeats a check after a correction. Bug diagnosis uses *feedback loop* for a different thing. [Feedback loop](../investigation/GLOSSARY.md#bug-diagnosis)
 
 **Skill validation**:
 The authoring playbook's check that a skill declares its name and description and that its references and cross-skill links resolve. Structural behavior can have test cases. For subjective output, such as a personal mode's voice, the operator reviews the result.
