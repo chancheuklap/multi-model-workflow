@@ -7,7 +7,7 @@ description: "Use for \"automate me\", \"create/update/refresh my -mode skill\",
 
 A guided flow for turning the user's working conventions into a skill agents will follow. The output is one `-mode` skill tailored to them (e.g. `jay-mode`, `priya-mode`).
 
-This skill orchestrates three others: an inline mining pass (see step 1), the bundled [create-skill](../create-skill/SKILL.md) (authoring), and the [unslop](../unslop/SKILL.md) skill (prose discipline). It sequences them. It doesn't replace them.
+This skill orchestrates four others: an inline mining pass (see step 1), the bundled [create-skill](../create-skill/SKILL.md) (authoring), the [writing-for-agents](../writing-for-agents/SKILL.md) skill (how an agent-facing document is built), and the [unslop](../unslop/SKILL.md) skill (prose discipline). It sequences them. It doesn't replace them.
 
 ## Flow
 
@@ -63,7 +63,7 @@ The [poteto-mode](../poteto-mode/SKILL.md) skill shows the shape. Read it for gr
 
 ### 4. Draft the skill
 
-Use the bundled [create-skill](../create-skill/SKILL.md) to author the skill. Placement:
+Use the bundled [create-skill](../create-skill/SKILL.md) and [writing-for-agents](../writing-for-agents/SKILL.md) to author the skill. Where the two differ, writing-for-agents decides. Placement:
 
 - Path: preserve an existing mode skill's category. For a new mode, use `<handle>/<handle>-mode/SKILL.md` under the project skills directory when the repo already groups skills by handle. Otherwise use `<handle>-mode/SKILL.md` there, or in the personal skills directory if the user prefers.
 - Handle: the user's first name or chosen identifier.
@@ -73,7 +73,7 @@ Use the bundled [create-skill](../create-skill/SKILL.md) to author the skill. Pl
 
 ### 5. Iterate on prose
 
-Apply the [unslop](../unslop/SKILL.md) skill and [create-skill](../create-skill/SKILL.md)'s writing guidelines to every line.
+Apply the [unslop](../unslop/SKILL.md) skill, [create-skill](../create-skill/SKILL.md)'s writing guidelines and the [Pruning](../writing-for-agents/SKILL.md#pruning) rules of [writing-for-agents](../writing-for-agents/SKILL.md) to every line.
 
 Show the draft to the user and take feedback. Expect multiple iterations. Cut ruthlessly. A mode skill is not a manual.
 
@@ -98,6 +98,6 @@ Run a description-optimization loop only if the skill's trigger accuracy turns o
 
 ## When not to use
 
-- User wants a task-specific skill (not working conventions): [create-skill](../create-skill/SKILL.md) alone, no mining required.
+- User wants a task-specific skill (not working conventions): [create-skill](../create-skill/SKILL.md) with [writing-for-agents](../writing-for-agents/SKILL.md), no mining required.
 - User wants to capture one narrow workflow (e.g. "how I write commit messages"). That's a regular skill, not a mode skill.
 

@@ -9,6 +9,8 @@ The operator keeps correcting agents in this repo for the same mistakes. Change 
 
 Assume every contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Design the repo so a change that looks right from one file is right for the whole repo.
 
+Use [writing-for-agents](../writing-for-agents/SKILL.md) before you edit an agent instruction or a skill.
+
 ## Find the mistake classes
 
 First, read recent commits, reverts, review comments, agent instruction files, and comments that explain workarounds. Group the mistakes into classes. A class counts once it has happened twice.

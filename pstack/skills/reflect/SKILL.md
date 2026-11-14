@@ -43,6 +43,8 @@ File each Backlog item to your team's devex or backlog tracker without waiting. 
 
 Before approval, show the editable destination in the project or personal skills directory. If the skill comes from an installed plugin, copy it there after approval and edit the copy. Never open a PR or push.
 
+Use [writing-for-agents](../writing-for-agents/SKILL.md) before you apply an approved row, a one-line edit included.
+
 Follow each approved row's Routing exactly:
 
 - Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.

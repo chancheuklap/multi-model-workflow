@@ -36,7 +36,7 @@ A way to express a task in a skill. A template fixes the output format. Worked e
 **Skill validation**:
 The authoring playbook's check that a skill declares its name and description and that its references and cross-skill links resolve. Structural behavior can have test cases. For subjective output, such as a personal mode's voice, the operator reviews the result.
 
-[create-skill](../../../skills/create-skill/SKILL.md) · [Authoring or modifying a skill playbook](../../../skills/poteto-mode/playbooks/authoring-a-skill.md) · [Routing and delegation](../routing-and-delegation/GLOSSARY.md)
+[writing-for-agents](../../../skills/writing-for-agents/SKILL.md) · [create-skill](../../../skills/create-skill/SKILL.md) · [Authoring or modifying a skill playbook](../../../skills/poteto-mode/playbooks/authoring-a-skill.md) · [Routing and delegation](../routing-and-delegation/GLOSSARY.md)
 
 ### Personal modes and recurring corrections
 

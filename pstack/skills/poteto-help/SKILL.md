@@ -156,7 +156,7 @@ For a run that drifts, [`references/prompting.md`](references/prompting.md) has 
 
 - [automate-me](../automate-me/SKILL.md) drafts a personal mode skill from the user's own history, to use alongside [poteto-mode](../poteto-mode/SKILL.md).
 - [reflect](../reflect/SKILL.md) after a session turns its lessons into skill edits the user approves.
-- `/poteto-mode write a skill for <workflow>` runs the authoring playbook. The eval playbook tests a skill change blind.
+- `/poteto-mode write a skill for <workflow>` runs the authoring playbook, which shapes the skill with [writing-for-agents](../writing-for-agents/SKILL.md) and drafts it with [create-skill](../create-skill/SKILL.md). The eval playbook tests a skill change blind.
 - Fix a misbehaving skill in its own PR, not inside the feature work where it went wrong.
 
 [Guide page 9](../../docs/guide/09-make-it-yours.md) covers each of these.

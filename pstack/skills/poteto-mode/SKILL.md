@@ -26,7 +26,8 @@ Remaining triggers:
 - The operator asks for a code review of a project branch → the **Code review** playbook (`playbooks/code-review.md`), once for that branch. Never start it on your own.
 - A review with no objective endpoint, such as an ambiguity scan, an interrogation or a code review → it runs once for its scope. Settle what it reports, then continue. Run another only when the operator asks. A loop that ends on a check's exit code or a run's verdict, such as CI or the plan checker, is not such a review.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
-- Any prose surface, your reply to the user included → the [unslop](../unslop/SKILL.md) skill. Write the reply per **Writing the reply**. Agent-facing prose also follows the [create-skill](../create-skill/SKILL.md) skill.
+- Any prose surface, your reply to the user included → the [unslop](../unslop/SKILL.md) skill. Write the reply per **Writing the reply**.
+- Creating or editing a skill, `AGENTS.md`, `CLAUDE.md`, or a document an agent reaches through a pointer → the [writing-for-agents](../writing-for-agents/SKILL.md) skill, and the [create-skill](../create-skill/SKILL.md) skill when the document is a skill.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the [technical-writing](../technical-writing/SKILL.md) skill ([technical-writing](../technical-writing/SKILL.md)).
 - Before commit → the [deslop](../deslop/SKILL.md) skill.
 - Before review → the [no-comments](../no-comments/SKILL.md) skill ([no-comments](../no-comments/SKILL.md)).
