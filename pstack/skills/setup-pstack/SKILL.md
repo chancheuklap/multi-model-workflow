@@ -71,10 +71,6 @@ On a host that runs roles through agent definitions, such as Droid's custom droi
 
 Tell the user where you saved the rule and that it applies to new sessions. When you wrote agent definitions, say where, and name each role you left unfilled. Re-running this skill updates both.
 
-When setting up a repository, add this rule once to its persistent project instructions so direct skill calls also start from a work issue:
-
-> For every new repository task, use the bundled `to-tickets` skill to open or reuse a GitHub work issue before starting. Reuse the work issue for follow-ups. Use the same skill to split a checked plan into execution tickets when implementation is requested. Give each subagent its assigned work issue URL. For each code writer, use the execution ticket URL. Open one corresponding PR for each authorized code ticket and link the PR and ticket to each other. Record evidence, decisions, assignments and results on the work issue.
-
 ### 7. Offer a verification skill (optional)
 
 Check whether the project has a way to drive the real app for proof (a project-local `verify-<app>` for the target surface, or an existing harness). If not, offer once: "want a project-local verification skill, so agents can drive the app the way a user does and prove changes work? I can generate one with /create-verification-skill." On yes, invoke [create-verification-skill](../create-verification-skill/SKILL.md) (resolves wherever pstack is installed: workspace, user, or plugin). On no, move on without pushing.
