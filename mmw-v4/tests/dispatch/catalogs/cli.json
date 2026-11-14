@@ -1,7 +1,0 @@
-{
-  "cli": {
-    "claude": {"offerings": [{"id": "claude-opus-5", "name": "Opus 5", "thinkingOptionIds": ["high"]}]},
-    "codex": {"state": "missing"}
-  },
-  "paseo": {"state": "down"}
-}
