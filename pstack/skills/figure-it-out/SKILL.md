@@ -27,7 +27,7 @@ Decompose into atomic, independently-landable units. Sequence riskiest-unknown-f
 
 - Build the verification harness before the work, with the baseline captured from the pre-change state, so the check reads as "old value vs new value".
 - For one-way-door design decisions, run the [architect](../architect/SKILL.md) skill (it runs [arena](../arena/SKILL.md)). Skip it for mechanical work whose shape is already concrete. A second [arena](../arena/SKILL.md) over a settled design is over-engineering (the [principle-laziness-protocol](../principle-laziness-protocol/SKILL.md) principle skill).
-- Decide what fans out. Parallelize only across seams, and give each worker its own worktree or branch (the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill). Don't over-fan. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill.
+- Decide what fans out. Parallelize only across seams, and give each worker its own worktree or branch (the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill). Don't over-fan.
 - Write the designed phase list down. That list is what the human reviews.
 
 Then execute the design. Add its steps to the checklist as concrete items between the Phase C and Phase D entries. Run each under the Phase C loop discipline, and weave the Phase D log through them, a row as each step lands, rather than saving the whole trail for the end.

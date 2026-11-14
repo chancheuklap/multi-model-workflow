@@ -13,7 +13,7 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 1. State the artifact each candidate is producing. For an implementation, include the execution ticket URL in the task each candidate receives.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
-3. Pick the runners from the `arena runners` line in the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Spawn one runner per entry, including repeated models and explicit `auto` or `inherit-parent` entries. For multiple design directions, assign additional runners to the configured models. Use the same configured model N times when the work is generation-bound rather than judgment-sensitive. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill.
+3. Pick the runners from the `arena runners` line in the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Spawn one runner per entry, including repeated models and explicit `auto` or `inherit-parent` entries. For multiple design directions, assign additional runners to the configured models. Use the same configured model N times when the work is generation-bound rather than judgment-sensitive.
 4. Give each candidate its own output location that the parent and judge can read (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill.
 
 ## Phase B: Fan out

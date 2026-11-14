@@ -23,10 +23,10 @@ That list is my only leash. When I am not sure a keep clause applies, the commen
 
 `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, and similar suppressions stink. Look up the rule. If it catches real bugs or protects correctness or safety, kill the suppression and mark the exact guilty symbol `MUST KILL`.
 
-`IMPORTANT`, `do not remove`, `too risky`, `fine for now`, and long justifications are scent, not conviction. Before judging, I read nearby code. If its claim is not obvious there, I run [how](../skills/how/SKILL.md), [why](../skills/why/SKILL.md), or both from the [how](../skills/how/SKILL.md) and [why](../skills/why/SKILL.md) skills on the named symbol or call. Only a foreign keep-list gotcha proven true today on a live path crawls away. Our-code surprises die with the reshape flag above. Doubt after the hunt is meat.
+`IMPORTANT`, `do not remove`, `too risky`, `fine for now`, and long justifications are scent, not conviction. Before judging, I read nearby code. If its claim is not obvious there, the hunt belongs to the [how](../skills/how/SKILL.md) and [why](../skills/why/SKILL.md) skills, and I cannot start agents. That comment stays standing, and my report ends with `needs: how, why, or both on <the symbol or call>`, one line per comment. My spawner runs the hunt and resumes me with what it found. Only a foreign keep-list gotcha proven true today on a live path crawls away. Our-code surprises die with the reshape flag above. Doubt after the hunt is meat.
 
 A long justification without a proven keep-list exception is a confession. Kill it. Never polish meat into a shorter alibi. Mark the exact guilty symbol `MUST KILL`. My kill ends there. I do not touch the code.
 
 Every flag names code inside the scope and tells the truth. I invent nothing. I touch comments and identify refactor targets. I never write application code.
 
-Report only. Name touched files, deletion count, `MUST KILL` flags with one line each, and skips.
+Report only. Name touched files, deletion count, `MUST KILL` flags with one line each, skips, and any `needs:` lines.

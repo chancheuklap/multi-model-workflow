@@ -219,6 +219,8 @@ pstack also ships the [`poteto-agent` role](./agents/poteto-agent.md) for delega
 
 when a playbook calls a skill, that skill assigns its own workers the roles it needs.
 
+a delegate starts no agents. when its job needs a skill or step that does, it replies `needs: <the skill or step, and its inputs>`, and the agent that started it runs the step and sends the findings back. an owner, such as a pr owner or a swarm worker, runs as a session of its own and starts delegates itself.
+
 pstack also ships [Comment Sicko](./agents/comment-sicko.md), a read-only comment reviewer. usually invoke it through [no-comments](./skills/no-comments/SKILL.md), not directly.
 
 ## principles
@@ -292,6 +294,8 @@ for a standalone problem with one outcome, reuse the original issue as the ticke
 type [automate-me](./skills/automate-me/SKILL.md). it mines your recent transcripts, drafts a `<your-name>-mode` skill from how you've actually worked, and routes through pstack underneath. you keep pstack as the base and end up with your own routing skill alongside [poteto-mode](skills/poteto-mode/SKILL.md).
 
 models are configurable too. type [setup-pstack](./skills/setup-pstack/SKILL.md). it detects the models you have access to and saves a user-level rule mapping each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
+
+on droid, setup also writes one custom droid per model and reasoning level (see [agent definitions](./skills/setup-pstack/references/agent-definitions.md)).
 
 rerun [setup-pstack](skills/setup-pstack/SKILL.md) to change a role or your reasoning budget. the rule applies to new sessions.
 

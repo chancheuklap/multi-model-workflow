@@ -17,7 +17,7 @@ Before fanning out, inspect the ten most recent transcript files in this workspa
 
 Spawn three reviewers in parallel. Give them read access to the tickets, chat threads, and observability traces the transcript references.
 
-Use the role lines in the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill.
+Use the role lines in the [pstack model rule](../setup-pstack/SKILL.md#model-rule).
 
 | Lens | Role line | Prompt template |
 |---|---|---|

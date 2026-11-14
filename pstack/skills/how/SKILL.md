@@ -7,7 +7,7 @@ description: "Use for \"how does X work\", code walkthroughs before changing som
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Assign read-only work to every subagent. Use read-only permissions when available. Use the `how explorer` and `how explainer` roles from the [pstack model rule](../setup-pstack/SKILL.md#model-rule). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the [poteto-mode](../poteto-mode/SKILL.md) skill.
+Assign read-only work to every subagent. Use read-only permissions when available. Use the `how explorer` and `how explainer` roles from the [pstack model rule](../setup-pstack/SKILL.md#model-rule).
 
 ## 1. Assess complexity
 

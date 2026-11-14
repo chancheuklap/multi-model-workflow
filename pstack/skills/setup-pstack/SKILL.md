@@ -7,7 +7,7 @@ description: Configure which models pstack uses per role and at what reasoning b
 
 ## Model rule
 
-In a new session, read `~/.agents/pstack-models.md` or the pstack model rule the user supplies. For each delegation, use the model and settings assigned to its role. Give a subagent that will delegate in turn a readable path to the same rule or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. If an assignment cannot run, report the unfilled role.
+In a new session, read `~/.agents/pstack-models.md` or the pstack model rule the user supplies. For each delegation, use the model and settings assigned to its role. A host that runs roles through agent definitions maps a role to its agent as [agent-definitions](references/agent-definitions.md#find-a-roles-droid) says. Give an owner that will delegate a readable path to the same rule or the relevant role lines in its brief. A delegate starts no agents and needs neither. `inherit-parent` and `auto` run a role on the parent model when the user selects them. If an assignment cannot run, report the unfilled role.
 
 ## Steps
 
@@ -34,7 +34,7 @@ If the rule exists, read its `# budget` line and each role's current assignment.
 
 ### 4. Validate
 
-Confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
+Confirm each selected model and setting is available before saving it. A host that runs roles through agent definitions can swap an unsupported setting without an error, so check each pair as [agent-definitions](references/agent-definitions.md#check-each-pair-before-writing) says. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
 
 ### 5. Write the rule
 
@@ -63,9 +63,13 @@ architect runners: <one model and its settings per seat, comma-separated>
 interrogate reviewers: <one model and its settings per seat, comma-separated>
 ```
 
+### 5b. Write the agent definitions
+
+On a host that runs roles through agent definitions, such as Droid's custom droids, write them after the rule as [agent-definitions](references/agent-definitions.md#write-the-droids) says. Skip this step on other hosts.
+
 ### 6. Confirm
 
-Tell the user where you saved the rule and that it applies to new sessions. Re-running this skill updates it.
+Tell the user where you saved the rule and that it applies to new sessions. When you wrote agent definitions, say where, and name each role you left unfilled. Re-running this skill updates both.
 
 When setting up a repository, add this rule once to its persistent project instructions so direct skill calls also start from a work issue:
 

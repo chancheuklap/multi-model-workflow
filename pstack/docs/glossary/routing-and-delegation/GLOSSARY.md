@@ -32,14 +32,25 @@ A decision about how to divide work. It records what must finish first, which wo
 **Subagent**:
 An agent assigned a bounded part of the work. A routed skill can give it a role-specific brief. The parent remains responsible for the result. Under Guard the Context Window, a subagent that reads a large collection returns only its findings and their sources to its parent. [principle-guard-the-context-window](../../../skills/principle-guard-the-context-window/SKILL.md)
 
+**Delegate**:
+A subagent that starts no agents. Code delegates, helpers, explorers, investigators, runners, judges and reviewers are delegates. A delegate never has delegates of its own, and it never runs a skill that spawns.
+_Avoid_: nested delegate.
+
+**Needs reply**:
+A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when its job reaches a step that would spawn. Its spawner runs the step and passes the findings back by resuming the delegate, or by briefing a fresh one when the host cannot resume. [poteto-mode](../../../skills/poteto-mode/SKILL.md#subagents)
+
+**Owner session**:
+An agent session that carries an assignment as its own and starts delegates itself. A PR owner, a swarm or Orchestrate worker, a sub-coordinator and a verifier are owner sessions. Each runs on its own remote machine where the host has one. [Agent definitions](../../../skills/setup-pstack/references/agent-definitions.md#start-an-owner)
+_Avoid_: delegate for an owner session, owner alone for the operator.
+
 **poteto-agent**:
-The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly.
+The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly. It starts no agents, so it replies with a needs reply when its scope reaches a step that spawns.
 
 **Brief**:
 The instructions one delegate receives. They state the operator's goal and the delegate's scope. For repository work, the brief identifies the assigned work issue, an existing PR when relevant, and the exact revision for a PR verifier. The brief received by the agent writing the code identifies its execution ticket and assigned change.
 
 **Fresh subagent**:
-A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator.
+A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator, or for a delegate waiting on its needs reply.
 
 [poteto-mode](../../../skills/poteto-mode/SKILL.md) · [poteto-help](../../../skills/poteto-help/SKILL.md) · [Feature playbook](../../../skills/poteto-mode/playbooks/feature.md) · [poteto-agent role](../../../agents/poteto-agent.md) · [ambiguity-scan](../../../skills/ambiguity-scan/SKILL.md)
 
@@ -58,7 +69,10 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 ### Model assignments
 
 **pstack model rule**:
-The operator's saved assignments of models and settings to roles, normally in `~/.agents/pstack-models.md`. Nested delegates receive the same rule or the role lines they need. An assignment that cannot run leaves an unfilled role.
+The operator's saved assignments of models and settings to roles, normally in `~/.agents/pstack-models.md`. An owner session that starts delegates receives the same rule or the role lines it needs. An assignment that cannot run leaves an unfilled role.
+
+**Agent definition**:
+A host's saved definition of one delegate, fixing its model and reasoning level, such as a Droid custom droid. Setup writes one for each distinct model and level in the rule, and a spawn names it to get that model. Where the host fixes reasoning and speed this way, the role's assignment stands in place of a per-job adjustment. [Agent definitions](../../../skills/setup-pstack/references/agent-definitions.md)
 
 **Model role**:
 A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, and `judgment and prose` covers writing and judgment. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.

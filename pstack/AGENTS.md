@@ -63,7 +63,7 @@ Write just enough to choose the next step and recognize completion. **Opening a 
 
 **Delegation inside a skill.** The skill defines each role, its inputs, its result and how the main chat judges it. **Feature** uses [arena](skills/arena/SKILL.md) for competing implementations. For Spec, Plan or Ticket review, [ambiguity-scan](skills/ambiguity-scan/SKILL.md) briefs one fresh, read-only general-purpose reviewer. It checks the draft against its sources and the stage's writing requirements. It reviews a ticket batch as a whole.
 
-In pstack delegation prompts, assign new work to a fresh subagent. Resume one when the assignment needs state costly to transfer, such as uncommitted changes. Name the work role in the prompt. Use only the model assigned to that role in the operator's model rule, including an explicit choice to inherit. [poteto-mode](skills/poteto-mode/SKILL.md#subagents) · [setup-pstack](skills/setup-pstack/SKILL.md#model-rule)
+In pstack delegation prompts, assign new work to a fresh subagent. Resume one when the assignment needs state costly to transfer, such as uncommitted changes, or when it replied `needs:`. A delegate starts no agents, so write its prompt to finish alone or to end in a `needs:` reply, and give a step that spawns to the main chat or an owner session. Name the work role in the prompt. Use only the model assigned to that role in the operator's model rule, including an explicit choice to inherit. [poteto-mode](skills/poteto-mode/SKILL.md#subagents) · [setup-pstack](skills/setup-pstack/SKILL.md#model-rule)
 
 ## Connect a new workflow to the existing skills
 
