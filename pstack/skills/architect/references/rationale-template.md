@@ -24,7 +24,7 @@ The prose that ships alongside the type sketch. One page. Sentence-case headings
 
 ## Alternatives considered
 
-*Required. Name at least one concrete alternative shape, with one line on why it lost. Judge each alternative on interface depth, not implementation simplicity alone. Name the complexity it exposes to callers and the complexity it hides. Two or three alternatives belong here when the design space had real contenders. One is fine when the constraints forced the answer, with the conclusion phrased as "this was the only viable shape because..." Avoid listing flavors of the same shape. This section covers design alternatives the chosen shape considered and rejected, not other runner candidates.*
+*Required. Name at least one concrete alternative shape, with one line on why it lost. Judge each alternative on interface depth, not implementation simplicity alone. Name the complexity it exposes to callers and the complexity it hides. Explain the consequences for callers. Two or three alternatives belong here when the design space had real contenders. One is fine when the constraints forced the answer, with the conclusion phrased as "this was the only viable shape because..." Avoid listing flavors of the same shape. This section covers design alternatives the chosen shape considered and rejected, not other runner candidates.*
 
 ## Open questions and risks
 
@@ -32,4 +32,4 @@ The prose that ships alongside the type sketch. One page. Sentence-case headings
 
 ## Next implementation step
 
-*The first thing to build against the sketch. One sentence. What you'd start writing immediately after synthesis (or after Phase D sign-off, if a checkpoint was opted into).*
+*The first thing to build against the sketch. One sentence. What you'd start writing immediately after synthesis (or after Phase C sign-off, if a checkpoint was opted into).*

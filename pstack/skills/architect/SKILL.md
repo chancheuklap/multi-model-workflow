@@ -20,27 +20,31 @@ Start a checklist with one entry per phase before starting.
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Run the [how](../how/SKILL.md) skill over the relevant subsystems. Naming a file isn't grounding. Produce the architectural explanation [how](../how/SKILL.md) prescribes. If the design redefines ownership or layering, also run the [why](../why/SKILL.md) skill on the existing shape so the rationale becomes a constraint, not a guess.
+Start with the evidence the invoker supplies: real callers, contracts, dependencies and decisions already settled.
+
+Build a real mental model of every system the new code touches. Run the [how](../how/SKILL.md) skill over each system that evidence leaves unexplained, where the gap could change the interface. Naming a file isn't grounding. Produce the architectural explanation [how](../how/SKILL.md) prescribes. If the design redefines ownership or layering, also run the [why](../why/SKILL.md) skill on the existing shape so the rationale becomes a constraint, not a guess.
 
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
+Done when the evidence accounts for the constraints the sketch must satisfy.
+
 ## Phase B: Sketch
 
-Run the [arena](../arena/SKILL.md) skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt.
+Run the [arena](../arena/SKILL.md) skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Include the project's domain vocabulary.
 
-Take the runners from the `architect runners` line in the [pstack model rule](../setup-pstack/SKILL.md#model-rule), in place of the `arena runners` line. Follow the runner rules in [arena](../arena/SKILL.md) Phase A.
+Take the runners from the `architect runners` line in the [pstack model rule](../setup-pstack/SKILL.md#model-rule), in place of the `arena runners` line. Follow the runner rules in [arena](../arena/SKILL.md) Phase A. When the invoker asks for alternative interfaces to one module, assign each runner one direction from [interface-directions](references/interface-directions.md).
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the [principle-exhaust-the-design-space](../principle-exhaust-the-design-space/SKILL.md) principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 
 Screen every candidate against [`references/design-red-flags.md`](references/design-red-flags.md) before synthesis. Assume the next contributor is an agent that sees only the files it opened, copies the nearest example, and takes the shortest path that compiles. Prefer the design where a change that looks right from one file is right for the whole repo.
 
-Compare viable candidates on interface depth. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
+Compare viable candidates on interface depth. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers. Compare the returned usage examples, the complexity each interface hides and the consequences for existing callers. When a design deepens a module, use [codebase-dic](../codebase-dic/SKILL.md) to compare locality and seam placement.
 
-Arena returns one synthesized design package. Its synthesis decision fills the rationale's "Synthesis decision" section.
+Arena returns one synthesized design package. Its synthesis decision fills the rationale's "Synthesis decision" section. State how any missing candidate limits the comparison. Done when you can recommend a design and explain the constraint or trade-off that decided it.
 
 ## Phase C: Agree (opt-in)
 
-Default: proceed directly to implementation with the synthesized design. No human checkpoint.
+Default: proceed directly to implementation with the synthesized design. No human checkpoint. When the invoker assigns implementation to another agent, return the synthesized design package to the invoker and stop. That agent receives the package as its contract.
 
 Opt in to a checkpoint when the invoker explicitly asks: "/architect with checkpoint," "stop and show me before implementing," or similar. Then surface the synthesized design and pause for sign-off.
 

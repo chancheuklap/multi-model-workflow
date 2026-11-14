@@ -68,6 +68,7 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Catch up like [ketchup](../ketchup/SKILL.md), in a short subtitled video of slides, with the waiting calls as text under it | [ketchup-video](../ketchup-video/SKILL.md) |
 | Know what a small diff could break outside itself | [blast-radius](../blast-radius/SKILL.md) |
 | Settle types and module shape before code that crosses a function boundary | [architect](../architect/SKILL.md) |
+| Look up interface depth, locality, seams, or the deletion test | [codebase-dic](../codebase-dic/SKILL.md) |
 | Get several attempts at one brief, merged into the best one | [arena](../arena/SKILL.md) |
 | Run parallel checks over slices, or race workers | [swarm](../swarm/SKILL.md) |
 | Have different models review a diff and try to break it | [interrogate](../interrogate/SKILL.md) |
@@ -103,7 +104,7 @@ Close calls:
 
 - [how](../how/SKILL.md) explains what the code does. [why](../why/SKILL.md) explains the reasons. [teach](../teach/SKILL.md) runs one or both and explains the result plainly.
 - [arena](../arena/SKILL.md) gives every worker the same brief and merges the best parts. [swarm](../swarm/SKILL.md) splits work into slices or a race and returns one report.
-- [architect](../architect/SKILL.md) implements right after it settles the design. Add "with checkpoint" to review the design before it writes code.
+- [architect](../architect/SKILL.md) implements right after it settles the design. Add "with checkpoint" to review the design before it writes code. Inside a playbook that hands the code to another agent, it returns the design instead.
 - [interrogate](../interrogate/SKILL.md) reviews the diff. [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe.
 - [recall](../recall/SKILL.md) rebuilds context across recent chats. [ketchup](../ketchup/SKILL.md) covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
 - [figure-it-out](../figure-it-out/SKILL.md) designs one rigorous run. The Orchestrate playbook runs a program that spans days and many PRs. The Autonomous run playbook drives one task to a finish condition.
@@ -119,6 +120,7 @@ Playbooks are step lists inside [poteto-mode](../poteto-mode/SKILL.md), not skil
 
 - "babysit this pr" or "check on pr 123" runs Babysit. It drives the PR to merge-ready and stops there. It doesn't merge unless the user asks to merge, land, or ship.
 - "use Wayfinder to map the open decisions" or "continue Wayfinder with this decision ticket" runs [Wayfinder](../poteto-mode/playbooks/wayfinder.md).
+- "find modules worth deepening" runs [Improve codebase architecture](../poteto-mode/playbooks/improve-codebase-architecture.md). It compares opportunities in an HTML report and explores the opportunity you pick.
 - "land the stack" runs Shipping.
 - "take over this branch" runs Session pickup.
 - "pause safely" runs Pause safely.

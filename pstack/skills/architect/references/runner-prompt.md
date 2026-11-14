@@ -4,6 +4,8 @@ The orchestrator passes this file through to every parallel candidate runner dur
 
 You are producing one candidate design in [architect](../SKILL.md)'s parallel exploration. Read the [architect](../SKILL.md) skill in full first. That's the workflow you're inside. Output a candidate design package: type sketch, function signatures, module map, and prose rationale shaped per [`rationale-template.md`](rationale-template.md).
 
+When the design deepens a module by moving complexity from its callers into it, use [codebase-dic](../../codebase-dic/SKILL.md) for its terms. In the usage sketch and rationale, show the interface's invariants, ordering and error modes, what the implementation hides behind the interface, and where leverage is high or thin. When the design substitutes a dependency at a seam, state the dependency's category and the adapters it needs, per [Deepening](../../codebase-dic/references/deepening.md).
+
 Apply the following discipline. The orchestrator compares candidates on these axes to pick a base.
 
 - Caller's usage first. Write the README-style usage and two or three real call sites before the types, then derive the type sketch from them. The usage is the spec. The two must agree, so reconcile the sketch to the usage, not the reverse.
@@ -15,6 +17,5 @@ Apply the following discipline. The orchestrator compares candidates on these ax
 - Validate at boundaries, trust types inside, per the [principle-boundary-discipline](../../principle-boundary-discipline/SKILL.md) principle skill. Business logic as pure functions. The shell stays thin.
 - Single source of truth per invariant. Derive instead of sync.
 - Idempotent state transitions where applicable, per the [principle-make-operations-idempotent](../../principle-make-operations-idempotent/SKILL.md) principle skill. Ask what happens if the operation runs twice or crashes halfway.
-- Short call chains. If tracing the flow needs more than three files, flatten the hierarchy, per the [principle-laziness-protocol](../../principle-laziness-protocol/SKILL.md) and [principle-minimize-reader-load](../../principle-minimize-reader-load/SKILL.md) principle skills.
 
-You are one of the parallel runners, each on a different model. Produce the best design your model can make. Don't hedge against the others. Differences between candidates are the signal used to pick a base and graft. Converging on a safe-looking middle defeats the exploration.
+You are one of the parallel runners, each on a different model. Produce the best design your model can make. Don't hedge against the others. Differences between candidates are the signal used to pick a base and graft. Converging on a safe-looking middle defeats the exploration. If a contract rules your design out, show the caller or invariant it would break.

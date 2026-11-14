@@ -1,6 +1,6 @@
 # Route work through [poteto-mode](../../skills/poteto-mode/SKILL.md)
 
-[poteto-mode](../../skills/poteto-mode/SKILL.md) is the front door. You give it a goal. It opens or reuses the GitHub work issue, matches one of twenty-four playbooks when the task needs one, copies that playbook's steps into the todo list, and calls the other skills as the steps need them. In this page you learn what a good prompt looks like, and how little of one you actually need.
+[poteto-mode](../../skills/poteto-mode/SKILL.md) is the front door. You give it a goal. It opens or reuses the GitHub work issue, matches one of twenty-five playbooks when the task needs one, copies that playbook's steps into the todo list, and calls the other skills as the steps need them. In this page you learn what a good prompt looks like, and how little of one you actually need.
 
 ![A dispatcher pulls a switch lever to route robots on rail handcars toward lit gates, under a /poteto-mode departure board listing BUG FIX, FEATURE, and INVESTIGATION.](./images/router.jpg)
 
@@ -16,6 +16,7 @@ flowchart TD
     D -->|Defect| F[Bug fix]
     D -->|New behavior| G[Feature]
     D -->|Structure only| H[Refactoring]
+    D -->|Find modules worth deepening| M[Improve codebase architecture]
     D -->|Measured slowness| I[Perf issue]
     D -->|Operator requests Wayfinder| W[Wayfinder]
     D -->|Large work or no match| J[figure-it-out]
@@ -23,6 +24,7 @@ flowchart TD
     F --> K
     G --> K
     H --> K
+    M --> K
     I --> K
     J --> K
     W --> K

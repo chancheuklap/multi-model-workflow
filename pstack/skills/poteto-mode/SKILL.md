@@ -133,8 +133,6 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 Start a checklist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below and open its full steps at `playbooks/<title>.md`, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its file. Copy its steps in verbatim.
 
-When the operator asks for **Wayfinder**, use its playbook to chart or resume the map. For a requested spec from a settled map, call [to-spec](../to-spec/SKILL.md) with the map as its source. For a requested design discussion that fits one session, use [grilling](../grilling/SKILL.md).
-
 Otherwise, a large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the [figure-it-out](../figure-it-out/SKILL.md) skill even when a narrower playbook like Feature fits. Use [figure-it-out](../figure-it-out/SKILL.md) whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead. [figure-it-out](../figure-it-out/SKILL.md) designs one bespoke run, orchestrate runs the program.
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y.
@@ -145,8 +143,9 @@ Otherwise, a large or cross-cutting effort (a migration across many call sites, 
 - **Trace forensics.** Diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot) handed to you after the fact. The deliverable is a diagnosis, not a fix.
 - **Feature.** New or changed behavior, built from a named data shape.
 - **Refactoring.** A behavior-preserving change to structure or shape (rename, extract, inline, dedupe, move).
+- **Improve codebase architecture.** Find modules worth deepening in a named area or across the codebase. Distinct from Refactoring, which makes a change already chosen.
 - **Prototype.** A throwaway sketch to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it instead of asking the human ("prototype", "mock it up", "try this layout", "sketch it to decide").
-- **Wayfinder.** Chart a loose idea across sessions or resume an open question from its map or decision ticket.
+- **Wayfinder.** Chart a loose idea across sessions or resume an open question from its map or decision ticket. A design discussion that fits one session uses [grilling](../grilling/SKILL.md) instead.
 - **Visual parity.** Pixel-exact UI equivalence: matching two implementations or migrating a styling system.
 - **Authoring or modifying a skill.** Writing or editing a SKILL.md. File: `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it.

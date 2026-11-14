@@ -14,13 +14,15 @@ The two most common design mistakes are taking the agent's first design and poli
 
 [architect](../../skills/architect/SKILL.md) grounds itself first, running [how](../../skills/how/SKILL.md) over the code the design touches and [why](../../skills/why/SKILL.md) when it moves ownership or layers. Then it runs [arena](../../skills/arena/SKILL.md) to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
 
-By default it proceeds straight from the synthesized design into implementation. If you want to see the design first, say so:
+By default it proceeds straight from the synthesized design into implementation. When a playbook hands the code to another agent, architect returns the design instead. If you want to see the design first, say so:
 
 ```text
 /architect with checkpoint. stop and show me before implementing.
 ```
 
 The design isn't sacred once code starts. If implementation shows the same workaround in unrelated places, or types that only compile with `any` or forced casts, [architect](../../skills/architect/SKILL.md) treats that as proof the design is wrong. It scraps the sketch and starts over instead of patching around it.
+
+To find modules worth deepening, ask for [Improve codebase architecture](../../skills/poteto-mode/playbooks/improve-codebase-architecture.md). It shows you the deepening opportunities in an HTML report. Once you pick one and want to compare interfaces, it calls [architect](../../skills/architect/SKILL.md), which gives each parallel runner a different interface direction. You see the competing designs and the recommendation before deciding what to build.
 
 ## Fan out attempts with [arena](../../skills/arena/SKILL.md)
 

@@ -40,7 +40,7 @@ The rule for a correction that keeps recurring. A single owner can remove the op
 ### The design seen by its callers
 
 **Design package**:
-A candidate or chosen design comprising a type sketch and its rationale, with a module map for larger changes. Under Exhaust the Design Space, an architectural comparison uses at least two structurally distinct candidates. The chosen sketch guides implementation.
+A candidate or chosen design comprising a type sketch and its rationale, with a module map for larger changes. Under Exhaust the Design Space, an architectural comparison uses at least two structurally distinct candidates. The chosen sketch guides implementation. Arena's synthesis returns the synthesized design package, which architect also calls the synthesized design or synthesized sketch. A design package the operator approves is a settled baseline for the agent that writes the code.
 
 **Usage sketch**:
 The caller's view of the proposed design, shown by example imports, calls, and results. The type sketch is derived from this usage. Under Experience First, the person importing a library is a user of the design, as is the engineer maintaining it.
@@ -52,13 +52,59 @@ The proposed types, function signatures, and module boundaries, with the impleme
 The record accompanying a sketch. It explains the choice of shape, its tradeoffs, and the alternatives considered. Its *synthesis decision* says which candidate supplied the base, what the chosen design took from other candidates, and what it left out.
 
 **Agree (opt-in)**:
-The design checkpoint a caller can request in [architect](../../../skills/architect/SKILL.md). The caller reviews the synthesized sketch before implementation. By default, implementation starts once the sketch is ready.
+The design checkpoint an invoker can request in [architect](../../../skills/architect/SKILL.md). The invoker reviews the synthesized sketch before implementation. By default, implementation starts once the sketch is ready. When the invoker assigns implementation to another agent, architect returns the design package and stops.
+
+**Architecture vocabulary**:
+The terms module, interface, depth, seam, adapter, leverage, and locality as [codebase-dic](../../../skills/codebase-dic/SKILL.md) defines them. They describe the shape of the code and mean the same in every project.
+
+**Domain vocabulary**:
+The terms the project's own glossary defines for its concepts. They name modules and seams. When a deepened module takes its name from a concept the glossary lacks, [domain-modeling](../../../skills/domain-modeling/SKILL.md) adds the term.
+
+**Module**:
+Anything with an interface and an implementation. It can be a function, a class, a package, or a slice across tiers.
+_Avoid_: unit, component, service as substitutes for module.
+
+**Interface**:
+Everything a caller must know to use the module correctly, including types, invariants, ordering constraints, error modes, required configuration, and performance characteristics. A TypeScript `interface` declaration covers only its type-level part.
+_Avoid_: API or signature when referring to this entire contract.
+
+**Implementation (module)**:
+The code inside a module. An adapter has its own implementation. Writing code, as the implementer of an execution ticket does, is a different sense.
 
 **Module boundary**:
 The boundary around the knowledge and state a module owns. Its public interface is what callers use to reach its behavior. Operations that run at different times can belong to the same module when they depend on the same knowledge.
 
 **Interface depth**:
-The behavior and policy a module hides relative to what a caller must learn to use it. A deep module can complete an operation through one call. A shallow module makes callers coordinate its internal stages. A long call chain measures a different property.
+The behavior and policy a module hides relative to what a caller must learn to use it. A deep module can complete an operation through one call. A shallow module makes callers coordinate its internal stages. A long call chain measures a different property. In [codebase-dic](../../../skills/codebase-dic/SKILL.md), *depth* is shorthand for interface depth.
+
+**Deepening opportunity**:
+A refactoring that moves complexity from callers into a module so its interface can stay small. It answers friction found while exploring, such as a shallow module or a seam that leaks. The recommendation describes the gain in leverage, locality, or testability.
+_Avoid_: candidate, which names an Arena runner's design.
+
+**Architecture review**:
+One run of the [Improve codebase architecture playbook](../../../skills/poteto-mode/playbooks/improve-codebase-architecture.md). Its report is a self-contained HTML file with a card for each deepening opportunity, shown before and after.
+
+**Leverage**:
+What callers get from depth. More capability per unit of interface they learn. One implementation pays back across N call sites and M tests. Leverage is a term of art here and is exempt from [unslop](../../../skills/unslop/SKILL.md)'s plain-word rule.
+
+**Locality**:
+What maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.
+
+**Deletion test**:
+A thought experiment about removing a module. If complexity vanishes, the module was a pass-through. If complexity reappears across its callers, the module was earning its keep.
+
+**Seam**:
+A place where behavior can change without editing the code at that place. An external seam sits at the module's interface. An internal seam lets its implementation substitute a dependency. A [test seam](../product-verification/GLOSSARY.md#evidence-and-observation) names where a test observes behavior.
+_Avoid_: boundary as a substitute for seam. A module boundary describes ownership.
+
+**Port**:
+The interface a module uses to reach a replaceable dependency at a seam.
+
+**Adapter**:
+A concrete implementation that satisfies an interface at a seam. One adapter describes a hypothetical seam. Two justified adapters, such as a production transport and an in-memory test adapter, make the variation concrete.
+
+**Dependency category**:
+The distinction that determines how a deepened module can be tested. An **in-process** dependency needs no adapter. A **local-substitutable** dependency has a local stand-in. A **remote but owned** service uses a transport adapter. A **true external** service is outside the project's control and uses a mock adapter in tests.
 
 **Design red flag**:
 A property of a candidate design that warrants revision or rejection. Examples include callers able to import private implementation details, a hand-synced list whose copies can drift, or two public paths to the same operation.
@@ -149,6 +195,8 @@ The [principles guide](../../guide/08-principles.md) explains how a named princi
 The settled decision, shared-premise test, and rerunnable tool come from [principle-baseline-is-the-contract](../../../skills/principle-baseline-is-the-contract/SKILL.md), [principle-attack-the-premise](../../../skills/principle-attack-the-premise/SKILL.md), and [principle-build-the-lever](../../../skills/principle-build-the-lever/SKILL.md).
 
 The [architect](../../../skills/architect/SKILL.md) skill, [candidate brief](../../../skills/architect/references/runner-prompt.md), [design red flags](../../../skills/architect/references/design-red-flags.md), and [rationale template](../../../skills/architect/references/rationale-template.md) define the design package and its supporting decisions. The typed representations appear in [typescript-best-practices](../../../skills/typescript-best-practices/SKILL.md). The [PR watcher's types](../../../skills/poteto-mode/scripts/watch-pr/types.ts) show the validated PR number and the clean CI state.
+
+The [Improve codebase architecture playbook](../../../skills/poteto-mode/playbooks/improve-codebase-architecture.md) uses [codebase-dic](../../../skills/codebase-dic/SKILL.md) to assess deepening opportunities. Its [dependency categories](../../../skills/codebase-dic/references/deepening.md#dependency-categories) explain how the module is tested at its seam. codebase-dic repeats the architecture vocabulary for agents that read only the skill. Change both together.
 
 The [Feature playbook](../../../skills/poteto-mode/playbooks/feature.md) uses the domain model in an implementation brief. The [Refactoring playbook](../../../skills/poteto-mode/playbooks/refactoring.md) holds a pin through structural changes. [principle-test-behavior-not-implementation](../../../skills/principle-test-behavior-not-implementation/SKILL.md) and [tdd](../../../skills/tdd/SKILL.md) define the test contract and failing-before evidence.
 

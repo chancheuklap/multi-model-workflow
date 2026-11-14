@@ -13,6 +13,10 @@ _Avoid_: owner on its own when a PR owner could also be meant.
 **Main chat**:
 The conversation that receives the operator's request and runs the selected playbook. It owns the checklist and the delegations, checks what the agents produced, and reports to the operator.
 
+**Invoker**:
+The operator, playbook step, or skill that calls a skill and supplies its inputs. The skill returns its result to the invoker, who decides what happens next.
+_Avoid_: caller for the invoker. A caller is code or a person that uses a module's interface.
+
 **Skill**:
 A named set of reusable instructions that an operator or another skill can invoke. A playbook can call a skill for one step.
 
@@ -101,10 +105,14 @@ A required slice with no usable result. A **dropout** is a worker that returns n
 ### Arena candidates and synthesis
 
 **Arena**:
-A comparison of independent attempts at one artifact. Each runner receives the same task. The parent chooses one candidate as the base, incorporates selected parts of others, and verifies the combined artifact.
+A comparison of independent attempts at one artifact. Each runner receives the same task. A task that assigns each runner a design direction differs between runners only in that direction. The parent chooses one candidate as the base, incorporates selected parts of others, and verifies the combined artifact.
 
 **Runner**:
 The agent that produces one independent answer to the Arena brief. Its **candidate** is the artifact it submits with a short rationale explaining alternatives it considered and rejected. An architect runner submits a design package under the same arrangement.
+
+**Design direction**:
+A distinct approach to the same brief, such as a different structure or trade-off. By default every runner receives the same brief and chooses its own direction. When the task asks for alternative interfaces to one module, each runner is assigned one of architect's [interface directions](../../../skills/architect/references/interface-directions.md) and the rest of its prompt stays identical. Arena adds runners when the task spans several directions. The wireframe sense is [layout direction](../design-and-presentation/GLOSSARY.md#visual-and-interaction-design).
+_Avoid_: direction for a constraint that every runner receives.
 
 **Arena rubric**:
 Three to six criteria specific to the task, set before the runners start. The parent and the cross-judge score each candidate against these criteria. The runners see the task.

@@ -35,7 +35,7 @@ use [poteto-mode](./skills/poteto-mode/SKILL.md) at the start of a task. it open
 
 ### just use [poteto-mode](./skills/poteto-mode/SKILL.md)
 
-this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-four playbooks:
+this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-five playbooks:
 
 ```
 /poteto-mode this pr has a subtle bug where the scroll drifts every 750ms even when idle. repro
@@ -48,7 +48,7 @@ morning.
 ```
 
 <details>
-<summary>the twenty-four playbooks</summary>
+<summary>the twenty-five playbooks</summary>
 
 | playbook | for |
 |---|---|
@@ -60,6 +60,7 @@ morning.
 | [trace forensics](./skills/poteto-mode/playbooks/trace-forensics.md) | diagnose a captured profiling artifact (cpuprofile, trace, spindump, heap snapshot). |
 | [feature](./skills/poteto-mode/playbooks/feature.md) | new or changed behavior, built from a named data shape. |
 | [refactoring](./skills/poteto-mode/playbooks/refactoring.md) | a behavior-preserving change to structure or shape. |
+| [improve codebase architecture](./skills/poteto-mode/playbooks/improve-codebase-architecture.md) | find modules worth deepening, see the before/after report, and discuss one opportunity. |
 | [prototype](./skills/poteto-mode/playbooks/prototype.md) | a throwaway sketch to make a design or behavioral decision cheaply, or to settle an empirical fork by observing it. |
 | [wayfinder](./skills/poteto-mode/playbooks/wayfinder.md) | chart unresolved decisions across sessions on a GitHub map, or continue from a decision ticket. |
 | [visual parity](./skills/poteto-mode/playbooks/visual-parity.md) | pixel-exact ui equivalence between two implementations. |
@@ -119,6 +120,7 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [ketchup-video](./skills/ketchup-video/SKILL.md) | you want the [ketchup](skills/ketchup/SKILL.md) catch-up as a short subtitled video of slides, with the calls waiting on you as text under it. |
 | [blast-radius](./skills/blast-radius/SKILL.md) | you have a small-looking change and want to know what else it could break, with the one fact it's safe because of proven by running code, not asserted. |
 | [architect](./skills/architect/SKILL.md) | you're about to write code that crosses a function boundary and want the caller's usage, types, and module shape settled first. |
+| [codebase-dic](./skills/codebase-dic/SKILL.md) | look up the shared vocabulary for deep modules, dependency seams, and tests at the interface. |
 | [arena](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
 | [swarm](./skills/swarm/SKILL.md) | you want N parallel workers across different slices or races, then one aggregated report. |
 | [interrogate](./skills/interrogate/SKILL.md) | you have a diff and want different models to try to break it, keeping only findings a run proves. |
@@ -261,7 +263,7 @@ thirty-two short skills, one principle each. [poteto-mode](skills/poteto-mode/SK
 Each link opens the instructions bundled with this copy.
 
 - From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. [Team Kit license](./licenses/cursor-team-kit.txt)
-- [Wayfinder](./skills/poteto-mode/playbooks/wayfinder.md), the [Prototype methods](./skills/poteto-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
+- [Wayfinder](./skills/poteto-mode/playbooks/wayfinder.md), [Improve codebase architecture](./skills/poteto-mode/playbooks/improve-codebase-architecture.md), [codebase-dic](./skills/codebase-dic/SKILL.md), the [Prototype methods](./skills/poteto-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
 - From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills.
 - The HTML skills come from MMW v5 Cloud. [to-spec](./skills/to-spec/SKILL.md) uses [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) to present the whole spec in HTML. [ketchup](./skills/ketchup/SKILL.md) uses [html](./skills/html/SKILL.md) for charts. [Plannotator license](./skills/html/LICENSE)
 

@@ -10,7 +10,7 @@ Start a checklist with one entry per phase (Frame, Fan out, Cross-judge, Pick, G
 
 ## Phase A: Frame
 
-Every candidate gets the same prompt, so the prompt is the contract.
+Every candidate gets the same prompt, so the prompt is the contract. When the task assigns each candidate a design direction, the direction is the only line that differs.
 
 1. State the artifact each candidate is producing. For an implementation, include the execution ticket URL in the task each candidate receives.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
@@ -37,7 +37,7 @@ Pick the base a future maintainer can extend most easily without breaking invari
 
 Walk each losing candidate once more for what is worth porting into the base, usually one or two things per candidate, not most of it. Fold each graft in by hand, per the [principle-redesign-from-first-principles](../principle-redesign-from-first-principles/SKILL.md) principle skill, so the result stays coherent under one mental model. Don't paste mechanically.
 
-If the candidates converge on one shape, that is strong agreement. Note it and ship the consensus shape. No graft is needed. If they wildly diverge, Phase A was under-specified. Reframe and re-run rather than averaging the divergence.
+If the candidates converge on one shape, that is strong agreement. Note it and ship the consensus shape. No graft is needed. If they wildly diverge without assigned directions, Phase A was under-specified. Reframe and re-run rather than averaging the divergence.
 
 ## Phase F: Verify
 
