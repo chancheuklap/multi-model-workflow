@@ -1,7 +1,6 @@
 ---
 name: poteto-mode
 description: poteto's agent style for concise, detailed responses, deliberate subagents, unslopped prose, simple code, and verified work. Use for poteto, /poteto-mode, or requests to work in this style.
-disable-model-invocation: true
 icon: crown
 color: yellow
 ---
@@ -24,6 +23,8 @@ Remaining triggers:
 - Code crossing a function boundary → the [architect](../architect/SKILL.md) skill, parallel design exploration before implementing. For throwaway code inside the Prototype playbook, stay in that playbook.
 - Parallel fan-out → the [swarm](../swarm/SKILL.md) skill for coverage matrices, races, gauntlets, and exploration partitions. Use [arena](../arena/SKILL.md) for design or code bakeoffs with base selection and grafting.
 - Contested design → the [interrogate](../interrogate/SKILL.md) skill (multi-model adversarial) before shipping.
+- The operator asks for a code review of a project branch → the **Code review** playbook (`playbooks/code-review.md`), once for that branch. Never start it on your own.
+- A review with no objective endpoint, such as an ambiguity scan, an interrogation or a code review → it runs once for its scope. Settle what it reports, then continue. Run another only when the operator asks. A loop that ends on a check's exit code or a run's verdict, such as CI or the plan checker, is not such a review.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Any prose surface, your reply to the user included → the [unslop](../unslop/SKILL.md) skill. Write the reply per **Writing the reply**. Agent-facing prose also follows the [create-skill](../create-skill/SKILL.md) skill.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the [technical-writing](../technical-writing/SKILL.md) skill ([technical-writing](../technical-writing/SKILL.md)).
@@ -100,7 +101,7 @@ Read the linked leaf skill in full for any principle you apply. Each entry names
 
 ## Subagents
 
-**Assign the [poteto-agent role](../../agents/poteto-agent.md) to any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). Give the delegate access to the role instructions and its assigned scope. The chat that receives `/poteto-mode` runs the playbook. Never spawn a `poteto-agent` to run the playbook itself. Routed workflow skills ([how](../how/SKILL.md), [why](../why/SKILL.md), [interrogate](../interrogate/SKILL.md), [reflect](../reflect/SKILL.md), [swarm](../swarm/SKILL.md)) give their own subagents role-specific briefs. Respect what the skill prescribes, don't override to `poteto-agent`.
+**Assign the [poteto-agent role](../../agents/poteto-agent.md) to any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). Give the delegate access to the role instructions and its assigned scope. The chat that receives `/poteto-mode` runs the playbook. Never spawn a `poteto-agent` to run the playbook itself. Routed workflow skills ([how](../how/SKILL.md), [why](../why/SKILL.md), [interrogate](../interrogate/SKILL.md), [code-review](../code-review/SKILL.md), [reflect](../reflect/SKILL.md), [swarm](../swarm/SKILL.md)) give their own subagents role-specific briefs. Respect what the skill prescribes, don't override to `poteto-agent`.
 
 **Delegation.** Dispatch without blocking other work, including follow-ups to a running agent. Give the delegate the tools it needs and its assigned work issue URL. Put the execution ticket URL and assigned change in the brief of each agent that writes the code, including when a PR owner or another skill delegates implementation. For work on an existing PR, include the PR URL. Give a PR verifier the exact head SHA to check. Pass readable file paths in place of inlined context. Read the user's [pstack model rule](../setup-pstack/SKILL.md#model-rule). Code delegates use their playbook's role (`feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`). The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) use `hardest tasks`, even when the steps are precisely specified. Prose and judgment use `judgment and prose`. A routed skill names the roles for its own delegates.
 
@@ -151,6 +152,7 @@ Otherwise, a large or cross-cutting effort (a migration across many call sites, 
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it.
 - **Babysit.** Driving a PR or a stack to merge-ready: conflicts, review threads, CI.
 - **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run bottom-up on Origin when it resolves the repository, otherwise on GitHub.
+- **Code review.** One review of a finished project branch on three axes, then one fix pass. Distinct from Interrogate, which tries to break a change with runs.
 - **Autonomous run.** A long task to drive to completion without stopping ("run until done", "keep going until X").
 - **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of subagents, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate. Work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds.
 - **Autopilot-full.** A queue of independent PRs run to merged with full autonomy. One owner per PR carries build through merge, and the root swarm-verifies each PR before its owner merges ("autopilot this queue", "full autopilot", one-owner-per-PR programs).

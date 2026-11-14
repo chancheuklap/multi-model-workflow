@@ -1,7 +1,6 @@
 ---
 name: principle-first-principles-thinking
 description: "Apply before recommending an approach when the plan or design is still open. Test the premises, separate binding constraints from convention, and choose the simplest approach the evidence supports."
-disable-model-invocation: true
 ---
 
 # First-Principles Thinking

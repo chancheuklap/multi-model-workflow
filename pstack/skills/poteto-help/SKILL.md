@@ -1,7 +1,6 @@
 ---
 name: poteto-help
 description: Guides users through pstack setup, /poteto-mode, and picking the skill, playbook, or principle for a task. Type /poteto-help with a question.
-disable-model-invocation: true
 ---
 
 # Poteto help
@@ -72,7 +71,8 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Get several attempts at one brief, merged into the best one | [arena](../arena/SKILL.md) |
 | Run parallel checks over slices, or race workers | [swarm](../swarm/SKILL.md) |
 | Have different models review a diff and try to break it | [interrogate](../interrogate/SKILL.md) |
-| Fix a bug test-first when a cheap local test exists | [tdd](../tdd/SKILL.md) |
+| Review a finished project branch once, on three axes | [code-review](../code-review/SKILL.md) |
+| Write the tests for code you are landing, failing-first for a bug | [write-tests](../write-tests/SKILL.md) |
 | Apply TypeScript rules to `.ts` or `.tsx` work | [typescript-best-practices](../typescript-best-practices/SKILL.md) |
 | Strip comments before review, using a reviewer that didn't write them | [no-comments](../no-comments/SKILL.md) |
 | Clean AI tells out of prose | [unslop](../unslop/SKILL.md) |
@@ -105,7 +105,7 @@ Close calls:
 - [how](../how/SKILL.md) explains what the code does. [why](../why/SKILL.md) explains the reasons. [teach](../teach/SKILL.md) runs one or both and explains the result plainly.
 - [arena](../arena/SKILL.md) gives every worker the same brief and merges the best parts. [swarm](../swarm/SKILL.md) splits work into slices or a race and returns one report.
 - [architect](../architect/SKILL.md) implements right after it settles the design. Add "with checkpoint" to review the design before it writes code. Inside a playbook that hands the code to another agent, it returns the design instead.
-- [interrogate](../interrogate/SKILL.md) reviews the diff. [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe.
+- [interrogate](../interrogate/SKILL.md) reviews the diff. [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe. [code-review](../code-review/SKILL.md) checks a finished project branch once, on three axes, and the Code review playbook repairs it once.
 - [recall](../recall/SKILL.md) rebuilds context across recent chats. [ketchup](../ketchup/SKILL.md) covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
 - [figure-it-out](../figure-it-out/SKILL.md) designs one rigorous run. The Orchestrate playbook runs a program that spans days and many PRs. The Autonomous run playbook drives one task to a finish condition.
 
@@ -122,6 +122,7 @@ Playbooks are step lists inside [poteto-mode](../poteto-mode/SKILL.md), not skil
 - "use Wayfinder to map the open decisions" or "continue Wayfinder with this decision ticket" runs [Wayfinder](../poteto-mode/playbooks/wayfinder.md).
 - "find modules worth deepening" runs [Improve codebase architecture](../poteto-mode/playbooks/improve-codebase-architecture.md). It compares opportunities in an HTML report and explores the opportunity you pick.
 - "land the stack" runs Shipping.
+- "code review project/billing" runs [Code review](../poteto-mode/playbooks/code-review.md). It reviews a finished project branch once and fixes it once.
 - "take over this branch" runs Session pickup.
 - "pause safely" runs Pause safely.
 - "full autopilot on this queue" runs Autopilot-full. "autopilot, don't merge" runs Autopilot-stack.
@@ -141,7 +142,7 @@ Principles are one-rule skills that [poteto-mode](../poteto-mode/SKILL.md) reads
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
 | A new model choice had no effect | The rule from [setup-pstack](../setup-pstack/SKILL.md) applies to new chats. Start one. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |
-| A skill didn't load on its own | [setup-pstack](../setup-pstack/SKILL.md), [to-spec](../to-spec/SKILL.md) and [to-tickets](../to-tickets/SKILL.md) can load from the user's words. For a skill that requires explicit invocation, name it or use a playbook that calls it. |
+| A skill didn't load on its own | The agent picks a skill from its description. Name the skill, or use a playbook that calls it. |
 | Parallel agents overwrote each other | Give concurrent writers separate worktrees. |
 | An overnight run moved but finished nothing | The run needs a check that can pass or fail, not a duration. See [guide page 7](../../docs/guide/07-overnight.md). |
 | The reply claims success from a green build | Ask for the real command, flow, stored value, or profile. That's the prove-it-works principle. |

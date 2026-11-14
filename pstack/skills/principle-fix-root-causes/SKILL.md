@@ -1,7 +1,6 @@
 ---
 name: principle-fix-root-causes
 description: "Apply when debugging a symptom or a failing check. Test competing causes against the reproduction and trace the fault to the implementation or the check. Keep the required behavior fixed."
-disable-model-invocation: true
 ---
 
 # Fix Root Causes

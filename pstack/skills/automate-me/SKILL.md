@@ -1,7 +1,6 @@
 ---
 name: automate-me
 description: "Use for \"automate me\", \"create/update/refresh my -mode skill\", \"turn/capture my preferences or working style into a skill\", or wanting agents to follow how the user works. Drafts or revises a personal -mode skill via create-skill + unslop, optionally pulling fresh evidence from recent transcripts."
-disable-model-invocation: true
 ---
 
 # Automate me
@@ -70,7 +69,7 @@ Use the bundled [create-skill](../create-skill/SKILL.md) to author the skill. Pl
 - Handle: the user's first name or chosen identifier.
 - Frontmatter `description`: trigger on their name + `/<handle>-mode` + "work in their style", not on generic keywords like "write code" or "review PR".
 - Frontmatter formatting: follow [create-skill](../create-skill/SKILL.md)'s YAML rules. Keep `description` as one YAML scalar. Quote it or use `description: >-` with indented continuation lines when punctuation or wrapping requires it.
-- State in the description that the user activates the mode. Set `disable-model-invocation: true` where supported. Opt into automatic invocation only if the user explicitly wants the mode to apply on every turn.
+- State in the description that the user activates the mode, so the agent does not apply it on its own. Describe a trigger that fires on every turn only if the user explicitly wants the mode to apply that way.
 
 ### 5. Iterate on prose
 

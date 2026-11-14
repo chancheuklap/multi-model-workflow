@@ -1,7 +1,6 @@
 ---
 name: principle-sequence-verifiable-units
 description: "Apply to multi-step work and the order of commits and PRs. Check each unit before the next. Keep behavior-preserving steps green. A repro commit must fail for the expected reason before the fix makes it pass."
-disable-model-invocation: true
 ---
 
 # Sequence work into verifiable units

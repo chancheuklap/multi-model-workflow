@@ -1,7 +1,6 @@
 ---
 name: principle-files-describe-the-present
 description: "Apply when writing or editing code, comments, or documentation. Describe the subject as it is now. Put change history in a file whose subject is the change, such as an ADR or changelog."
-disable-model-invocation: true
 ---
 
 # Files Describe the Present

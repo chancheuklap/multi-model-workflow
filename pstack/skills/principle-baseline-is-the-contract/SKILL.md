@@ -1,7 +1,6 @@
 ---
 name: principle-baseline-is-the-contract
 description: "Apply when implementing or documenting a settled decision from a spec, prototype, or the operator. Preserve the values, wording, and behavior the decision fixes. A prototype binds the question it settled."
-disable-model-invocation: true
 ---
 
 # The Baseline Is the Contract

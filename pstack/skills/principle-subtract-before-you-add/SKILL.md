@@ -1,7 +1,6 @@
 ---
 name: principle-subtract-before-you-add
 description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead weight first. A new guard should address an observed failure or enforce a requirement."
-disable-model-invocation: true
 ---
 
 # Subtract Before You Add

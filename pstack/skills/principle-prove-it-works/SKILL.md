@@ -1,7 +1,6 @@
 ---
 name: principle-prove-it-works
 description: "Apply before acting on a finding or declaring work done. Check the real artifact at its current version, including the path or state the claim depends on. A proxy or a self-report can't settle it."
-disable-model-invocation: true
 ---
 
 # Prove It Works

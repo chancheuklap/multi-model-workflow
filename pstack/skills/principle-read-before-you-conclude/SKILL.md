@@ -1,7 +1,6 @@
 ---
 name: principle-read-before-you-conclude
 description: "Apply before you change a file or say how it works. Read the relevant source and callers, including handoffs when a rule spans agents. Distinguish what you observed from what you inferred."
-disable-model-invocation: true
 ---
 
 # Read Before You Conclude

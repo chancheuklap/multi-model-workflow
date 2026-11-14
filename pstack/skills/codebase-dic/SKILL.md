@@ -1,7 +1,6 @@
 ---
 name: codebase-dic
 description: Shared vocabulary for designing deep modules. Use when another skill needs the deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality) or its principles (the deletion test, the interface is the test surface, one adapter means a hypothetical seam). Reference to consult, not a session to run.
-disable-model-invocation: true
 ---
 
 # codebase-dic

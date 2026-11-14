@@ -168,8 +168,15 @@ The rule for a planned rewrite or migration with explicit verification boundarie
 **Migrate Callers Then Delete Legacy APIs**:
 The rule for replacing an internal interface when all callers can move together and no external consumer depends on the old contract. Updating the callers and removing the old API belong to one coordinated migration.
 
-**TDD Bug Fix**:
-A fix whose focused regression test fails for the intended reason before the production change and passes after it. When a local test would require brittle mocks or unrelated setup, the closest executable regression check supplies the before-and-after evidence.
+**Failing-before evidence**:
+The test or executable check that fails for the intended reason before the change and passes after it. A bug fix needs it. A specified behavior gets it from the red step of its cycle. When a local test would need brittle mocks or unrelated setup, the closest executable check supplies it. [write-tests](../../../skills/write-tests/SKILL.md)
+_Avoid_: TDD, TDD Bug Fix
+
+**Authoring gate**:
+The four questions answered before a test is added: what behavior it protects, what regression makes it fail, why existing proof misses it, and whether it needs a test-only hook with no production caller. [write-tests judgment](../../../skills/write-tests/references/judgment.md)
+
+**Retention bar**:
+The contracts a test may keep even when it looks static or slow, such as a public API, a migration or a package contract. A test that is only static or slow is not deleted for that reason. [write-tests judgment](../../../skills/write-tests/references/judgment.md)
 
 ### Code cleanup and comment review
 
@@ -188,6 +195,18 @@ A Comment Sicko finding that identifies an exact in-scope symbol requiring a fix
 **Constraint comment**:
 A comment claiming an obligation, such as preserving specific wording. Where the project owns the constraint, a type, test, or lint rule can enforce it. An obligation left without an approved encoding is reported as unenforced.
 
+### Code review
+
+**Code review**:
+One review of a project branch after the tickets of its spec have landed on it, on the Standards, Spec and Tests axes. The operator asks for it. It runs once. The [code-review](../../../skills/code-review/SKILL.md) skill reviews and reports, and the [Code review playbook](../../../skills/poteto-mode/playbooks/code-review.md) repairs once and stops. It differs from an ambiguity scan, which reads a draft before any code exists, and from [interrogate](../../../skills/interrogate/SKILL.md), which tries to break a change with runs.
+_Avoid_: review alone for any of these. A forge check named Code Review Gate is a separate thing.
+
+**Review axis**:
+One of the three questions a code review asks, each answered by its own fresh reviewer. Standards compares the diff with the repository's documented standards and a fixed smell baseline. Spec compares it with the spec and the landed tickets, and tries to break it. Tests audits the tests against the write-tests judgment. A stage belongs to an ambiguity scan, an axis to a code review.
+
+**Hard finding**:
+A documented-standard breach, a spec finding, or a test finding that the main chat kept after checking it against the reviewed commit. The Code review playbook repairs it when it is in scope. A smell from the baseline is a **judgement call**. It is reported under its axis and not repaired.
+
 ## Sources
 
 The [principles guide](../../guide/08-principles.md) explains how a named principle changes a decision. The different decisions about binding constraints, shared foundations, and new requirements appear in [principle-first-principles-thinking](../../../skills/principle-first-principles-thinking/SKILL.md), [principle-foundational-thinking](../../../skills/principle-foundational-thinking/SKILL.md), and [principle-redesign-from-first-principles](../../../skills/principle-redesign-from-first-principles/SKILL.md).
@@ -198,6 +217,6 @@ The [architect](../../../skills/architect/SKILL.md) skill, [candidate brief](../
 
 The [Improve codebase architecture playbook](../../../skills/poteto-mode/playbooks/improve-codebase-architecture.md) uses [codebase-dic](../../../skills/codebase-dic/SKILL.md) to assess deepening opportunities. Its [dependency categories](../../../skills/codebase-dic/references/deepening.md#dependency-categories) explain how the module is tested at its seam. codebase-dic repeats the architecture vocabulary for agents that read only the skill. Change both together.
 
-The [Feature playbook](../../../skills/poteto-mode/playbooks/feature.md) uses the domain model in an implementation brief. The [Refactoring playbook](../../../skills/poteto-mode/playbooks/refactoring.md) holds a pin through structural changes. [principle-test-behavior-not-implementation](../../../skills/principle-test-behavior-not-implementation/SKILL.md) and [tdd](../../../skills/tdd/SKILL.md) define the test contract and failing-before evidence.
+The [Feature playbook](../../../skills/poteto-mode/playbooks/feature.md) uses the domain model in an implementation brief. The [Refactoring playbook](../../../skills/poteto-mode/playbooks/refactoring.md) holds a pin through structural changes. [principle-test-behavior-not-implementation](../../../skills/principle-test-behavior-not-implementation/SKILL.md) and [write-tests](../../../skills/write-tests/SKILL.md) define the test contract and failing-before evidence.
 
 The cleanup roles are defined by [deslop](../../../skills/deslop/SKILL.md), [no-comments](../../../skills/no-comments/SKILL.md), and the [Comment Sicko role](../../../agents/comment-sicko.md). The [code cleanup guide](../../guide/05-build-and-clean.md) and [Opening a PR](../../../skills/poteto-mode/playbooks/opening-a-pr.md) place the code, comment, and prose checks in the delivery process.

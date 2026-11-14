@@ -35,7 +35,7 @@ use [poteto-mode](./skills/poteto-mode/SKILL.md) at the start of a task. it open
 
 ### just use [poteto-mode](./skills/poteto-mode/SKILL.md)
 
-this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-five playbooks:
+this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-six playbooks:
 
 ```
 /poteto-mode this pr has a subtle bug where the scroll drifts every 750ms even when idle. repro
@@ -48,7 +48,7 @@ morning.
 ```
 
 <details>
-<summary>the twenty-five playbooks</summary>
+<summary>the twenty-six playbooks</summary>
 
 | playbook | for |
 |---|---|
@@ -68,6 +68,7 @@ morning.
 | [eval](./skills/poteto-mode/playbooks/eval.md) | test how a skill or prompt change affects agent behavior, blinded. |
 | [babysit](./skills/poteto-mode/playbooks/babysit.md) | drive a pr or a stack to merge-ready: conflicts, review threads, ci. |
 | [shipping](./skills/poteto-mode/playbooks/shipping.md) | independently verify a green stack, then land the contiguous verified run bottom-up through github by default or origin when available. |
+| [code review](./skills/poteto-mode/playbooks/code-review.md) | one review of a finished project branch on three axes, then one fix pass. |
 | [autonomous run](./skills/poteto-mode/playbooks/autonomous-run.md) | drive a long task to completion without stopping. |
 | [orchestrate](./skills/poteto-mode/playbooks/orchestrate.md) | a standing project handed to one coordinator chat: multi-day, many stacked prs, fleets of subagents. |
 | [autopilot-full](./skills/poteto-mode/playbooks/autopilot-full.md) | run independent prs to merged with one owner per pr. a swarm verifies each code-ready head, and every later change to the patch gets a fresh check. |
@@ -94,7 +95,7 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 
 ## skills
 
-[poteto-mode](./skills/poteto-mode/SKILL.md) runs most of these for you when a step needs them ([how](skills/how/SKILL.md), [why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [tdd](skills/tdd/SKILL.md), and the principles). the table below is for when you want one directly:
+[poteto-mode](./skills/poteto-mode/SKILL.md) runs most of these for you when a step needs them ([how](skills/how/SKILL.md), [why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
 
 ```
 /how do we cancel runs? do we have an n+1 when we look up every run to cancel?
@@ -110,9 +111,9 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | skill | use it when |
 |---|---|
 | [poteto-mode](./skills/poteto-mode/SKILL.md) | default entry point for any non-trivial task. |
-| [poteto-help](./skills/poteto-help/SKILL.md) | you're new to pstack, or unsure which skill, playbook, or principle fits. finds out what you're trying to do, answers that part, and hands you a prompt to type. runs only when you type `/poteto-help`. |
-| [in-your-own-words](./skills/in-your-own-words/SKILL.md) | you want the agent to play back your goal and the problem before it starts. runs only when you type `/in-your-own-words`. |
-| [sharpen](./skills/sharpen/SKILL.md) | you want a prompt made deeper, not bigger, before you send it: what a top professional would do that you didn't ask for, the raw material they'd start from, their methods and tools, and an outside check that the result is right. hands back the rewritten prompt and leaves your choices open. doesn't do the task. runs only when you type `/sharpen`. |
+| [poteto-help](./skills/poteto-help/SKILL.md) | you're new to pstack, or unsure which skill, playbook, or principle fits. finds out what you're trying to do, answers that part, and hands you a prompt to type. run it with `/poteto-help`. |
+| [in-your-own-words](./skills/in-your-own-words/SKILL.md) | you want the agent to play back your goal and the problem before it starts. run it with `/in-your-own-words`. |
+| [sharpen](./skills/sharpen/SKILL.md) | you want a prompt made deeper, not bigger, before you send it: what a top professional would do that you didn't ask for, the raw material they'd start from, their methods and tools, and an outside check that the result is right. hands back the rewritten prompt and leaves your choices open. doesn't do the task. run it with `/sharpen`. |
 | [how](./skills/how/SKILL.md) | you want a walkthrough of how a subsystem works. |
 | [why](./skills/why/SKILL.md) | you want to know why something was built this way. discovers accessible sources at run time and queries each evidence category in parallel (source control, issue tracker, long-form docs, real-time chat, infra observability, error tracking, analytics warehouse). |
 | [recall](./skills/recall/SKILL.md) | you're starting or resuming work and want your recent context on a topic rebuilt from your own chat history and the shared record, handed back as a tight current-state brief. |
@@ -124,6 +125,7 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [arena](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
 | [swarm](./skills/swarm/SKILL.md) | you want N parallel workers across different slices or races, then one aggregated report. |
 | [interrogate](./skills/interrogate/SKILL.md) | you have a diff and want different models to try to break it, keeping only findings a run proves. |
+| [code-review](./skills/code-review/SKILL.md) | a project branch is finished and you want one review of it on three axes: standards, spec and tests. the code review playbook repairs once and stops. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |
 | [make-bot-ui](./skills/make-bot-ui/SKILL.md) | you want a page or dashboard whose buttons wake a Grok Bot over a webhook, including the sender-key handoff and Tailscale. |
 | [grilling](./skills/grilling/SKILL.md) | work through a design question with the operator, one decision at a time. |
@@ -138,7 +140,7 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [reflect](./skills/reflect/SKILL.md) | a long task landed and you want the recipe captured as a skill edit. |
 | [correct](./skills/correct/SKILL.md) | you keep correcting agents for the same mistakes. mines history for mistake classes, fixes each at the highest level that works (architecture, then types, lint, and ci, then tests, with docs last), and keeps a table pairing each rule with what enforces it. |
 | [teach](./skills/teach/SKILL.md) | you want to actually understand a change or subsystem, not just have it summarized. runs how + why and weaves one plain explanation, built up diagram by diagram. |
-| [tdd](./skills/tdd/SKILL.md) | you're fixing a bug and there's a cheap local test path. write the failing test first, then the fix. |
+| [write-tests](./skills/write-tests/SKILL.md) | you are landing code and want its tests written well. failing test first for a specified behavior or a cheap bug regression, and a green run before and after a behavior-preserving move. |
 | [benchmark-checklist](./skills/benchmark-checklist/SKILL.md) | you ran a benchmark or measured a speedup or regression. vets the number (limiter, tuning, errors, repeat runs, end-to-end relevance) before you report or act on it. |
 | [no-comments](./skills/no-comments/SKILL.md) | strip comments before review; spawns Comment Sicko, fixes accepted findings, offers encodings for claimed constraints. |
 | [typescript-best-practices](./skills/typescript-best-practices/SKILL.md) | you're reading or editing typescript. grounds the type-system-discipline principle in syntax. |
@@ -192,7 +194,8 @@ arena:             /arena take my prompt to the arena verbatim. i want to compar
 swarm:             /swarm check every package under packages/ against its check.sh. one worker per
                    package. one report.
 interrogate:       /interrogate review this pr.
-tdd:               /tdd implement
+code-review:       /code-review project/billing
+write-tests:       /write-tests implement
 unslop:            can we unslop and tighten the new changes?
 reflect:           /reflect that took too long. capture what we learned so the next run doesn't
                    repeat it.

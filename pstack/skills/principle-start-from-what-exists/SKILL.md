@@ -1,7 +1,6 @@
 ---
 name: principle-start-from-what-exists
 description: "Apply when a nontrivial change has no settled implementation approach. Look for a fit in the repo first. Search outside it if a gap remains, then choose whether to reuse, extend, or build."
-disable-model-invocation: true
 ---
 
 # Start From What Exists

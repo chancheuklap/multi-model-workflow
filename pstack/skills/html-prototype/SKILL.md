@@ -1,7 +1,6 @@
 ---
 name: html-prototype
 description: Direct-invocation specialist for polished, responsive, self-contained HTML mockups and interactive prototypes grounded in the user's conversation, product context, and design language. Use when the user explicitly invokes html-prototype or the broad html skill routes a mockup or prototype request here. Do not activate independently from a general request. Treat a mockup as a noninteractive fidelity mode within this skill, not as a separate skill.
-disable-model-invocation: true
 ---
 
 # HTML Prototype

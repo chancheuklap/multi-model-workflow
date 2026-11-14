@@ -1,7 +1,6 @@
 ---
 name: reproduce-and-fix-issues
 description: Reproduce triaged Slack bugs with the target app's verification skill, verify existing fixes, and open a bounded draft pull request only after before-and-after proof. Use only from the configured Benny repro automation.
-disable-model-invocation: true
 ---
 
 # Reproduce and fix issues
@@ -259,8 +258,8 @@ Confirm the mechanism with runtime evidence. Eliminate competing hypotheses befo
 
 Fix the root cause with the smallest justified change.
 
-- Invoke pstack's `tdd` skill when there is a cheap local test target, and write the failing test before the fix.
-- State why TDD was skipped when the path is expensive, unclear, or integration-heavy.
+- Invoke pstack's `write-tests` skill when there is a cheap local test target. Name the test seam from the confirmed reproduction, and write the failing test before the fix.
+- State why no test was added when the path is expensive, unclear, or integration-heavy.
 - Keep unrelated cleanup out.
 - Stop if the change grows beyond the configured effort or risk budget.
 

@@ -1,7 +1,6 @@
 ---
 name: principle-guard-the-context-window
 description: "Apply when large outputs, screenshots, long files, or fan-out planning threaten the context window. Read a focused excerpt or delegate the bulk reading. A subagent returns only its findings and their sources to the parent agent."
-disable-model-invocation: true
 ---
 
 # Guard the Context Window

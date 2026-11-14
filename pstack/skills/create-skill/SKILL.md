@@ -72,7 +72,6 @@ Every skill requires a `SKILL.md` file with YAML frontmatter and markdown body:
 ---
 name: your-skill-name
 description: Brief description of what this skill does and when to use it
-disable-model-invocation: true
 ---
 
 # Your Skill Name
@@ -84,7 +83,7 @@ Clear, step-by-step guidance for the agent.
 Concrete examples of using this skill.
 ```
 
-Default to explicit invocation. Say who calls the skill in the description and use `disable-model-invocation: true` where supported. Omit the flag and describe the trigger when the agent should select the skill from context.
+The agent selects a skill from its description. Describe the trigger when the agent should pick the skill from context. When the skill should run only on the user's request, say so in the description.
 
 ### Required Metadata Fields
 

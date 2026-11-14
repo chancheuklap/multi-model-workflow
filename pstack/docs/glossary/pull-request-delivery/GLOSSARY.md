@@ -30,9 +30,12 @@ The state Babysit reports when the frontier clears the selected forge's checks, 
 _Avoid_: ready without a qualifier when it could mean ready for review or ready for merge.
 
 **Landed**:
-A PR the forge reports as merged with trunk as its base. Enabling auto-merge or getting a successful queue submission records a request. The resulting merge is confirmed separately.
+A PR the forge reports as merged with trunk as its base. For work on a project branch, that branch is trunk. Enabling auto-merge or getting a successful queue submission records a request. The resulting merge is confirmed separately.
 
 ### Stacks and the portion that can land
+
+**Project branch**:
+A branch the operator names to collect the PRs of one spec before they reach trunk. While it is named, trunk means that branch for this work. PRs open against it, and a PR is landed when it merges into it. Merging the project branch into the repository's trunk is a separate step the operator authorizes.
 
 **PR stack**:
 A chain of base branches. The root PR targets trunk. Each child PR targets the branch of the parent PR it builds on. *Upstack* means closer to the tip. A group of sibling tickets or a list of PRs in time order can have no such branch relationship.

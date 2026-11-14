@@ -1,7 +1,6 @@
 ---
 name: principle-explain-the-number
 description: "Apply before you measure, trust, or report a performance number or an eval result. Find the limiter for performance. For an eval, check what each trial actually ran and which conclusions hold across trials."
-disable-model-invocation: true
 ---
 
 # Explain the Number

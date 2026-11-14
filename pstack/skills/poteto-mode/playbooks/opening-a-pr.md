@@ -2,7 +2,7 @@
 
 Invoked at the end of every other playbook.
 
-**Worktree.** Work from a git worktree off main. Have subagents work from that same base. Give separate delegations on the same branch their own worktrees, or run `git fetch && git reset --hard origin/<branch>` between them in a reused worktree. Dirty branch with unrelated work: patch out, fresh worktree, apply. Snarled worktree: reset from main, redo minimally.
+**Worktree.** Work from a git worktree off main, or off the project branch when the operator names one. Have subagents work from that same base. Give separate delegations on the same branch their own worktrees, or run `git fetch && git reset --hard origin/<branch>` between them in a reused worktree. Dirty branch with unrelated work: patch out, fresh worktree, apply. Snarled worktree: reset from main, redo minimally.
 
 **Commits.** Commit liberally. Rebase into small, ordered commits before opening PRs. Each commit is landable, ordered to tell the story. Amend when the fix belongs in a just-made commit. New commit when separable. Commit bodies don't restate the subject.
 
@@ -25,7 +25,7 @@ After the sections, attach videos or screenshots when they prove a claim. Full S
 
 **PR tool.** When the run provides a PR tool that tracks its changes, use it to create, edit, retarget, and mark ready. Changes made outside it escape that tracking. Use the selected forge for operations the tool does not cover, or for every operation when no such tool is available.
 
-**Size and stacks.** Open one PR for the assigned code ticket. If that ticket already links an open PR for this work, continue on it. A stack is a base-branch chain. The root PR targets trunk. Each child branch rebases onto its parent's exact tip and its PR targets the parent branch. As a parent merges, move its child onto trunk per `playbooks/shipping.md` step 4. When no run-tracking PR tool is available, create a child with `origin pr create --status open --base <parent-branch>` or `gh pr create --base <parent-branch>`, and retarget one with `origin pr edit <pr> --base <parent-branch>` or `gh pr edit <pr> --base <parent-branch>`. Branch from trunk only for independent work. Rebase on trunk before substantial stack work.
+**Size and stacks.** Open one PR for the assigned code ticket. If that ticket already links an open PR for this work, continue on it. A stack is a base-branch chain. The root PR targets trunk, which is the project branch when the operator names one. Each child branch rebases onto its parent's exact tip and its PR targets the parent branch. As a parent merges, move its child onto trunk per `playbooks/shipping.md` step 4. When no run-tracking PR tool is available, create a child with `origin pr create --status open --base <parent-branch>` or `gh pr create --base <parent-branch>`, and retarget one with `origin pr edit <pr> --base <parent-branch>` or `gh pr edit <pr> --base <parent-branch>`. Branch from trunk only for independent work. Rebase on trunk before substantial stack work.
 
 **Readiness.** Open every PR ready, never as a draft. Explicitly select ready for review at creation. With Origin, pass `--status open`. With `gh`, omit `--draft`. If a PR still opens as a draft, mark it ready through the PR tool, or run `origin pr ready <number>` or `gh pr ready <number>` according to the resolved forge. Read the PR back from the forge before reporting its status. As soon as the PR is open, the main chat uses Update in [to-tickets](../../to-tickets/SKILL.md#update) to record the returned PR URL on its execution ticket.
 

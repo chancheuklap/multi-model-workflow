@@ -1,7 +1,6 @@
 ---
 name: create-verification-skill
 description: "Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for /create-verification-skill, \"make a verification skill for this repo\", or requests for a reusable way to prove UI/CLI/service behavior."
-disable-model-invocation: true
 ---
 
 # Create a verification skill

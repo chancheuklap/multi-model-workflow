@@ -1,7 +1,6 @@
 ---
 name: principle-never-block-on-the-human
 description: "Apply when a reversible step would stall on a question or interruption. Make the engineering call and present the result. Keep independent work moving while a decision needs the operator."
-disable-model-invocation: true
 ---
 
 # Never Block on the Human

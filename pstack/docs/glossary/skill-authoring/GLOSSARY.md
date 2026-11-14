@@ -19,7 +19,7 @@ A skill in a repository's skills directory, shared with people and agents workin
 The metadata at the start of a skill. The name identifies the skill. The description says what it does and who calls it or when to select it. Under Write for Where It Is Read, the description must make sense to an agent that can see only the skill listing. The same principle applies to a delegate reading a brief without the main chat. [principle-write-for-where-it-is-read](../../../skills/principle-write-for-where-it-is-read/SKILL.md)
 
 **Trigger scenario**:
-A situation in which the skill should apply. For a skill that supports automatic invocation, its description gives the agent enough information to recognize that situation. For an explicitly invoked skill, the description identifies the caller.
+A situation in which the skill should apply. The agent selects a skill from its description, so the description gives the agent enough information to recognize that situation. For a skill that should run only on the user's request, the description identifies the caller.
 
 **Progressive disclosure**:
 The arrangement in which a skill gives its essential instructions in its main file and links directly to detailed references. An agent reads the detail when the task calls for it.

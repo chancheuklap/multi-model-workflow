@@ -1,7 +1,6 @@
 ---
 name: setup-benny
 description: Configure Benny and prepare its triage and repro automations. Use when installing Benny or changing its Slack, tracker, repository, routing, verification, model, or budget settings.
-disable-model-invocation: true
 ---
 
 # Set up Benny
@@ -49,7 +48,7 @@ Reload the target project or start a fresh agent rooted there in the automation 
 
 - `how`
 - `why`
-- `tdd`
+- `write-tests`
 - `unslop`
 - `principle-separate-before-serializing-shared-state`
 - `principle-minimize-reader-load`

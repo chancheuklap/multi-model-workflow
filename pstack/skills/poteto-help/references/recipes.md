@@ -17,7 +17,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 
 - Bug: `/poteto-mode <symptom>. repro first, then fix and verify.`
 - Bug in an app: `/poteto-mode repro this with /verify-<app>. if it repros on main, fix it and show me a video as proof.`
-- Bug with a cheap test: `/poteto-mode repro <bug> first. if there's a cheap test path, /tdd it. then fix and rerun.`
+- Bug with a cheap test: `/poteto-mode repro <bug> first. if there's a cheap test path, /write-tests it. then fix and rerun.`
 - Feature: `/poteto-mode add <behavior>. <current output> stays byte-identical. verify both.`
 - Refactor: `/poteto-mode move <code> into one module, zero behavior change. record the current output first and prove it's unchanged after.`
 - Perf: `/poteto-mode <operation> takes <time> on <fixture>. trace it, fix the measured cause, show me before and after.`
@@ -39,6 +39,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 - `/poteto-mode open the pr. small ordered commits, evidence in the description.`
 - `/poteto-mode babysit this pr. get it green.` For status only: `/poteto-mode check on pr <number>. anything outstanding?`
 - `/poteto-mode land the stack.`
+- `/poteto-mode code review project/<name>.` One review of the finished branch and one fix pass, then it stops.
 
 ## Away and back
 

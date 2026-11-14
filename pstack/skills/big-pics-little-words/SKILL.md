@@ -4,7 +4,6 @@ description: >-
   Explain the current subject in HTML with large visuals and the text
   needed to understand them while preserving key details. Use when the user
   or another skill names big-pics-little-words.
-disable-model-invocation: true
 ---
 
 
