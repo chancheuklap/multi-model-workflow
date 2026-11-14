@@ -9,7 +9,7 @@
    - If the user named a direction (a module, a subsystem, a pain point), take it, and skip the inference below.
    - Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots, the files and areas that keep coming up, and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
 
-   Give a fresh [poteto-agent](../../../agents/poteto-agent.md) the read-only exploration, the work issue URL, the absolute path to [poteto-mode](../SKILL.md) and the scope. Use the `judgment and prose` role from the [setup-pstack](../../setup-pstack/SKILL.md#model-rule) model rule. Include the relevant glossary, ADRs and [codebase-dic](../../codebase-dic/SKILL.md) in the brief. Ask for real call sites and file paths that show the friction. Include the following questions and the deletion test in the exploration prompt.
+   Give a fresh [poteto-agent](../../../agents/poteto-agent.md) the read-only exploration, the work issue URL and the scope. Use the `judgment and prose` role from the [setup-pstack](../../setup-pstack/SKILL.md#model-rule) model rule. Include the relevant glossary, ADRs and [codebase-dic](../../codebase-dic/SKILL.md) in the brief. Ask for real call sites and file paths that show the friction. Include the following questions and the deletion test in the exploration prompt.
 
    Don't follow rigid heuristics; explore organically and note where you experience friction:
 

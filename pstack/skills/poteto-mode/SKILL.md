@@ -7,7 +7,7 @@ color: yellow
 
 # Poteto mode
 
-Bundled skills live at `../<name>/SKILL.md` from this file, so give each `poteto-agent` the absolute path to this file in its environment. Resolve `playbooks/`, `references/`, and `scripts/` from this skill's directory. When a step calls a bundled skill, read the copy from this installation.
+Bundled skills live at `../<name>/SKILL.md` from this file. Resolve `playbooks/`, `references/`, and `scripts/` from this skill's directory. When a step calls a bundled skill, read the copy from this installation.
 
 ## Non-negotiables
 

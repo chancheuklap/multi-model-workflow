@@ -59,7 +59,7 @@ Write just enough to choose the next step and recognize completion. **Opening a 
 
 ## Choose the delegate by who defines the work
 
-**Direct playbook delegation.** The main chat owns the playbook, defines the assignment and checks the result. Give the `poteto-agent` its goal, scope, completion condition and the absolute path to the mode it must read. **Feature** delegates scoped implementation this way. **Multi-phase plan** delegates read-only lookup the same way. [Feature](skills/poteto-mode/playbooks/feature.md) · [poteto-agent role](agents/poteto-agent.md)
+**Direct playbook delegation.** The main chat owns the playbook, defines the assignment and checks the result. Give the `poteto-agent` its goal, scope and completion condition. **Feature** delegates scoped implementation this way. **Multi-phase plan** delegates read-only lookup the same way. [Feature](skills/poteto-mode/playbooks/feature.md) · [poteto-agent role](agents/poteto-agent.md)
 
 **Delegation inside a skill.** The skill defines each role, its inputs, its result and how the main chat judges it. **Feature** uses [arena](skills/arena/SKILL.md) for competing implementations. For Spec, Plan or Ticket review, [ambiguity-scan](skills/ambiguity-scan/SKILL.md) briefs one fresh, read-only general-purpose reviewer. It checks the draft against its sources and the stage's writing requirements. It reviews a ticket batch as a whole.
 
