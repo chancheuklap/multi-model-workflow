@@ -7,7 +7,7 @@ description: Configure which models pstack uses per role and at what reasoning b
 
 ## Model rule
 
-In a new session, read `~/.agents/pstack-models.md` or the pstack model rule the user supplies. For each delegation, use the model and settings assigned to its role. A host that runs roles through agent definitions maps a role to its agent as [agent-definitions](references/agent-definitions.md#find-a-roles-droid) says. Give an owner that will delegate a readable path to the same rule or the relevant role lines in its brief. A delegate starts no agents and needs neither. `inherit-parent` and `auto` run a role on the parent model when the user selects them. If an assignment cannot run, report the unfilled role.
+In a new session, read `~/.agents/pstack-models.md` or the pstack model rule the user supplies. For each delegation, use the model and settings assigned to its role. A host that runs roles through agent definitions names the role's agent at spawn instead of reading the rule, as [agent-definitions](references/agent-definitions.md#find-a-roles-droid) says. On other hosts, give an owner that will delegate a readable path to the same rule or the relevant role lines in its brief. A delegate starts no agents and needs neither. `inherit-parent` and `auto` run a role on the parent model when the user selects them. If an assignment cannot run, report the unfilled role.
 
 ## Steps
 
@@ -65,7 +65,7 @@ interrogate reviewers: <one model and its settings per seat, comma-separated>
 
 ### 5b. Write the agent definitions
 
-On a host that runs roles through agent definitions, such as Droid's custom droids, write them after the rule as [agent-definitions](references/agent-definitions.md#write-the-droids) says. Skip this step on other hosts.
+On a host that runs roles through agent definitions, such as Droid's custom droids, write one for each role line and list entry after the rule, as [agent-definitions](references/agent-definitions.md#write-the-droids) says. Skip this step on other hosts.
 
 ### 6. Confirm
 

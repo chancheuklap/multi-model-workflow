@@ -295,7 +295,7 @@ type [automate-me](./skills/automate-me/SKILL.md). it mines your recent transcri
 
 models are configurable too. type [setup-pstack](./skills/setup-pstack/SKILL.md). it detects the models you have access to and saves a user-level rule mapping each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
 
-on droid, setup also writes one custom droid per model and reasoning level (see [agent definitions](./skills/setup-pstack/references/agent-definitions.md)).
+on droid, setup also writes one custom droid per role (see [agent definitions](./skills/setup-pstack/references/agent-definitions.md)).
 
 rerun [setup-pstack](skills/setup-pstack/SKILL.md) to change a role or your reasoning budget. the rule applies to new sessions.
 
