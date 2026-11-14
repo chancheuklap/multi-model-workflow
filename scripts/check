@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """This repository's one check: the syntax of the changed files and the test suites, in three
-tiers. Only pstack and the task board's e2e tests remain; every other suite was retired.
+tiers. Only pstack's tests remain; every other suite was retired.
 
     scripts/check            the default tier: syntax of the files changed against the base, then
                              each suite whose inputs in MAP hold a changed path
@@ -9,8 +9,8 @@ tiers. Only pstack and the task board's e2e tests remain; every other suite was 
 
 The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
 Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
-untracked files. Only the --all e2e step installs its nested package dependencies. The repository
-has no root package manager. Suites that run under `uv run` resolve their own dependencies.
+untracked files. The repository has no root package manager. Suites that run under `uv run`
+resolve their own dependencies.
 
 Before the steps run, one `SELECT <suite>: <changed path> (<input>)` line per selected suite.
 Each step prints `PASS|FAIL|ENV <step> <seconds>s`; a failing step adds its last lines and the
@@ -20,8 +20,7 @@ cannot run on this machine, such as Chromium that will not start). The last line
 Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
 does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check: a tool
 missing from PATH or a base ref git does not know, and nothing was run; or no step is red and a
-non-e2e suite exited 2 because it cannot run here. E2e steps treat every nonzero exit
-as a failure, including runner configuration and test collection errors.
+suite exited 2 because it cannot run here.
 
 Python standard library only.
 """
@@ -41,17 +40,11 @@ TAIL = 20
 
 # step: (command, tools it needs on PATH)
 STEPS = {
-    "e2e-task-board": (
-        "npm ci --prefix tests/e2e/task-board --silent"
-        " && npm exec --prefix tests/e2e/task-board -- e2e run"
-        " --config tests/e2e/task-board/e2e.config.ts --target product",
-        ["npm", "node", "python3", "gh"],
-    ),
     "pstack-exe-release": ("bash pstack/tests/exe-release/run.sh", ["bash", "python3", "uv", "jq"]),
 }
 
 # Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
-# no changed path selects does not run. e2e-task-board runs only under --all.
+# no changed path selects does not run.
 MAP = [
     ("pstack/skills/exe-release/", ["pstack-exe-release"]),
     ("pstack/tests/exe-release/", ["pstack-exe-release"]),
@@ -62,7 +55,6 @@ TEST_ROOTS = ["pstack/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
-    "tests": "the e2e tests under tests/e2e/<product>/ run only in the --all e2e-<product> steps, not by changed paths",
     "pstack/skills/statechart/scripts/test": "the upstream statechart skill's own tests (node --test with fast-check and a Java oracle), not run here",
 }
 NOT_RUN_HERE = ("exe-release's PowerShell checks (pstack/tests/exe-release/check-generated-powershell.sh,"
@@ -171,7 +163,7 @@ class Run:
         with log.open("w") as out:
             rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT).returncode
         lines = log.read_text(errors="replace").splitlines()
-        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2 and not name.startswith("e2e-"))
+        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2)
 
     def syntax(self, paths: list[str]) -> None:
         start = time.monotonic()

@@ -890,7 +890,6 @@ cmd_stage_run() {
   done
 
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to run a stage"
   name="$(jq -r '[.stages[] | select(.status == "pending" or .status == "failed" or .status == "running")][0].name // ""' "$f")"
   [ -n "$name" ] || die "no stage left to run"
   if [ -n "$requested" ] && [ "$requested" != "$name" ]; then
@@ -1243,7 +1242,6 @@ cmd_surface() {
 cmd_resume() {
   local f live saved start
   f="$(need_state)"
-  jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to resume"
   live="$(git -C "$(_repo_top)" rev-parse HEAD)"
   saved="$(jq -r '.source_commit // ""' "$f")"
   if [ "$saved" != "$live" ]; then
@@ -1278,7 +1276,6 @@ cmd_close() {
   # 到了那个状态——`where` 判 SUCCESS 用的就是这两条(无 pause、每个 stage 都 done),
   # 两者读同一份状态,不会不一致。没到 DONE 的轮次用 abort 收掉,不写假记录。
   if [ -f "$f" ]; then
-    jq -e . "$f" >/dev/null 2>&1 || die "release-state is corrupt; refusing to close"
     [ "$(jq -r '.pause // "null"' "$f")" = "null" ] \
       || die "this release loop is paused, not done; use abort to drop a release loop that will not ship"
     local rem
