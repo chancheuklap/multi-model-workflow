@@ -45,9 +45,15 @@ Human review isn't on the list. A reviewer who must catch the same mistake on ev
 /correct agents keep calling the database client directly instead of going through the repository layer
 ```
 
-It reads recent commits, reverts, review comments, and comments that explain workarounds, then groups the mistakes into classes. A class counts once it has happened twice. It fixes the most frequent classes one commit each, at the highest level that works, and proves each new check fails on a real past mistake. It also keeps a table in the agent instruction file that pairs each rule with what enforces it, so a rule that nothing enforces shows up as a repeat. The reply lists each class with its evidence, the level chosen, and why a higher level didn't work.
+It reads recent commits, reverts, review comments, and comments that explain workarounds, then groups the mistakes into classes. A class counts once it has happened twice. It also looks for gaps in navigation, automated checks, coding standards, instruction files, tool cost, and information access. It fixes the most frequent classes one commit each, at the highest level that works, and proves each new check fails on a real past mistake. It also keeps a table in the agent instruction file that pairs each rule with what enforces it, so a rule that nothing enforces shows up as a repeat. The reply lists every candidate by severity. Each class comes with its evidence, the level chosen, and why a higher level didn't work. A candidate with no repeated class behind it, or outside the repo, is reported and left unchanged.
 
-Run it with no argument and it finds the classes from history on its own. [reflect](../../skills/reflect/SKILL.md) and [correct](../../skills/correct/SKILL.md) split the work. [reflect](../../skills/reflect/SKILL.md) improves skills from one session. [correct](../../skills/correct/SKILL.md) changes the repo so a mistake class can't come back. Pair it with [architect](../../skills/architect/SKILL.md) when the fix is a new boundary. [Run many projects in parallel](./07-overnight.md#run-many-projects-in-parallel) has a prompt that does both across a whole repo.
+Run it with no argument and it finds the classes from history on its own. For a retro, name a session, or ask for a retro and it reads the current one:
+
+```text
+/correct retro on this session
+```
+
+[reflect](../../skills/reflect/SKILL.md) and [correct](../../skills/correct/SKILL.md) split the work. [reflect](../../skills/reflect/SKILL.md) improves skills from one session. [correct](../../skills/correct/SKILL.md) changes the repo so a mistake class can't come back. Pair it with [architect](../../skills/architect/SKILL.md) when the fix is a new boundary. [Run many projects in parallel](./07-overnight.md#run-many-projects-in-parallel) has a prompt that does both across a whole repo.
 
 ## Author a focused skill
 

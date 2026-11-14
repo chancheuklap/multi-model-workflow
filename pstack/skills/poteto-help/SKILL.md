@@ -96,7 +96,7 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Pick a model for each role and a reasoning budget | [setup-pstack](../setup-pstack/SKILL.md) |
 | Turn their own working habits into a personal mode skill | [automate-me](../automate-me/SKILL.md) |
 | Turn what a finished task taught into skill edits | [reflect](../reflect/SKILL.md) |
-| Stop agents from repeating the same mistakes in this repo | [correct](../correct/SKILL.md) |
+| Stop agents from repeating the same mistakes in this repo, or run a retro on a session | [correct](../correct/SKILL.md) |
 | Build a page whose buttons wake a Grok Bot over a webhook | [make-bot-ui](../make-bot-ui/SKILL.md) |
 | Find their way around pstack | [poteto-help](SKILL.md) |
 

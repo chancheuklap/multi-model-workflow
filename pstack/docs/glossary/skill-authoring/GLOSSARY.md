@@ -53,7 +53,7 @@ The form of a personal-mode revision that examines conversations since the last 
 How reliably a skill's description causes it to be selected for its intended requests. A personal mode can express the operator's preferences accurately yet need a description change if it loads at the wrong time.
 
 **Mistake class**:
-A repeated kind of error supported by at least two occurrences in the repository's history. Commits, reverts, review comments, and recorded workarounds can establish the recurrence.
+A repeated kind of error supported by at least two occurrences in the repository's history. Commits, reverts, review comments, recorded workarounds, and a session the operator names can establish the recurrence.
 
 **Level of enforcement**:
 The means by which a repository prevents or detects a mistake class. Removing the mistaken path through architecture takes precedence. Other levels use types or a check that names the fix, then a behavioral test, and finally written guidance for a judgment call. A new check has to fail on a real past instance.
@@ -63,6 +63,15 @@ The table in the repository's agent instructions that pairs each rule with what 
 
 **Rule exception**:
 A human-approved allowance at the line where an enforcement check would otherwise fail. The exception records its reason and expiry date.
+
+**Navigation pointer**:
+A context pointer in an agent instruction file that tells the agent where to find a file or doc. Instruction files hold little besides these.
+
+**Guardrail**:
+An automated check that runs without the agent's help, such as a pre-commit hook or a CI job that runs lint, typecheck, and tests. A repository with none leaves every mistake to review.
+
+**Context pressure**:
+The load of exploring, writing, and debugging that an agent carries. The implementation agent carries the most. The review agent receives a diff and carries the least, so it applies the coding standards.
 
 [automate-me](../../../skills/automate-me/SKILL.md) · [correct](../../../skills/correct/SKILL.md) · [principle-encode-lessons-in-structure](../../../skills/principle-encode-lessons-in-structure/SKILL.md) · [Make it yours](../../guide/09-make-it-yours.md)
 
