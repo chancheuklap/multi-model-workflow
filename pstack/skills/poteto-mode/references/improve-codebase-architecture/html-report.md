@@ -26,7 +26,6 @@ An architecture review's report is a single self-contained HTML file in the OS t
     <main>
       <header>...</header>
       <section id="opportunities">...</section>
-      <section id="top-recommendation">...</section>
     </main>
   </body>
 </html>
@@ -34,7 +33,7 @@ An architecture review's report is a single self-contained HTML file in the OS t
 
 ## Header
 
-Repo name, date, and a compact legend: solid box = module, dashed line = seam, red arrow = leakage, thick dark box = deep module. No introduction paragraph. Straight into the opportunities.
+Repo name and date. No introduction paragraph. Straight into the opportunities.
 
 ## Opportunity card
 
@@ -43,9 +42,9 @@ The diagrams carry the weight. Prose is plain and uses the glossary terms (from 
 Each deepening opportunity is one `<article>`:
 
 - **Title**: names the deepening (e.g. "Collapse the Order intake pipeline").
-- **Badge row**: recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `local-substitutable`, `ports & adapters`, `mock`).
+- **Badge row**: recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `local-substitutable`, `ports & adapters`, `mock`). The opportunity you'd tackle first also gets a `Recommended first` badge with its reason beside it.
 - **Files**: monospaced list in a small font.
-- **Before / After diagram**: the centrepiece. Two columns, side by side. See patterns below.
+- **Before / After diagram**: the centrepiece. Two columns, side by side, with a legend beside it for the marks it uses: solid box = module, dashed line = seam, red arrow = leakage, thick dark box = deep module. See patterns below.
 - **Problem**: what hurts.
 - **Solution**: what changes.
 - **Benefits**: bullets. e.g. "Tests hit one interface", "Pricing logic stops leaking", "Delete 4 shallow wrappers".
@@ -91,13 +90,9 @@ Before: a tree of function calls rendered as nested boxes. After: the same tree 
 - Use small uppercase type with wide letter spacing for module labels inside diagrams, so they read as schematic, not as UI.
 - Keep the report static. The diagrams should be visible when the file opens offline.
 
-## Top recommendation section
-
-One larger card. Opportunity name, the reason for the recommendation, anchor link to its card.
-
 ## Tone
 
-Use plain English. The architectural nouns and verbs come straight from [codebase-dic](../../../codebase-dic/SKILL.md). Define each of those terms once in the legend. Elsewhere the plain-language rule of [big-pics-little-words](../../../big-pics-little-words/SKILL.md) applies.
+Use plain English. The architectural nouns and verbs come straight from [codebase-dic](../../../codebase-dic/SKILL.md). Define each of those terms in the legend beside each diagram that uses it. Elsewhere the plain-language rule of [big-pics-little-words](../../../big-pics-little-words/SKILL.md) applies.
 
 **Use exactly:** module, interface, implementation, depth, deep, shallow, seam, adapter, leverage, locality.
 

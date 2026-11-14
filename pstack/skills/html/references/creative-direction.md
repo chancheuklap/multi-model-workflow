@@ -46,3 +46,5 @@ Color should be selected rather than inherited from habit. Neutrals are part of 
 When the user names a style or supplies a reference, follow it faithfully, even if it resembles a convention you would not choose yourself. When a project has tokens and components, use them before inventing replacements.
 
 Bundled guidance is for technique, not imitation. Never copy a previous artifact's palette, typography, or composition simply because it worked once.
+
+A review page, set out in [html](../SKILL.md#review-pages), is the exception. It keeps the skeleton of the pages the user has already reviewed, and this file chooses only its palette and type.

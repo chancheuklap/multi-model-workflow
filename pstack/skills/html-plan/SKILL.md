@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 Before shaping the artifact, use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md), [principle-everything-at-hand](../principle-everything-at-hand/SKILL.md), and [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md).
 
+A plan the user reviews repeatedly keeps the skeleton set out in [html](../html/SKILL.md#review-pages), which outranks this skill's direction.
+
 Turn source material into an HTML plan people can inspect and act on. Preserve the user's scope, ordering, commitments, and terminology unless they ask for broader synthesis.
 
 ## Shape the document around the work
@@ -37,11 +39,11 @@ Do not add a timeline, progress percentage, status badge, or dashboard summary u
 When working from approved wording, decisions, or designs, use [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md) before changing their presentation.
 
 - Keep source commitments recognizable.
-- Separate accepted decisions from assumptions and open questions.
+- Tell accepted decisions, assumptions, and open questions apart at the item where each applies.
 - Show sequence and dependency only where they are real.
 - Use tables for exact mappings, comparisons, or repeated fields.
 - Use a flow or timeline only when it makes order materially easier to understand.
-- Keep long prose readable instead of forcing every paragraph into a card.
+- Do not force every paragraph into a card.
 
 ## Build and verify
 

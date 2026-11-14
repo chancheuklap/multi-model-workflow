@@ -7,7 +7,11 @@ description: Create or redesign self-contained single-file HTML artifacts with a
 
 Before shaping the artifact, use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md), [principle-everything-at-hand](../principle-everything-at-hand/SKILL.md), and [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md).
 
-Build one self-contained HTML file that makes the subject clearer, easier to use, or easier to understand. The standard is consistent care, not a consistent look. Do not reproduce a house palette, typography stack, card system, or layout from prior runs.
+Build one self-contained HTML file that makes the subject clearer, easier to use, or easier to understand. The standard is consistent care, not a consistent look. Do not reproduce a house palette, typography stack, card system, or layout from prior runs. Review pages, set out below, are the exception.
+
+## Review pages
+
+A page the user reviews repeatedly keeps its skeleton from one page to the next: the order of regions, the marks, the legend placement, and the meaning of each color. This outranks every direction, originality, and "no house layout" rule in this skill, in [design-artifact](../design-artifact/SKILL.md), and in the references below. Palette and type may still follow the project's design system or the subject.
 
 ## Route the request first
 
@@ -76,6 +80,6 @@ Requests can span forms. Read every reference that materially applies, then give
 
 Write the file to the requested location, or choose a clear filename in the current workspace. When browser tooling is available, open it and inspect a wide and narrow viewport. Exercise its controls, check the console, and fix clipping, overlap, illegible text, broken states, and accidental overflow.
 
-Before delivery, run one originality check: if the subject were swapped for a neighboring topic, would the same visual concept still make just as much sense? If yes, the direction is too generic; revise the composition, type, color, imagery, or interaction so it belongs to this subject.
+Unless the page is a review page, run one originality check before delivery: if the subject were swapped for a neighboring topic, would the same visual concept still make just as much sense? If yes, the direction is too generic; revise the composition, type, color, imagery, or interaction so it belongs to this subject.
 
 Show the HTML to the user and link the file. Include a description of the artifact's visual and interaction choices.

@@ -34,7 +34,7 @@
    - **Before / After diagram**: side-by-side, custom-drawn, illustrating the shallowness and the deepening
    - **Recommendation strength**: one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
 
-   End the report with a **Top recommendation** section: which opportunity you'd tackle first and why.
+   Mark the opportunity you'd tackle first with a `Recommended first` badge on its card, with the reason beside the badge.
 
    Use the project's domain vocabulary for the domain and the architecture vocabulary from [codebase-dic](../../codebase-dic/SKILL.md) for the architecture. If the glossary defines "Order," talk about "the Order intake module," not "the FooBarHandler," and not "the Order service."
 

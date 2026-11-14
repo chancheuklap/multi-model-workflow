@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Before shaping the artifact, use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md), [principle-everything-at-hand](../principle-everything-at-hand/SKILL.md), and [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md).
 
-Build the smallest visual model that makes the relationship easier to understand than prose alone. Match the notation and visual language to the user's project and subject. Do not force every topic into the same SVG boxes and arrows.
+Build the visual model that makes the relationship easier to understand than prose alone. Match the notation and visual language to the user's project and subject. Do not force every topic into the same SVG boxes and arrows.
 
 ## Choose the right model
 
@@ -39,7 +39,6 @@ Use HTML and CSS, SVG, Canvas, or WebGL according to the information and scale. 
 - Use stable node positions when readers must compare states or steps.
 - Keep edge crossings and ambiguous arrowheads to a minimum.
 - Put intentionally broad canvases in a contained pan or scroll region.
-- Use legends only when notation is not self-explanatory.
 
 Add sequencing, filtering, path tracing, pan and zoom, or animation only when it helps answer the stated question. Keep overlays dismissible, controls keyboard-accessible, and motion compatible with `prefers-reduced-motion`.
 

@@ -61,7 +61,7 @@ For an SVG stage:
 - Keep pointer, pan, and zoom math in a single coordinate system. Preserve the point under the cursor while zooming.
 - Suppress click activation after a drag using a small movement threshold.
 - Provide `grab` and `grabbing` feedback, a visible zoom level, and a reset control.
-- Set useful minimum and maximum scales and ensure the initial fit is understandable.
+- Set useful minimum and maximum scales and ensure the initial fit shows the whole route.
 
 ## Verify the picture
 

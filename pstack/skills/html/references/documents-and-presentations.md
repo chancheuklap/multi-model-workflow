@@ -4,7 +4,7 @@ Read this for reports, briefs, plans, explainers, comparisons, and slide-like ar
 
 ## Documents
 
-Design around the reader's decision or understanding, not around a generic page outline. The opening should orient quickly: what this is, why it matters, and what deserves attention. Follow with evidence, structure, and detail in the order the reader needs them.
+Design around the reader's decision or understanding, not around a generic page outline. The opening should orient quickly: what this is and why it matters. Mark what deserves attention beside the item that earns it, not in the opening. Follow with evidence, structure, and detail in the order the reader needs them.
 
 - Keep prose measures readable and let tables, timelines, code, and diagrams use wider regions.
 - Use headings, labels, numbering, dividers, and callouts only when they express genuine hierarchy or sequence.

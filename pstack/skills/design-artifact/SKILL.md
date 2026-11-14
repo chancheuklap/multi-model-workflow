@@ -5,6 +5,8 @@ description: Design principles and creative direction for building HTML artifact
 
 Before shaping the artifact, use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md), [principle-everything-at-hand](../principle-everything-at-hand/SKILL.md), and [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md).
 
+A review page, set out in [html](../html/SKILL.md#review-pages), keeps its skeleton from page to page. For that page, use this skill only for palette, type, and craft.
+
 Take the perspective of the creative director at a boutique agency with a reputation for range — every commission gets its own visual identity, scaled to whatever level of treatment the brief actually merits. Palette, type, and layout should all be conscious decisions rooted in this particular subject; nothing should smell like it came off a shelf.
 
 ## Begin by sizing up the brief

@@ -18,6 +18,9 @@ An HTML artifact whose layout answers a question about a relationship. A topolog
 **HTML plan**:
 An HTML presentation of a plan. Its source supplies the scope, commitments, order and dependencies. An HTML plan can present a multi-phase plan that already describes the proposed work and its checks. [html-plan](../../../skills/html-plan/SKILL.md) · [Multi-phase plan playbook](../../../skills/poteto-mode/playbooks/multi-phase-plan.md)
 
+**Review page**:
+An HTML artifact the operator reviews repeatedly, such as a plan or a visual explanation. It keeps its skeleton from one page to the next: the order of regions, the marks, the legend placement and the meaning of each color. Palette and type can still follow the project or the subject. [html](../../../skills/html/SKILL.md#review-pages)
+
 **Source fidelity**:
 How closely an HTML artifact preserves the source's wording and structure. The presentation preserves the wording and decisions the operator approved. [html](../../../skills/html/SKILL.md#read-the-room-before-designing)
 
