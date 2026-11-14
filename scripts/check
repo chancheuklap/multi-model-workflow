@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""This repository's one check: the syntax of the changed files, the shared checks and the
-test suites, in three tiers.
+"""This repository's one check: the syntax of the changed files and the test suites, in three
+tiers. Only mmwstack's tests remain; every other suite was retired.
 
     scripts/check            the default tier: syntax of the files changed against the base, then
                              each suite whose inputs in MAP hold a changed path
@@ -9,10 +9,8 @@ test suites, in three tiers.
 
 The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
 Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
-untracked files. Only the --all e2e step installs its nested package dependencies. The repository
-has no root package manager. Suites that run under `uv run` resolve their own dependencies,
-and the browser suites fetch the
-Chromium build their Playwright needs (mmw-v4/tests/lib/ensure_chromium.py).
+untracked files. The repository has no root package manager. Suites that run under `uv run`
+resolve their own dependencies.
 
 Before the steps run, one `SELECT <suite>: <changed path> (<input>)` line per selected suite.
 Each step prints `PASS|FAIL|ENV <step> <seconds>s`; a failing step adds its last lines and the
@@ -22,8 +20,7 @@ cannot run on this machine, such as Chromium that will not start). The last line
 Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
 does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check: a tool
 missing from PATH or a base ref git does not know, and nothing was run; or no step is red and a
-non-e2e suite exited 2 because it cannot run here. E2e steps treat every nonzero exit
-as a failure, including runner configuration and test collection errors.
+suite exited 2 because it cannot run here.
 
 Python standard library only.
 """
@@ -41,144 +38,26 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BASE = "origin/dev"
 TAIL = 20
 
-SHARED = (
-    "python3 mmw-v4/tests/lib/check_module_paths.py"
-    " && python3 mmw-v4/tests/lib/check_wiring.py"
-    " && python3 mmw-v4/tests/lib/check_host_neutrality.py"
-    " && uv run -q mmw-v4/tests/lib/check_skill_frontmatter.py"
-)
-
 # step: (command, tools it needs on PATH)
 STEPS = {
-    "cloud-v5": ("python3 -m unittest discover -s mmw-v5-cloud/tests/runtime && python3 -m unittest discover -s mmw-v5-cloud/tests/board && node --test mmw-v5-cloud/tests/runtime/settings.test.mjs mmw-v5-cloud/tests/board/phase.test.mjs", ["python3", "git", "bash", "node"]),
-    "release-v5": ("python3 -m unittest discover -s mmw-v5-cloud/tests/release", ["python3", "git"]),
-    "foundation": ("python3 -m unittest discover -s mmw-v5/tests/foundation", ["python3", "git"]),
-    "sessions": ("python3 -m unittest discover -s mmw-v5/tests/sessions", ["python3", "bash", "git", "node"]),
-    "notifications": ("python3 -m unittest discover -s mmw-v5/tests/notifications", ["python3", "bash", "git"]),
-    "results": ("python3 -m unittest discover -s mmw-v5/tests/results", ["python3", "bash", "git"]),
-    "pipeline": ("python3 -m unittest discover -s mmw-v5/tests/pipeline", ["python3", "bash", "git"]),
-    "board-v5": ("bash mmw-v5/tests/board/run.sh", ["python3", "bash", "git", "node", "uv"]),
-    "shared-checks": (SHARED, ["python3", "uv"]),
-    "lib": ("bash mmw-v4/tests/lib/run.sh", ["bash", "python3"]),
-    "check-interfaces": ("python3 mmw-v4/skills/dispatch/scripts/check-interfaces.py", ["python3"]),
-    "e2e-task-board": (
-        "npm ci --prefix tests/e2e/task-board --silent"
-        " && npm exec --prefix tests/e2e/task-board -- e2e run"
-        " --config tests/e2e/task-board/e2e.config.ts --target product",
-        ["npm", "node", "python3", "gh"],
-    ),
-    "board": ("bash mmw-v4/tests/board/run.sh", ["bash", "python3", "uv", "node"]),
-    "diagram-design": ("bash mmw-v4/tests/diagram-design/run.sh", ["bash", "python3", "uv"]),
-    "dispatch": ("bash mmw-v4/tests/dispatch/run.sh", ["bash", "python3", "uv", "git", "node"]),
-    "exe-release": ("bash mmw-v4/tests/exe-release/run.sh", ["bash", "python3", "uv"]),
-    "install": ("bash mmw-v4/tests/install/run.sh", ["bash", "python3", "uv"]),
-    "liveness": ("bash mmw-v4/tests/liveness/run.sh", ["bash", "python3", "uv"]),
-    "session-start": ("bash mmw-v4/tests/session-start/run.sh", ["bash", "python3", "uv"]),
-    "relay": ("bash mmw-v4/tests/relay/run.sh", ["bash", "python3", "uv"]),
-    "setup-mmw": ("bash mmw-v4/tests/setup-mmw/run.sh", ["bash", "python3", "uv", "git"]),
-    "retro": ("bash mmw-v4/tests/retro/run.sh", ["bash", "python3", "uv", "git"]),
-    "register-problem": ("bash mmw-v4/tests/register-problem/run.sh", ["bash", "python3", "uv", "git"]),
-    "verify-ticket": ("bash mmw-v4/tests/verify-ticket/run.sh", ["bash", "python3", "uv", "node"]),
-    "writing-for-agents": ("bash mmw-v4/tests/writing-for-agents/run.sh", ["bash", "python3", "uv", "git"]),
-    "worktree-audit": ("bash mmw-v4/tests/worktree-audit/run.sh", ["bash", "python3", "uv", "git", "jq"]),
+    "mmwstack-exe-release": ("bash mmwstack/tests/exe-release/run.sh", ["bash", "python3", "uv", "jq"]),
 }
 
 # Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
 # no changed path selects does not run.
-DISPATCH = "mmw-v4/skills/dispatch/"
-VERIFY = "mmw-v4/skills/verify-ticket/"
 MAP = [
-    ("mmw-v5-cloud/", ["cloud-v5", "release-v5"]),
-    ("mmw-v5-cloud/tests/runtime/", ["cloud-v5"]),
-    ("mmw-v5-cloud/tests/release/", ["release-v5"]),
-    ("mmw-v5-cloud/tests/board/", ["cloud-v5"]),
-    ("scripts/release-mmw-v5.py", ["release-v5"]),
-    ("scripts/sync-dispatch-resources.py", ["cloud-v5", "release-v5"]),
-    (".github/workflows/release-mmw-v5.yml", ["release-v5"]),
-    (".agents/plugins/marketplace.json", ["release-v5"]),
-    (".cursor-plugin/marketplace.json", ["release-v5"]),
-    ("mmw-v5/plugin.json", ["release-v5"]),
-    ("mmw-v5/.cursor-plugin/", ["release-v5"]),
-    ("mmw-v5/.agents/plugins/", ["release-v5"]),
-    ("mmw-v5/board/", ["board-v5"]),
-    ("mmw-v5/tests/board/", ["board-v5"]),
-    ("mmw-v5/tools/dispatch/", ["board-v5"]),
-    ("mmw-v5/tools/verify-ticket/scripts/", ["board-v5"]),
-    ("mmw-v5/tools/dispatch/", ["pipeline"]),
-    ("mmw-v5/tools/verify-ticket/scripts/", ["pipeline"]),
-    ("mmw-v5/tests/pipeline/", ["pipeline"]),
-    *[("mmw-v5/tools/" + path, ["results"]) for path in (
-        "verify-ticket/scripts/verify-ticket.py", "verify-ticket/scripts/repository_checks.py",
-        "verify-ticket/scripts/events.py", "verify-ticket/scripts/labels.py",
-        "setup-mmw/scripts/check.py", "setup-mmw/scripts/labels.py",
-        "dispatch/scripts/tracker.py", "dispatch/scripts/statedir.py", "dispatch/scripts/models.py",
-        "dispatch/scripts/dispatch.sh", "dispatch/scripts/relay.py", "dispatch/scripts/briefs.py",
-        "dispatch/scripts/ghlist.py", "dispatch/scripts/runners/", "dispatch/roles.json", "dispatch/hosts.json",
-    )],
-    ("mmw-v5/tests/results/", ["results"]),
-    *[("mmw-v5/tools/dispatch/scripts/" + path, ["notifications"]) for path in (
-        "relay.py", "watchdog.py", "briefs.py", "statedir.py", "ghlist.py", "runners/paseo.sh",
-    )],
-    ("mmw-v5/tools/verify-ticket/scripts/events.py", ["notifications", "sessions"]),
-    ("mmw-v5/tests/notifications/", ["notifications"]),
-    *[("mmw-v5/tools/dispatch/" + path, ["sessions"]) for path in (
-        "roles.json", "hosts.json", "scripts/models.py", "scripts/briefs.py",
-        "scripts/dispatch.sh", "scripts/runners/", "scripts/statedir.py", "scripts/tracker.py",
-        "scripts/relay.py", "scripts/watchdog.py", "scripts/ghlist.py",
-    )],
-    ("mmw-v5/tests/sessions/", ["sessions"]),
-    *[("mmw-v5/tools/" + path, ["foundation"]) for path in (
-        "dispatch/scripts/tracker.py", "dispatch/scripts/ghlist.py",
-        "dispatch/scripts/statedir.py", "dispatch/scripts/status.py",
-        "verify-ticket/scripts/events.py", "verify-ticket/scripts/issue_tree.py",
-        "verify-ticket/scripts/labels.py", "setup-mmw/scripts/labels.py",
-    )],
-    ("mmw-v5/tests/foundation/", ["foundation"]),
-    # The shared checks read every module path, skill wiring and frontmatter under mmw-v4/.
-    ("mmw-v4/", ["shared-checks"]),
-    ("mmw-v4/skills/", ["check-interfaces"]),
-    (DISPATCH, ["dispatch"]),
-    (DISPATCH + "scripts/relay.py", ["relay"]),
-    (DISPATCH + "scripts/briefs.py", ["relay"]),
-    (DISPATCH + "scripts/runners/", ["relay", "liveness", "install"]),
-    (DISPATCH + "scripts/statedir.py", ["relay", "liveness", "board"]),
-    (DISPATCH + "scripts/turn-guard.py", ["liveness", "install"]),
-    (DISPATCH + "scripts/watchdog.py", ["liveness"]),
-    (DISPATCH + "scripts/tool-guard.py", ["install"]),
-    (DISPATCH + "scripts/ghlist.py", ["board", "relay"]),
-    (DISPATCH + "scripts/tracker.py", ["setup-mmw", "register-problem", "retro"]),
-    (DISPATCH + "scripts/models.py", ["board", "relay"]),
-    (DISPATCH + "roles.json", ["board", "relay"]),
-    (VERIFY, ["verify-ticket"]),
-    # test_dispatch.sh runs verify-ticket's scripts through --tools.
-    (VERIFY + "scripts/", ["dispatch"]),
-    (VERIFY + "scripts/events.py", ["board", "relay", "register-problem", "retro"]),
-    (VERIFY + "scripts/issue_tree.py", ["board", "relay"]),
-    (VERIFY + "scripts/verify-ticket.py", ["setup-mmw"]),
-    ("mmw-v4/skills/retro/", ["retro"]),
-    ("mmw-v4/skills/register-problem/", ["register-problem", "retro"]),
-    ("mmw-v4/skills/setup-mmw/", ["setup-mmw"]),
-    ("mmw-v4/skills/diagram-design/", ["diagram-design"]),
-    ("mmw-v4/skills/exe-release/", ["exe-release"]),
-    ("mmw-v4/skills/writing-for-agents/scripts/", ["writing-for-agents"]),
-    ("mmw-v4/skills/mmw-mode/scripts/session-start.py", ["session-start", "install"]),
-    ("mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh", ["worktree-audit"]),
-    ("mmw-v4/board/", ["board"]),
-    ("mmw-v4/install.sh", ["install"]),
-    ("mmw-v3/install.sh", ["install"]),
-    ("mmw-v4/prompt/", ["install"]),
-    *[(f"mmw-v4/tests/{name}/", [name]) for name in STEPS if (ROOT / "mmw-v4/tests" / name).is_dir()],
+    ("mmwstack/skills/exe-release/", ["mmwstack-exe-release"]),
+    ("mmwstack/tests/exe-release/", ["mmwstack-exe-release"]),
 ]
 
 # Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["mmw-v4/tests", "mmw-v5/tests", "mmw-v5-cloud/tests"]
+TEST_ROOTS = ["mmwstack/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
-    "efforts/code-landing/prototypes/fixture/tests": "a prototype's fixture repository, test data rather than a suite",
-    "tests": "the e2e tests under tests/e2e/<product>/ run only in the --all e2e-<product> steps, not by changed paths",
+    "mmwstack/skills/statechart/scripts/test": "the upstream statechart skill's own tests (node --test with fast-check and a Java oracle), not run here",
 }
-NOT_RUN_HERE = ("exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh,"
+NOT_RUN_HERE = ("exe-release's PowerShell checks (mmwstack/tests/exe-release/check-generated-powershell.sh,"
                 " check-template-behaviour.sh): they need a Windows build machine")
 
 
@@ -284,7 +163,7 @@ class Run:
         with log.open("w") as out:
             rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT).returncode
         lines = log.read_text(errors="replace").splitlines()
-        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2 and not name.startswith("e2e-"))
+        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2)
 
     def syntax(self, paths: list[str]) -> None:
         start = time.monotonic()
@@ -318,7 +197,7 @@ def main(argv: list[str]) -> int:
     else:
         if tier == "all":
             names = list(STEPS)
-            paths = git("ls-files", "mmw-v4", "mmw-v5", "scripts").stdout.split()
+            paths = git("ls-files", "mmwstack", "scripts").stdout.split()
             print("tier --all: every step")
         else:
             base = os.environ.get("MMW_BASE_REF") or DEFAULT_BASE

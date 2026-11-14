@@ -1,0 +1,23 @@
+---
+name: no-comments
+description: "Spawn Comment Sicko, fix accepted findings, and offer encodings for claimed constraints."
+---
+
+# No comments
+
+Spawn Comment Sicko. Act on accepted findings.
+
+Defer to Comment Sicko's fresh perspective.
+
+## Scope
+
+Use the caller's files or diff. Otherwise use the current diff against the base branch, default `main`, including the working tree.
+
+## Steps
+
+1. Give a fresh subagent the [Comment Sicko role](../../agents/comment-sicko.md) and the scope, on the `judgment and prose` role from the [model rule](../setup-mmwstack/SKILL.md#model-rule). A host that runs roles through agent definitions spawns [its Comment Sicko droid](../setup-mmwstack/references/agent-definitions.md#find-a-roles-droid) and gives it the scope alone. Do not restate its rules. A report that ends with `needs:` lines asks for [how](../how/SKILL.md) or [why](../why/SKILL.md). Run each on the symbol it names, resume the subagent with the findings (a fresh one when the host cannot resume), and use its final report.
+2. Inspect its report and diff. Reject application-code edits, scope escapes, exception-protected deletions, misstated `MUST KILL` reasons, and flags that treat kept intentional code as guilty. Reshape flags on our-code surprises stay actionable. Do not restore those comments. A keep survives only with proof it is about something we cannot change. Audit missed scoped lint and TypeScript suppressions. Correctness or safety suppressions stay actionable `MUST KILL`s. Restore deletions only with exact exceptions and scoped proof. Before accepting thin `IMPORTANT` or `do not remove` kills or keeps, run [how](../how/SKILL.md) or [why](../why/SKILL.md) on their symbol. If a kill is ambiguous, do not restore. If a keep is refuted or still ambiguous, delete it. Revert and rerun one rejected report with the failure named. Reject a second, report it open, and fail [no-comments](SKILL.md).
+3. Fix trivial accepted flags directly by deleting a dead path, dropping a parameter, or using the real API. If any fix needs a shape, run [architect](../architect/SKILL.md) once for the accepted set and surrounding code. Stop at the sketch. [architect](../architect/SKILL.md) shapes. Step 4 implements.
+4. Implement the smallest root-cause fix in scope. Remove every named workaround. If the root cause is out of scope, land the smallest in-scope fix and report the rest open. The [principle-fix-root-causes](../principle-fix-root-causes/SKILL.md) and [principle-redesign-from-first-principles](../principle-redesign-from-first-principles/SKILL.md) skills guide intent only. Neither authorizes widening the fence nor fixing instances outside it. Never bolt on symptom guards.
+5. Constraint comments say `do not remove`, `do not change wording`, or `talk to X before changing`. Leave keeps about things we cannot change. Offer the cheapest in-scope type, runtime, test, or CI lint. Wait for interactive approval. Unattended and eval require caller pre-approval. If approved, encode then delete. Otherwise delete, report the constraint open, and sketch out-of-scope work.
+6. Report the deletion count, restored comments, reruns, [architect](../architect/SKILL.md) sketch, fixes, encoding offers, encodings, unenforced constraints, and other open work.

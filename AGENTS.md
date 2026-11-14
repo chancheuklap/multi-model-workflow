@@ -1,63 +1,74 @@
-# AGENTS.md
+# Working on mmwstack
 
-Keep a line here only when all three tests hold:
+When working on mmwstack, follow the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms.
 
-- Reading the code, an ADR, a glossary or a script's header cannot tell an agent, or tells it too late.
-- Getting it wrong is costly or cannot be undone.
-- It is the owner's rule or a fact outside the repository, not an inventory of repository contents, so it stays true as the code changes.
+## Bring v5 Cloud methods into mmwstack
 
-`mmw-v5-cloud/` is the working edition. It holds the skills, tools, board and project configuration, and packaging reads that directory. `mmw-v5/`, other version directories, `archive/`, `deprecated/`, `docs/research/` and `upstream/` stay in the tree as reference. They are not current working instructions. Run none of their scripts, and leave `mmw-v5/` unmaintained.
+Use this repository's `mmwstack/` as the base. Migrate one v5 Cloud method at a time into mmwstack's routing, playbooks and delegation.
 
-MMW v5 is the owner's general workflow for developing projects across consuming repositories. This repository is one of those projects and delivers the plugin itself, so the installed MMW v5 can be used to develop MMW.
+1. Read the v5 skill, its mmwstack counterpart if one exists, and the relevant guide in full. Trace the calls to the agent that uses the result. Distinguish source requirements, agent judgment and operator decisions. Say where the source leaves a choice open. [v5 Cloud skills](mmw-v5-cloud/skills/) · [Routing guide](mmwstack/docs/guide/02-mmw-mode.md) · [Design guide](mmwstack/docs/guide/04-design.md)
+2. For a shared upstream, compare the v5 wording, the mmwstack copy and the original passage. Separate the reusable method from the old v5 routing. Keep mmwstack wording that already does the job. Decide what to supplement, replace or split, and carry applicable v5 instructions over verbatim. [pstack source](upstream/pstack/) · [Matt Pocock's skills](upstream/mattpocock/skills/)
+3. Change only the lines whose responsibility, inputs, route or handoff change. Revisit a previous import or another mmwstack prompt only for a conflict in this call chain. Reuse an existing step when it already covers the requirement.
 
-The skills in this repository are deliverables, not the working instructions of an agent working on it. Use the host's installed skills. An explicit task to inspect or edit repository skills does not make those files the runtime for that task.
+For an investigation-only request, report findings. In a proposal, state the decision rule, illustrate it with a distinguishing example and identify what is proposed or already implemented. Honor requests to leave edits uncommitted.
 
-Keep skills atomic. Workflows come from composing skills and dispatch role references; do not repeat the surrounding workflow inside each skill. The skills are adaptations and extensions of Matt Pocock's skills, pstack, and the other reference projects under `upstream/`. Preserve source wording when importing or combining those prompts; deduplicate, arrange and adapt only as needed for the assigned role and use.
+## Write instructions for agents
 
-No part of MMW v5 may become reliable or complete by growing more complex; that only makes it more tedious and rigid. Before fixing a break, read the whole source of the chain around it, work out what each step was meant to do and what it actually does, and look for a step that is redundant, duplicated, wrong, or costs more than it returns: such a step is deleted or reshaped, not repaired. Before fixing or adding anything, ask whether the main path already catches the failure, even later. If it does, delete the extra layer rather than add a gate, field, command, fallback or rule. A real incident alone does not justify a layer.
+Write English prompts with the host's installed `writing-for-agents`. Use mmwstack's authoring guidance for skills and custom modes. Keep one operation's steps together. Use a separate reference for a branch that other callers can skip in full. [Customization guide](mmwstack/docs/guide/09-make-it-yours.md)
 
-The task board in `mmw-v5-cloud/skills/dispatch/runtime/board/` is also a product developed in this repository. Tickets about the board run from here. Personal use; tests run locally, never in GitHub CI. GitHub Actions publishes prepared releases only.
+Keep a v5 term for a distinct concept. If both editions name the same concept, choose the clearer term for that context. Record each meaning in its domain glossary, qualifying a word that has different meanings across contexts. [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md)
 
-Runtime is Bash and the `python3` standard library. No package manager, no build step for the plugin runtime.
+Use the canonical English names for issues and ticket types in every language, including replies and diagrams. Record discarded translations under `_Avoid_` beside the term they referred to. [Planning and tickets](mmwstack/docs/glossary/planning-and-tickets/GLOSSARY.md)
 
-## Self-hosting boundary
+Link a bundled skill by its exact name and the relative path to its `SKILL.md`. Instructions copied outside the bundle use the skill name available to the receiving agent.
 
-When this repository consumes MMW v5, the installed cloud runtime used to open a night remains its runtime until that night closes. Treat its skills, scripts and prompts as one frozen version.
+Use one set of instructions across hosts. Specify who acts, the trigger and the required result. Each host uses its available tools. Replace imported `loop` or `automate` calls with the required capability, such as a scheduled wake with the original cadence and stop condition. [Unattended runs](mmwstack/docs/guide/07-overnight.md)
 
-- Everything under ticket worktrees, merge worktrees, the main worktree, project branch and base branch is the product being changed. Never run its copy of an MMW skill or script to control, interpret, repair or finish the run that is changing it. Run the installation selected when this night opened, resolving tools from that installed runtime. That runtime remains frozen until the night closes; development source does not replace it.
-- Do not update, uninstall or replace the installed runtime, retarget its files, or change live model configuration to satisfy new code while a night is open. A passing ticket, an already-landed dependency, a test result and an agent's judgement are not exceptions.
-- Tests of changed MMW tools run in isolated test homes against fake trackers and repositories. They prove the product under test; they do not authorize that product to take over the current run. Use a new installed version only for a later run, after the old night closes and the owner authorizes the update.
-- If the frozen runtime cannot finish a night after the product under test changes a protocol, do not bridge versions by editing the protocol or resuming an agent under new instructions. Keep the old runtime authoritative and report the incompatibility immediately. Suspend or repair the run only through that frozen runtime; record the product defect for a later night.
+## Decide where an instruction belongs
 
-## Gotchas
+| Where | What the instruction decides |
+| --- | --- |
+| Mode | **Non-negotiables** gives the main chat the trigger and required action, route or stop, including which route takes precedence. **Principles** names decisions a principle changes, **Autonomy** sets authorization, **Subagents** governs delegation, and **Writing the reply** and **Comments** set shared style. **Playbooks** indexes tasks by requested outcome. |
+| Playbook | How the main chat advances a class of task to delivery. It owns step order, when to call a method and what lets the chat continue, switch, stop or hand off. |
+| Skill | How one method turns given inputs into a result the caller can judge. Its name and description identify when to use it. It can call other skills or direct its own subagents. |
+| Plan or brief | The files, symbols, targets and commands for this particular assignment. Put a fixed command or format in a playbook when its runs depend on that exact form. |
 
-- Releasing and updating installed hosts are the owner's calls. Commit completed changes on the assigned development branch; do not merge or push to `main`, publish, or update installed plugins without authorization.
-- Prepare version changes on `dev` with `python3 scripts/release-mmw-v5.py bump` and run the relevant checks locally before committing. Pushing `dev` does not publish. Merging and pushing to `main` publishes the committed version as a tag, a GitHub Release and the cloud ZIP. GitHub does not change the version or run tests.
-- Install MMW as a native plugin through the current host. The same `mmw-v5-cloud/` package serves Codex and Cursor. Keep user models in `~/.agents/models.json`; resolve tools from that installed plugin version. First installation and migration guidance lives in the root [README.md](README.md). Updating the installed Cursor copy follows [Cursor user marketplace](#cursor-user-marketplace) below.
-- Never put credentials under plugin skills or scripts: the same installed plugin is used across consuming repositories.
-- `.worktrees/mmw-installed` is a hand-made checkout, not a pipeline worktree. Never prune it.
+Split a mixed prompt where the method returns its result. Keep a short local action in its step. Before reporting a speedup, the mode requires a measurement check. **Perf issue** applies it to the baseline. **Hillclimb** applies it before freezing a benchmark. The skill checks whether failed requests made the run look faster. [benchmark-checklist](mmwstack/skills/benchmark-checklist/SKILL.md) · [Perf issue](mmwstack/skills/mmw-mode/playbooks/perf-issue.md) · [Hillclimb](mmwstack/skills/mmw-mode/playbooks/hillclimb.md)
 
-## Cursor user marketplace
+Read each principle you change in full. Compare the mode index entries and skill descriptions across mmwstack's principles. Match both styles. Each entry should let an agent recognize when the principle changes a decision, even without an explicit call from another skill. [mmw-mode](mmwstack/skills/mmw-mode/SKILL.md#principles) · [Principles guide](mmwstack/docs/guide/08-principles.md)
 
-Cursor pins the user marketplace `mmw-v5` to one commit. `agent plugin marketplace update mmw-v5` reindexes that commit and does not move it. Adding the same URL again while `mmw-v5` is still registered also leaves the old commit. There is no Update control on the plugin card that advances it.
+## Write a playbook
 
-The published release is `origin/main`. The repository's default branch is `dev`. An add with no ref indexes `dev`, and pushing `dev` does not publish.
+Route by input and requested outcome. **Trace forensics** diagnoses a captured startup profile. **Perf issue** fixes measured startup slowness. Put the playbook in `mmwstack/skills/mmw-mode/playbooks/<title>.md` using a lowercase, hyphenated title. Give the path in the mode index when the filename differs from that title. [Trace forensics](mmwstack/skills/mmw-mode/playbooks/trace-forensics.md)
 
-Update the installed Cursor plugin only after the owner asks, and only when no night is open:
+Write backward from the handoff. The main chat uses the numbered steps as its checklist and records reasons for skips. Order steps by the evidence each needs. At a skill call, give the input, the required result and how the main chat uses it.
 
+```markdown
+### <Playbook name>
+
+**You own <outcome>.** <Input or scope that distinguishes this route.>
+
+1. <Obtain what the next decision needs.>
+2. <Act on it. Call the relevant skill where its result is needed.>
+3. <Check the result. State when to stop or hand it back.>
+
+**Reply:** <Deliverable, evidence and open decisions.>
 ```
-agent plugin marketplace remove mmw-v5
-agent plugin marketplace add --git-ref main https://github.com/chancheuklap/multi-model-workflow
-```
 
-Confirm `agent plugin marketplace list --format json` shows `mmw-v5` at user scope and its `gitRef` equals `origin/main`. Then install **MMW v5 Cloud** again at User scope. Removal drops the install, and the CLI cannot restore it: use `/plugins` in an interactive Cursor agent, or Customize → Plugins. Do not install from `~/.cursor/plugins/local`, and do not register a team marketplace for this.
+Write just enough to choose the next step and recognize completion. **Opening a PR** returns the open PR. **Babysit** follows it. When a playbook builds on another, write only the differences, as **Autopilot-stack** does for stacking and handoff. [Opening a PR](mmwstack/skills/mmw-mode/playbooks/opening-a-pr.md) · [Babysit](mmwstack/skills/mmw-mode/playbooks/babysit.md) · [Autopilot-stack](mmwstack/skills/mmw-mode/playbooks/autopilot-stack.md)
 
-## Codex plugin delivery
+## Choose the delegate by who defines the work
 
-For the owner's local Codex plugin, prepare the version on `dev` and push the authorized release commit to `main`. That is the local update path; no manual ZIP upload is needed.
+**Direct playbook delegation.** The main chat owns the playbook, defines the assignment and checks the result. Give the `mmw-agent` its goal, scope and completion condition. **Feature** delegates scoped implementation this way. **Multi-phase plan** delegates read-only lookup the same way. [Feature](mmwstack/skills/mmw-mode/playbooks/feature.md) · [mmw-agent role](mmwstack/agents/mmw-agent.md)
 
-For Codex Cloud agents, export the complete `mmw-v5-cloud.zip` from committed source and give the owner its path, version and commit. The owner uploads it on the web plugin page to install or update the cloud plugin. A Git push does not update that uploaded copy. Uploading is the owner's step.
+**Delegation inside a skill.** The skill defines each role, its inputs, its result and how the main chat judges it. **Feature** uses [arena](mmwstack/skills/arena/SKILL.md) for competing implementations. For Spec, Plan or Ticket review, [ambiguity-scan](mmwstack/skills/ambiguity-scan/SKILL.md) briefs one fresh, read-only general-purpose reviewer. It checks the draft against its sources and the stage's writing requirements. It reviews a ticket batch as a whole.
 
-First installation, ZIP export and verification follow the root [README.md](README.md). Cloud agents receive MMW through their host's plugin installation, not a repository setup script or a copied user skill directory.
+In mmwstack delegation prompts, assign new work to a fresh subagent. Resume one when the assignment needs state costly to transfer, such as uncommitted changes, or when it replied `needs:`. A delegate starts no agents, so write its prompt to finish alone or to end in a `needs:` reply, and give a step that spawns to the main chat or an owner session. Name the work role in the prompt. Use only the model assigned to that role in the operator's model rule, including an explicit choice to inherit. [mmw-mode](mmwstack/skills/mmw-mode/SKILL.md#subagents) · [setup-mmwstack](mmwstack/skills/setup-mmwstack/SKILL.md#model-rule)
 
-Before working in a subdirectory, search it for an `AGENTS.md` and read that file in full.
+## Connect a new workflow to the existing skills
+
+- **Work issues.** Route new repository tasks, including read-only work and directly named skills, through [to-tickets](mmwstack/skills/to-tickets/SKILL.md). **Open** creates or reuses the GitHub work issue before work starts. **Update** records evidence, decisions, handoffs and results. **Split** drafts independently verifiable tickets with direct blockers. This skill owns the labels and the shared template's **Must have** and **Optional** fields.
+- **Planning.** [Wayfinder](mmwstack/skills/mmw-mode/playbooks/wayfinder.md) records cross-session decisions on a map. A spec drawn from that map links back to it. [to-spec](mmwstack/skills/to-spec/SKILL.md) records agreed behavior. Use [Multi-phase plan](mmwstack/skills/mmw-mode/playbooks/multi-phase-plan.md) when requested or when the approach, dependencies or checks need planning across phases. The spec issue is the direct parent of the plan issue and execution tickets drawn from that scope. Each ticket drawn from the plan links to the plan issue and names its phase or outcome. A standalone problem with one deliverable becomes a ticket on the original issue. [Ticket splitting](mmwstack/skills/to-tickets/references/split.md)
+- **Code delivery.** On authorized execution, open or reuse one PR per code ticket and link them both ways. Pass the ticket URL, scope, acceptance criteria and any existing PR URL through each handoff to the agent writing the code.
+- **Visualization.** Replace imported `visualize` or `canvas` calls with the HTML skills. For visual explanations, including the whole spec, use [big-pics-little-words](mmwstack/skills/big-pics-little-words/SKILL.md) with [html](mmwstack/skills/html/SKILL.md).
+- **App verification.** Route the caller to the project's `verify-<app>` for the target app and surface. Only when none matches, use [verify-this](mmwstack/skills/verify-this/SKILL.md). Keep its internal calls to [control-cli](mmwstack/skills/control-cli/SKILL.md) for terminals and [control-ui](mmwstack/skills/control-ui/SKILL.md) for graphical interfaces.
