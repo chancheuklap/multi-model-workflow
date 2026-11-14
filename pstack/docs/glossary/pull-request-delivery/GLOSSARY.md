@@ -19,6 +19,9 @@ The code host the run uses for PRs, checks, review threads, and merge state. pst
 **Ready for review**:
 An open, non-draft PR. Opening it in this state lets CI and automated reviews start while the owner continues work.
 
+**Door**:
+Whether merging a PR can be walked back. A **two-way door** can be. A **one-way door**, such as a destructive action or a hard-to-reverse decision, cannot. The PR's `Blast Radius` section opens with it.
+
 **Code-ready head**:
 The exact commit an Autopilot owner reports after finishing the change, cleaning the diff and comments, checking the affected paths, and updating the branch to its intended base. The independent verification swarm can start at this revision.
 
