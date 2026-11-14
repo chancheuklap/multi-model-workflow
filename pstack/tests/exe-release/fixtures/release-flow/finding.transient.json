@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "schema_version": "1",
+      "product": "duck",
+      "dimension": "build-log",
+      "name": "remote_network_failure",
+      "status": "fail",
+      "tier": "P1",
+      "root_cause_fingerprint": "transient:network.pnpm_fetch",
+      "detail": "构建机 pnpm 取包 ETIMEDOUT",
+      "remediation": "网络瞬态,重跑该 stage"
+    }
+  ]
+}

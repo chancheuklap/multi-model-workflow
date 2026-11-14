@@ -153,6 +153,7 @@ Otherwise, a large or cross-cutting effort (a migration across many call sites, 
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it.
 - **Babysit.** Driving a PR or a stack to merge-ready: conflicts, review threads, CI.
 - **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run bottom-up on Origin when it resolves the repository, otherwise on GitHub.
+- **Release an install package.** Build a Windows install package from the current branch for each product a change touched, or bring a new product into that system ("build the installer", "package this", "cut an exe", "release this product"). It ends at the operator's install test. Distinct from Shipping, which lands verified PRs and builds no package.
 - **Code review.** One review of a finished project branch on three axes, then one fix pass. Distinct from Interrogate, which tries to break a change with runs.
 - **Autonomous run.** A long task to drive to completion without stopping ("run until done", "keep going until X").
 - **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of subagents, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate. Work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds.

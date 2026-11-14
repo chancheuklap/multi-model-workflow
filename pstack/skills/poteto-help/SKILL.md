@@ -84,6 +84,7 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Bring a verification skill and its feature map back in line with the app | [maintain-verification-skill](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md) |
 | Bring a formal verification back in line after the code it covers changed, and learn whether a failure is drift or a bug | [maintain-formal-verification-skill](../maintain-formal-verification-skill/SKILL.md) |
+| Build a Windows install package for an Electron and compiled Python product, or bring a new product into that system | [exe-release](../exe-release/SKILL.md) |
 | Show a PM or designer what the user sees as a chart checked by a TLA+ model, with the shortest path to each state that breaks a rule | [statechart](../statechart/SKILL.md) |
 | Vet a performance number before reporting or acting on it | [benchmark-checklist](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change, or one to review after stepping away | [figure-it-out](../figure-it-out/SKILL.md) |
@@ -125,6 +126,7 @@ Playbooks are step lists inside [poteto-mode](../poteto-mode/SKILL.md), not skil
 - "use Wayfinder to map the open decisions" or "continue Wayfinder with this decision ticket" runs [Wayfinder](../poteto-mode/playbooks/wayfinder.md).
 - "find modules worth deepening" runs [Improve codebase architecture](../poteto-mode/playbooks/improve-codebase-architecture.md). It compares opportunities in an HTML report and explores the opportunity you pick.
 - "land the stack" runs Shipping.
+- "build the installer" runs [Release an install package](../poteto-mode/playbooks/release-an-install-package.md). It builds a package for each product the change touched and stops for the user's install test. It builds no PR and lands none.
 - "code review project/billing" runs [Code review](../poteto-mode/playbooks/code-review.md). It reviews a finished project branch once and fixes it once.
 - "take over this branch" runs Session pickup.
 - "pause safely" runs Pause safely.

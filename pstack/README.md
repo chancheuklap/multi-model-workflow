@@ -35,7 +35,7 @@ use [poteto-mode](./skills/poteto-mode/SKILL.md) at the start of a task. it open
 
 ### just use [poteto-mode](./skills/poteto-mode/SKILL.md)
 
-this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-six playbooks:
+this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-seven playbooks:
 
 ```
 /poteto-mode this pr has a subtle bug where the scroll drifts every 750ms even when idle. repro
@@ -48,7 +48,7 @@ morning.
 ```
 
 <details>
-<summary>the twenty-six playbooks</summary>
+<summary>the twenty-seven playbooks</summary>
 
 | playbook | for |
 |---|---|
@@ -68,6 +68,7 @@ morning.
 | [eval](./skills/poteto-mode/playbooks/eval.md) | test how a skill or prompt change affects agent behavior, blinded. |
 | [babysit](./skills/poteto-mode/playbooks/babysit.md) | drive a pr or a stack to merge-ready: conflicts, review threads, ci. |
 | [shipping](./skills/poteto-mode/playbooks/shipping.md) | independently verify a green stack, then land the contiguous verified run bottom-up through github by default or origin when available. |
+| [release an install package](./skills/poteto-mode/playbooks/release-an-install-package.md) | build a windows install package from the current branch for each product the change touched, then hand the operator an install test. |
 | [code review](./skills/poteto-mode/playbooks/code-review.md) | one review of a finished project branch on three axes, then one fix pass. |
 | [autonomous run](./skills/poteto-mode/playbooks/autonomous-run.md) | drive a long task to completion without stopping. |
 | [orchestrate](./skills/poteto-mode/playbooks/orchestrate.md) | a standing project handed to one coordinator chat: multi-day, many stacked prs, fleets of subagents. |
@@ -150,6 +151,7 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [maintain-verification-skill](./skills/maintain-verification-skill/SKILL.md) | your verify skill's feature map has drifted from the app. source wave + one live pass, at most one PR of proven corrections. |
 | [create-formal-verification-skill](./skills/create-formal-verification-skill/SKILL.md) | tests can't reach the case that breaks a race, retry, state machine, parser, or unsafe code. verifies one property with the tool that fits and generates a project-local skill to recheck it on every change. |
 | [maintain-formal-verification-skill](./skills/maintain-formal-verification-skill/SKILL.md) | code your formal verification covers has changed since it was last checked. updates the model, harness, or properties to match the code, reruns, and says whether each failure is drift in the verification or a bug in the code. |
+| [exe-release](./skills/exe-release/SKILL.md) | you need a windows install package for an electron shell plus a compiled python backend. holds the release engine, the release manifest format, and the scripts the release an install package playbook drives. |
 | [statechart](./skills/statechart/SKILL.md) | someone who owns the behavior needs to see it, not read a spec. checks a tla+ model, draws what the user sees as a mermaid statechart, marks each state that breaks a rule, and gives the shortest path to each one. |
 | [unslop](./skills/unslop/SKILL.md) | you're cleaning up writing. removes AI tells. |
 | [bro](./skills/bro/SKILL.md) | you want the agent to restate your goal, then restate its last message in plain words. say what you need and it hands off to [ketchup](./skills/ketchup/SKILL.md), [ketchup-video](./skills/ketchup-video/SKILL.md), [recall](./skills/recall/SKILL.md), [teach](./skills/teach/SKILL.md), [big-pics-little-words](./skills/big-pics-little-words/SKILL.md), or [sharpen](./skills/sharpen/SKILL.md). |

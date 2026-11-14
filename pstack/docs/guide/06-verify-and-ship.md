@@ -1,6 +1,6 @@
 # Verify the result and open a PR
 
-"It compiles" is not evidence. The [principle-prove-it-works](../../skills/principle-prove-it-works/SKILL.md) makes the agent check the real artifact before it reports success, and your job is to make "the real artifact" checkable. This page covers stating a finish condition, vetting a measured number, generating a verification skill for your app, formally verifying a property tests rarely reach, opening the PR, and driving it to merged.
+"It compiles" is not evidence. The [principle-prove-it-works](../../skills/principle-prove-it-works/SKILL.md) makes the agent check the real artifact before it reports success, and your job is to make "the real artifact" checkable. This page covers stating a finish condition, vetting a measured number, generating a verification skill for your app, formally verifying a property tests rarely reach, opening the PR, driving it to merged, and building an install package.
 
 Verification is the slowest step in most agent work, because it's the step that usually waits on a human. Make the agent able to do it, and you stop being the bottleneck. Skip it, and running more agents only gets you more unchecked work to review.
 
@@ -158,5 +158,15 @@ Green is not the same as safe. When you're ready to land, say so:
 ```
 
 The [Shipping playbook](../../skills/poteto-mode/playbooks/shipping.md) verifies each PR independently before it arms anything. One fresh agent per PR proves the behavior live, and the agent that judges a change is never the one that wrote it. Then Shipping lands only the contiguous verified run from the bottom, one PR at a time through GitHub by default or Origin when its CLI is available, and reports the first PR that breaks the chain. A verified PR sitting above an unverified one waits, because merging it would pull the gap in underneath.
+
+## Build an install package with Release an install package
+
+Landing a PR does not put an installer in anyone's hands. For a product that ships as an Electron shell plus a compiled Python backend, ask for the package:
+
+```text
+/poteto-mode build the installer from this branch.
+```
+
+The [Release an install package playbook](../../skills/poteto-mode/playbooks/release-an-install-package.md) refuses a dirty tree, because the build machine receives only `git archive HEAD`. It builds a package for each product the change touched, checks that every package in the set came from the same inputs, and stops for you to install and try it. A package passes when you say it installs and runs. The [exe-release](../../skills/exe-release/SKILL.md) skill holds the release engine and the release manifest that declares each product. A product that no release manifest names yet starts at [new-product.md](../../skills/exe-release/references/new-product.md).
 
 Next: [Run work while you sleep](./07-overnight.md).

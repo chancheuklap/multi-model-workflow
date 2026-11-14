@@ -1,0 +1,80 @@
+{
+  "schema_version": "2",
+  "product": "fixture-product",
+  "build_target": {
+    "desktop_dir": "desktop-fixture",
+    "installer_brand": "Fixture",
+    "installer_glob": "desktop-fixture/dist/*.exe",
+    "asset_roots": [],
+    "native_ext_dll": [
+      {
+        "reason": "fixture",
+        "dll_names": [
+          "python3.dll"
+        ],
+        "dll_source": "compile_interpreter",
+        "dest": "dist_root"
+      }
+    ]
+  },
+  "python_backend": {
+    "runner": [
+      "true"
+    ],
+    "output_dir": "${DESKTOP_DIR}/python-runtime/backend",
+    "jobs": {
+      "default": 2
+    },
+    "include_packages": [
+      "fixture_pkg"
+    ],
+    "targets": [
+      {
+        "name": "fixture-backend",
+        "exe": "fixture-backend.exe",
+        "entrypoint": "src/fixture_pkg/__main__.py"
+      }
+    ]
+  },
+  "electron": {},
+  "stages": [
+    {
+      "name": "doctor",
+      "run": [
+        "true"
+      ]
+    },
+    {
+      "name": "smoke",
+      "run": [
+        "true"
+      ]
+    }
+  ],
+  "diagnose": [
+    "sh",
+    "-c",
+    "echo '{\"findings\":[]}'"
+  ],
+  "derive": [
+    "true"
+  ],
+  "build_hooks": {
+    "runtime_prepare": [
+      "true"
+    ],
+    "artifact_scan": [
+      "true"
+    ],
+    "package_integrity": [
+      "true"
+    ],
+    "asset_parity": null,
+    "credential_proof": null
+  },
+  "event_sink": [
+    "sh",
+    "-c",
+    "cat >> events.jsonl"
+  ]
+}

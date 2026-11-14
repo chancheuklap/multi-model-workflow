@@ -71,6 +71,7 @@ STEPS = {
     "diagram-design": ("bash mmw-v4/tests/diagram-design/run.sh", ["bash", "python3", "uv"]),
     "dispatch": ("bash mmw-v4/tests/dispatch/run.sh", ["bash", "python3", "uv", "git", "node"]),
     "exe-release": ("bash mmw-v4/tests/exe-release/run.sh", ["bash", "python3", "uv"]),
+    "pstack-exe-release": ("bash pstack/tests/exe-release/run.sh", ["bash", "python3", "uv", "jq"]),
     "install": ("bash mmw-v4/tests/install/run.sh", ["bash", "python3", "uv"]),
     "liveness": ("bash mmw-v4/tests/liveness/run.sh", ["bash", "python3", "uv"]),
     "session-start": ("bash mmw-v4/tests/session-start/run.sh", ["bash", "python3", "uv"]),
@@ -160,6 +161,8 @@ MAP = [
     ("mmw-v4/skills/setup-mmw/", ["setup-mmw"]),
     ("mmw-v4/skills/diagram-design/", ["diagram-design"]),
     ("mmw-v4/skills/exe-release/", ["exe-release"]),
+    ("pstack/skills/exe-release/", ["pstack-exe-release"]),
+    ("pstack/tests/exe-release/", ["pstack-exe-release"]),
     ("mmw-v4/skills/writing-for-agents/scripts/", ["writing-for-agents"]),
     ("mmw-v4/skills/mmw-mode/scripts/session-start.py", ["session-start", "install"]),
     ("mmw-v4/skills/mmw-mode/scripts/worktree-audit.sh", ["worktree-audit"]),
@@ -171,14 +174,14 @@ MAP = [
 ]
 
 # Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["mmw-v4/tests", "mmw-v5/tests", "mmw-v5-cloud/tests"]
+TEST_ROOTS = ["mmw-v4/tests", "mmw-v5/tests", "mmw-v5-cloud/tests", "pstack/tests"]
 # Trees whose test directories are history or third-party snapshots, never run.
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
     "efforts/code-landing/prototypes/fixture/tests": "a prototype's fixture repository, test data rather than a suite",
     "tests": "the e2e tests under tests/e2e/<product>/ run only in the --all e2e-<product> steps, not by changed paths",
 }
-NOT_RUN_HERE = ("exe-release's PowerShell checks (mmw-v4/tests/exe-release/check-generated-powershell.sh,"
+NOT_RUN_HERE = ("exe-release's PowerShell checks (pstack/tests/exe-release/check-generated-powershell.sh,"
                 " check-template-behaviour.sh): they need a Windows build machine")
 
 
