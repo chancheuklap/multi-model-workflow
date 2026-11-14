@@ -34,9 +34,9 @@ reasoningEffort: <effort>
 ```
 
 - **Description.** One line of about ten words. A list entry reads `mmwstack delegate for seat <n> of the <role line name> role`.
-- **Tools.** Omit `tools`, so the droid keeps every tool its host grants a subagent. Add `tools: read-only` below `reasoningEffort` only when the mmwstack skill the role's line is named for says in so many words that the role's delegates are read-only. "Read access" or "should not write" does not say so. [arena](../../arena/SKILL.md) calls its cross-judge a read-only judge, so `arena cross-judge pool` qualifies. A line no skill names, such as `judgment and prose`, gets none.
-- **Role text.** The code roles and `hardest tasks` are the roles the mode's Delegation assigns to a playbook step's code delegate, so they carry the full text of [mmw-agent](../../../agents/mmw-agent.md) under the leaf rule. Every other role carries the leaf rule only. `judgment and prose` is shared by reviewers and researchers that other skills brief, and mmw-agent tells its holder to read the whole mode first, so no step gives it that style. [mmw-mode](../../mmw-mode/SKILL.md#subagents)
-- **Copied files.** Copy `agents/mmw-agent.md` and `agents/comment-sicko.md` without their frontmatter. The droid sits outside the bundle, so replace each link with its text, which is the skill's name, and write no path: the agent loads a skill by name. The `agents/` files stay the single source of truth, and each run refreshes the copies.
+- **Tools.** Omit `tools`, so the droid keeps every tool its host grants a subagent. Add `tools: read-only` below `reasoningEffort` only when the mmwstack skill the role's line is named for says in so many words that the role's delegates are read-only. "Read access" or "should not write" does not say so. [arena](../../arena/SKILL.md) calls its cross-judge a read-only judge, so `arena cross-judge pool` qualifies. [advisor](../../advisor/SKILL.md) says the advisor is read-only, so `advisor` qualifies. A line no skill names, such as `judgment and prose`, gets none.
+- **Role text.** The code roles and `hardest tasks` are the roles the mode's Delegation assigns to a playbook step's code delegate, so they carry the full text of [mmw-agent](../../../agents/mmw-agent.md) under the leaf rule. `advisor` carries the full text of [advisor](../../../agents/advisor.md). Every other role carries the leaf rule only. `judgment and prose` is shared by reviewers and researchers that other skills brief, and mmw-agent tells its holder to read the whole mode first, so no step gives it that style. [mmw-mode](../../mmw-mode/SKILL.md#subagents)
+- **Copied files.** Copy `agents/mmw-agent.md`, `agents/advisor.md` and `agents/comment-sicko.md` without their frontmatter. The droid sits outside the bundle, so replace each link with its text, which is the skill's name, and write no path: the agent loads a skill by name. The `agents/` files stay the single source of truth, and each run refreshes the copies.
 
 **Leaf rule.** Every droid opens with this text:
 
@@ -59,7 +59,7 @@ Apply the naming rule to the role's line. Comment Sicko's droid is `mmwstack-com
 
 Call Task with `subagent_type` set to the droid's name. A list role takes one Task for each seat. Droid finds a droid only from a session started in the folder that holds its `.factory/droids/`. Anywhere else Task reports `Droid configuration not found`, and the role is unfilled.
 
-- A code role's droid and `mmwstack-comment-sicko` already carry their role text, so the brief leaves it out and states the scope. Any other droid carries the leaf rule only. No brief gives a droid a role file or a path into `agents/`: the droid is the role.
+- A code role's droid, `mmwstack-advisor` and `mmwstack-comment-sicko` already carry their role text, so the brief leaves it out and states the scope. Any other droid carries the leaf rule only. No brief gives a droid a role file or a path into `agents/`: the droid is the role.
 - Pass no `complexity` to a droid whose model is `inherit`, so the delegate runs on the parent model.
 - Start a delegate whose result you do not need yet with `run_in_background`.
 - A delegate that replies `needs:` has paused. Run the step it names, then call Task with `resume` set to its task id and the findings in the prompt. When Droid cannot resume that task, brief a fresh delegate with the findings.

@@ -23,6 +23,7 @@ Remaining triggers:
 - Code crossing a function boundary → the [architect](../architect/SKILL.md) skill, parallel design exploration before implementing. For throwaway code inside the Prototype playbook, stay in that playbook.
 - Parallel fan-out → the [swarm](../swarm/SKILL.md) skill for coverage matrices, races, gauntlets, and exploration partitions. Use [arena](../arena/SKILL.md) for design or code bakeoffs with base selection and grafting.
 - Contested design → the [interrogate](../interrogate/SKILL.md) skill (multi-model adversarial) before shipping.
+- The operator asks for the advisor or for a second opinion from a stronger model, or turns advisor mode on → the [advisor](../advisor/SKILL.md) skill. Never start it on your own.
 - The operator asks for a code review of a project branch → the **Code review** playbook (`playbooks/code-review.md`), once for that branch. Never start it on your own.
 - A review with no objective endpoint, such as an ambiguity scan, an interrogation or a code review → it runs once for its scope. Settle what it reports, then continue. Run another only when the operator asks. A loop that ends on a check's exit code or a run's verdict, such as CI or the plan checker, is not such a review.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).

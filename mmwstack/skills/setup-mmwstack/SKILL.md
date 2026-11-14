@@ -50,6 +50,7 @@ perf-issue: <model and settings>
 hillclimb: <model and settings>
 judgment and prose: <model and settings>
 hardest tasks: <model and settings>
+advisor: <model and settings>
 how explorer: <model and settings>
 how explainer: <model and settings>
 why investigators: <model and settings>
