@@ -14,7 +14,7 @@ Run:
 /setup-mmwstack
 ```
 
-[setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) detects the models you have access to, asks for a reasoning budget, shows you each role (code delegates, judgment, the review panels), and asks what you want. Answer the questions. It saves the role choices in `~/.agents/mmwstack-models.md` unless you supply a different rule file.
+[setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) detects the models you have access to, asks for a reasoning budget, shows you each role (code delegates, judgment, the advisor, the review panels), and asks what you want. Answer the questions. It saves the role choices in `~/.agents/mmwstack-models.md` unless you supply a different rule file.
 
 The `large` budget requests `xhigh` reasoning. `unlimited` lifts each model to its highest tier, up to `max`. `medium` and `small` lower the reasoning and spend fewer tokens.
 

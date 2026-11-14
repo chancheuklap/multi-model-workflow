@@ -1,0 +1,45 @@
+---
+name: advisor
+description: "Consult a stronger model at a major decision or when stuck, and act on its verdict. Use for /advisor, \"ask the advisor\", \"get a second opinion from a stronger model\", or when the operator turns advisor mode on. Never start it on your own."
+---
+
+# Advisor
+
+The advisor is a stronger model. It reads your brief and the repository, returns a verdict and edits nothing. You keep doing the work and own the decision.
+
+A consult spawns an agent, so the main chat or an owner session runs it. A delegate that reaches a checkpoint replies `needs: advisor <the question>` and stops. The agent that spawned it runs the consult and resumes it with the verdict.
+
+## When to consult
+
+Consult only when the operator asks.
+
+- "Ask the advisor ...", `/advisor <question>`, or a request for a second opinion from a stronger model is one consult now. The mode stays as it was.
+- "Advisor on", or `/advisor` with no question, turns advisor mode on for this conversation. Consult at the checkpoints below until the operator says "advisor off". Keep the mode in the conversation. An owner session you start consults only when its brief says advisor mode is on.
+
+Checkpoints:
+
+1. **Before a major decision.** Choosing between architectures or approaches; changes that are hard to reverse or have a wide blast radius (schema or data migrations, deleting or rewriting a module, public API or config format changes, dependency swaps, auth, payments, or other security-sensitive code); or a request ambiguous in a way that would change the work materially. Consult once you have a concrete plan and the options in hand, not before you understand the problem. One consult covers the plan, so skip a consult per file.
+2. **When stuck.** The same error or failing test after two genuine fix attempts; behavior you cannot explain from the code; or when you are about to reach for a workaround: a retry loop, a `sleep`, a broad `try/except`, skipping a test, or disabling a check to get past something.
+
+Each consult is a strong-model call. Go on without one when reading the sources or a small check settles the question, or when no answer would change your next action. If a task needs more than about four consults, split the task or ask the operator.
+
+## How to consult
+
+1. Write the brief from the [briefing template](references/briefing-template.md).
+2. Give a fresh read-only subagent the [advisor role](../../agents/advisor.md) and the brief, on the `advisor` role from the [model rule](../setup-mmwstack/SKILL.md#model-rule). A host that runs roles through agent definitions spawns [its advisor droid](../setup-mmwstack/references/agent-definitions.md#find-a-roles-droid) and gives it the brief alone. Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
+3. When the advisor asks for missing input, supply it once by resuming the advisor (a fresh one with the input added when the host cannot resume). Give a later checkpoint a fresh advisor.
+4. Act on the verdict.
+   - `proceed`: go.
+   - `proceed with changes`: make the changes unless they conflict with the operator's instructions or facts you have verified. Say which you skipped and why.
+   - `stop`: leave the plan. Rethink it, or bring the disagreement to the operator when it is a product or scope question.
+   - The advisor is a strong second opinion, so you stay accountable for the result. When it is wrong about the codebase, show it the evidence once, or overrule it and tell the operator why. A missing verdict is not agreement.
+   - Keep approved baselines and authorization fixed. Pass a `For the operator` section to the operator as it stands.
+5. Report each consult in one or two lines: `Advisor: <verdict>. <one-line summary>. <what you did about it>.` Keep the full response out of the chat unless the operator asks. Record the verdict and what you did with it on the work issue, per [to-tickets](../to-tickets/SKILL.md#update).
+
+Done when you have acted on the verdict, or told the operator why the consult could not complete.
+
+## Guardrails
+
+- The advisor is read-only. Ask it for a verdict and leave the task and every edit to yourself.
+- Ask at most one follow-up per checkpoint.
+- When the `advisor` role is unfilled, tell the operator once and continue without it.
