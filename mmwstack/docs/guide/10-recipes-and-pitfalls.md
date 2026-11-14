@@ -52,6 +52,14 @@ ask /arena for a second opinion on this thread and our approach
 
 Your current design becomes one candidate among several, and the synthesis tells you whether the panel found something better or confirmed what you had. It costs little next to a design that is expensive to reverse.
 
+## Ask a stronger model before a big call
+
+```text
+/advisor should we keep the queue in memory or move it into the database?
+```
+
+One stronger model reads the agent's brief and the repository, then returns a verdict: proceed, proceed with changes, or stop. Say `advisor on` and the agent consults it before major decisions and when it is stuck, until you say `advisor off`. Each consult is one call, so it suits a decision that is costly to undo. [advisor](../../skills/advisor/SKILL.md)
+
 ## Check independent slices in parallel
 
 ```text

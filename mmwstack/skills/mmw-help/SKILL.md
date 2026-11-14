@@ -71,6 +71,7 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Get several attempts at one brief, merged into the best one | [arena](../arena/SKILL.md) |
 | Run parallel checks over slices, or race workers | [swarm](../swarm/SKILL.md) |
 | Have different models review a diff and try to break it | [interrogate](../interrogate/SKILL.md) |
+| Ask one stronger model for a verdict before a major decision or when stuck | [advisor](../advisor/SKILL.md) |
 | Review a finished project branch once, on three axes | [code-review](../code-review/SKILL.md) |
 | Write the tests for code you are landing, failing-first for a bug | [write-tests](../write-tests/SKILL.md) |
 | Apply TypeScript rules to `.ts` or `.tsx` work | [typescript-best-practices](../typescript-best-practices/SKILL.md) |
