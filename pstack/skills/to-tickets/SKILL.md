@@ -75,6 +75,8 @@ Use the same template for every work issue. Include every **Must have** field. A
 
 A ticket that changes a surface a person uses names the feature-file path in the project's `verify-<app>/features/` directory when it exists. If the user story names an expected result, copy that sentence unchanged. Link any approved prototype the ticket must match. This step does not write the script.
 
+When the ticket names a feature file and copies an expected-result sentence, it also tells the agent writing the code to write, inside that `verify-<app>/` directory, a drive script that performs the feature's user path and asserts that sentence, record the script's command in the feature file's `Driving it with <harness>` section, run it, and commit the script and the feature-file edit with the code. A ticket that lacks either the feature file or the sentence gets no script.
+
 When getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), name the observation that distinguishes success from that failure.
 
 ## Parent

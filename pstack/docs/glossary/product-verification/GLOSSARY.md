@@ -64,13 +64,17 @@ A local harness for an interactive CLI or text user interface. A managed `tmux` 
 **Browser harness**:
 A local harness for a web, IDE, or Electron interface. It drives a browser page directly or connects to a running Chromium instance through the Chrome DevTools Protocol (CDP). A fresh page snapshot shows which control is available after each interaction.
 
+**e2e harness**:
+A local harness built on the `e2e` command-line tool, which drives a web or mobile surface, or an HTTP service, through `screen` and `expect`. Its config and scripts live in the verification skill's own directory, and each command names that config with `--config`. A surface `e2e` has no engine for keeps another harness.
+_Avoid_: e2e alone for a repository's own end-to-end tests.
+
 **App marker**:
 An observable identifier that selects the correct app or window when several pages share a debug port. A stable root element or landmark can identify the app. Within the page, stable handles such as accessible roles and names identify the intended control.
 
 **Control CLI**:
 A project's command-line tool for driving its app. A verification skill can call its commands to operate a browser, invoke a product command, or inspect a result. The bundled skill for controlling interactive terminal programs is [control-cli](../../../skills/control-cli/SKILL.md).
 
-Sources include [control-cli](../../../skills/control-cli/SKILL.md), [control-ui](../../../skills/control-ui/SKILL.md), and the [project verification guide](../../guide/06-verify-and-ship.md#create-a-project-verification-skill).
+Sources include [control-cli](../../../skills/control-cli/SKILL.md), [control-ui](../../../skills/control-ui/SKILL.md), [create-verification-skill](../../../skills/create-verification-skill/SKILL.md), and the [project verification guide](../../guide/06-verify-and-ship.md#create-a-project-verification-skill).
 
 ### Feature map
 
@@ -95,6 +99,9 @@ The verification skill's maintained index of user-facing features, with a file f
 **Feature entry**:
 The recipe for one mapped feature. `Sub-features` identifies distinct behaviors. `How to get to it (user POV)` lists the user entry points. `Driving it with <harness>` gives preconditions and pairs actions with commands and results. `Gotchas` records traps that affect a run.
 
+**Drive script**:
+A script in the verification skill that performs one mapped feature's user path in the real app and asserts the expected-result sentence copied from the spec. It is not a test at a test seam.
+
 **User entry point**:
 A particular route to a feature, such as the New note button, its keyboard shortcut, or the create command. Evidence identifies the route actually used. Verification of one route leaves the other mapped routes to check.
 
@@ -107,7 +114,7 @@ Evidence of a change from a second, read-only view of the stored result. In the 
 **Stand-in**:
 A substitute verification environment, such as a container used for a fresh VM. The proof identifies any setup the stand-in supplied that the real target still needs to demonstrate.
 
-Sources include [create-verification-skill](../../../skills/create-verification-skill/SKILL.md), the [feature entry contract](../../../skills/create-verification-skill/references/feature-map-example/README.md), and the [create-note example](../../../skills/create-verification-skill/references/feature-map-example/create-note.md).
+Sources include [create-verification-skill](../../../skills/create-verification-skill/SKILL.md), [to-tickets](../../../skills/to-tickets/SKILL.md), the [feature entry contract](../../../skills/create-verification-skill/references/feature-map-example/README.md), and the [create-note example](../../../skills/create-verification-skill/references/feature-map-example/create-note.md).
 
 ### Verification skill maintenance
 
