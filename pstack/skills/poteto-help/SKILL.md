@@ -77,6 +77,8 @@ The default answer is [poteto-mode](../poteto-mode/SKILL.md), which runs most of
 | Strip comments before review, using a reviewer that didn't write them | [no-comments](../no-comments/SKILL.md) |
 | Clean AI tells out of prose | [unslop](../unslop/SKILL.md) |
 | Write docs, an RFC, a README, a PR description, or a commit message to a standard | [technical-writing](../technical-writing/SKILL.md) |
+| Write or edit a document an agent reads: a skill, `AGENTS.md`, `CLAUDE.md`, or a doc reached by a pointer | [writing-for-agents](../writing-for-agents/SKILL.md) |
+| Walk them through steps only they can do (credentials, CI secrets, a third-party dashboard, a one-off cutover) with a generated bash script | [wizard](../wizard/SKILL.md) |
 | Align understanding: have the agent restate their goal, then restate its last message in plain words. They say what they need and it hands off to the matching skill | [bro](../bro/SKILL.md) |
 | Give agents a scripted way to drive the app and prove behavior | [create-verification-skill](../create-verification-skill/SKILL.md) |
 | Bring a verification skill and its feature map back in line with the app | [maintain-verification-skill](../maintain-verification-skill/SKILL.md) |

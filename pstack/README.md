@@ -154,6 +154,8 @@ to keep [poteto-mode](./skills/poteto-mode/SKILL.md) active across turns, use th
 | [unslop](./skills/unslop/SKILL.md) | you're cleaning up writing. removes AI tells. |
 | [bro](./skills/bro/SKILL.md) | you want the agent to restate your goal, then restate its last message in plain words. say what you need and it hands off to [ketchup](./skills/ketchup/SKILL.md), [ketchup-video](./skills/ketchup-video/SKILL.md), [recall](./skills/recall/SKILL.md), [teach](./skills/teach/SKILL.md), [big-pics-little-words](./skills/big-pics-little-words/SKILL.md), or [sharpen](./skills/sharpen/SKILL.md). |
 | [technical-writing](./skills/technical-writing/SKILL.md) | layered doc standard (Diátaxis + Google developer style + STE + Global English) for docs, RFCs, readmes, PR descriptions, commit messages. |
+| [writing-for-agents](./skills/writing-for-agents/SKILL.md) | you're creating or editing a document an agent reads: a skill, an `AGENTS.md` or `CLAUDE.md`, or a doc reached by a pointer. |
+| [wizard](./skills/wizard/SKILL.md) | a procedure only a person can do (provisioning, credentials, CI secrets, a third-party dashboard, a one-off cutover) and you want a bash script that walks them through it stage by stage and writes each value where it belongs. |
 
 </details>
 
@@ -266,7 +268,7 @@ thirty-two short skills, one principle each. [poteto-mode](skills/poteto-mode/SK
 Each link opens the instructions bundled with this copy.
 
 - From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. [Team Kit license](./licenses/cursor-team-kit.txt)
-- [Wayfinder](./skills/poteto-mode/playbooks/wayfinder.md), [Improve codebase architecture](./skills/poteto-mode/playbooks/improve-codebase-architecture.md), [codebase-dic](./skills/codebase-dic/SKILL.md), the [Prototype methods](./skills/poteto-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md) and [to-tickets](./skills/to-tickets/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
+- [Wayfinder](./skills/poteto-mode/playbooks/wayfinder.md), [Improve codebase architecture](./skills/poteto-mode/playbooks/improve-codebase-architecture.md), [codebase-dic](./skills/codebase-dic/SKILL.md), the [Prototype methods](./skills/poteto-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md), [to-tickets](./skills/to-tickets/SKILL.md), [writing-for-agents](./skills/writing-for-agents/SKILL.md) and [wizard](./skills/wizard/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
 - From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills.
 - The HTML skills come from MMW v5 Cloud. [to-spec](./skills/to-spec/SKILL.md) uses [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) to present the whole spec in HTML. [ketchup](./skills/ketchup/SKILL.md) uses [html](./skills/html/SKILL.md) for charts. [Plannotator license](./skills/html/LICENSE)
 
