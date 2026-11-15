@@ -17,7 +17,7 @@ List the models, reasoning levels, and speeds this session can assign to subagen
 
 ### 2. Load current state
 
-If the rule exists, read its `# budget` line and each role's current assignment. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names, such as `how critics` and `how explainer`.
+If the rule exists, read its `# budget` line and each role's current assignment. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names, such as `how critics`, `how explainer`, `why investigators` and `why synthesizer`.
 
 ### 3. Budget, map, and confirm
 
@@ -52,8 +52,6 @@ judgment and prose: <model and settings>
 hardest tasks: <model and settings>
 advisor: <model and settings>
 reader: <model and settings>
-why investigators: <model and settings>
-why synthesizer: <model and settings>
 reflect tooling: <model and settings>
 reflect judgment, divergent, synthesizer: <model and settings>
 arena runners: <one model and its settings per seat, comma-separated>
