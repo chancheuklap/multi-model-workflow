@@ -33,7 +33,7 @@ A decision about how to divide work. It records what must finish first, which wo
 An agent assigned a bounded part of the work. A routed skill can give it a role-specific brief. The parent remains responsible for the result. Under Guard the Context Window, a subagent that reads a large collection returns only its findings and their sources to its parent. [principle-guard-the-context-window](../../../skills/principle-guard-the-context-window/SKILL.md)
 
 **Delegate**:
-A subagent that starts no agents. Code delegates, helpers, explorers, investigators, runners, judges and reviewers are delegates. A delegate never has delegates of its own, and it never runs a skill that spawns.
+A subagent that starts no agents. Code delegates, helpers, readers, investigators, runners, judges and reviewers are delegates. A delegate never has delegates of its own, and it never runs a skill that spawns.
 _Avoid_: nested delegate.
 
 **Needs reply**:
@@ -75,7 +75,7 @@ The operator's saved assignments of models and settings to roles, normally in `~
 A host's saved definition of one role's delegate, fixing its model, reasoning level and system prompt, such as a Droid custom droid. Setup writes one for each role line in the rule and for each seat of a list role, and a spawn names it to get that role. The definition carries the role's instructions, so a brief gives no path to them. Where the host fixes reasoning and speed this way, the role's assignment stands in place of a per-job adjustment. [Agent definitions](../../../skills/setup-mmwstack/references/agent-definitions.md)
 
 **Model role**:
-A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, `judgment and prose` covers writing and judgment, and `advisor` covers consults of the advisor. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
+A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, and `reader` covers a read-only assignment to read and report. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
 
 **Reasoning budget**:
 The operator's target reasoning level. The targets for `unlimited`, `large`, `medium`, and `small` are `max`, `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
@@ -97,6 +97,9 @@ An independent answer to the same prompt from a different model.
 
 **Advisor**:
 The stronger model the main chat or an owner session consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)
+
+**Reader**:
+The delegate role for an assignment that reads and reports, such as a large artifact, a chat transcript, or an event to watch, when no playbook or skill names a role for it. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model, and a host that runs roles through agent definitions gives its droid read-only tools. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents) · [Agent definitions](../../../skills/setup-mmwstack/references/agent-definitions.md)
 
 [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [reflect](../../../skills/reflect/SKILL.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [arena](../../../skills/arena/SKILL.md)
 

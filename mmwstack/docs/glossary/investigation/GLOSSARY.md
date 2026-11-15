@@ -18,19 +18,10 @@ What the code does now, including the trigger, the path through the code, the da
 **Motivation**:
 The reason a person or team chose a particular behavior. A contemporaneous statement can establish intent. The behavior of the code alone leaves that intent open.
 
-**Exploration angle**:
-One distinct part of a subsystem that a read-only explorer traces for a larger question. The explorer gives the explainer the components, execution flow, files read, boundaries, surprises, and unresolved questions for that part.
-
-**How explorer**:
-The delegate who investigates one exploration angle. A question spanning several files or services can use two to four explorers in parallel. A narrow question goes directly to the explainer.
-
-**How explainer**:
-The delegate who writes the architectural explanation. For a narrow question the explainer reads the code directly. For a larger question the explainer reconciles the explorers' findings, checking disagreements against the code.
-
 **Outside check**:
 An observation independent of the operator's or agent's judgment that would establish whether the requested result is right. The rewritten prompt names that check before the work begins. [Rewritten prompt](../skill-authoring/GLOSSARY.md#requests-replies-and-teaching).
 
-[Investigation playbook](../../../skills/mmw-mode/playbooks/investigation.md) · [how](../../../skills/how/SKILL.md) · [why](../../../skills/why/SKILL.md) · [Explorer brief](../../../skills/how/references/explorer-prompt.md) · [Explainer brief](../../../skills/how/references/explainer-prompt.md) · [sharpen](../../../skills/sharpen/SKILL.md)
+[Investigation playbook](../../../skills/mmw-mode/playbooks/investigation.md) · [how](../../../skills/how/SKILL.md) · [why](../../../skills/why/SKILL.md) · [sharpen](../../../skills/sharpen/SKILL.md)
 
 ### Historical sources
 

@@ -12,7 +12,7 @@ The two most common design mistakes are taking the agent's first design and poli
 /architect design the import pipeline before writing any code. i care most about how callers use it.
 ```
 
-[architect](../../skills/architect/SKILL.md) grounds itself first, running [how](../../skills/how/SKILL.md) over the code the design touches and [why](../../skills/why/SKILL.md) when it moves ownership or layers. Then it runs [arena](../../skills/arena/SKILL.md) to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
+[architect](../../skills/architect/SKILL.md) grounds itself first, tracing the code the design touches and running [why](../../skills/why/SKILL.md) when it moves ownership or layers. Then it runs [arena](../../skills/arena/SKILL.md) to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
 
 By default it proceeds straight from the synthesized design into implementation. When a playbook hands the code to another agent, architect returns the design instead. If you want to see the design first, say so:
 

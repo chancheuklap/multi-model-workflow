@@ -139,7 +139,7 @@ When you step away, say what done means and go:
 
 Implementation you'll review later routes through [figure-it-out](../../skills/figure-it-out/SKILL.md), which designs the run's phases and keeps a [show-me-your-work](../../skills/show-me-your-work/SKILL.md) decision log. [Run work while you sleep](./07-overnight.md) covers the full overnight contract.
 
-**Pitfall:** don't enumerate skills in your prompt ("use /how, then /architect, then /arena..."). The playbook already sequences them, and a hand-written sequence usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
+**Pitfall:** don't enumerate skills in your prompt ("use /architect, then /arena, then /interrogate..."). The playbook already sequences them, and a hand-written sequence usually reorders or drops steps the playbook would have kept. Name a skill only when you want to override a specific choice.
 
 Read [mmw-mode](../../skills/mmw-mode/SKILL.md) itself for the full routing rules.
 
