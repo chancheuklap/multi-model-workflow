@@ -96,7 +96,7 @@ The shared task request written as an operator would ordinarily give it. It desc
 A fresh candidate workspace containing its own variant and the material an ordinary task would supply. File and directory names resemble a real project. The coordinator's conversation, other candidates' work, and the judge's rubric stay outside it.
 
 **Eval rubric**:
-The three to six concrete criteria written before the trial to define success. Eval requests a judge from another model family through Arena's cross-judge pool. When two variants are compared, one blinded judge scores both sets of outputs in one pass on the same scale.
+The three to six concrete criteria written before the trial to define success. Eval requests a judge from another model vendor through Arena's cross-judge pool. When two variants are compared, one blinded judge scores both sets of outputs in one pass on the same scale.
 
 **Chain-following**:
 Whether the candidate followed the intended sequence of skills or instructions. The execution transcript shows which files the candidate opened, and the completed work shows how it used them. If the transcript is unavailable, the playbook records chain-following as unverified.

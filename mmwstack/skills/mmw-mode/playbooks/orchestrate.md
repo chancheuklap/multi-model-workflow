@@ -10,7 +10,7 @@ Run it with your own tools. Spawn workers. Keep the program's state in `notes.md
 - **A fresh worker for each independent task.** Its kickoff carries everything it needs, including each upstream report it depends on, pasted in full. Do not assume a worker can see its siblings' reports. Run each worker on a new remote machine unless it needs this machine to drive the app, a local transcript, a simulator, or credentials held only here.
 - **A sub-coordinator only when one area has many parallel workers.** It owns that area's workers and kickoffs and sends you one rollup, never raw worker reports. Stop at three levels: you, sub-coordinators, and workers. Keep about ten workers in flight per coordinator, and start the next one as each finishes instead of waiting on a whole batch.
 - **Fork when new work needs a worker's built state,** such as its checkout, uncommitted changes, or a running process. Message a worker only for a follow-up on the same work. Check progress without starting a new turn.
-- **Each PR gets a verifier that isn't its author.** Start it as an owner of its own, from a different model family in the user's `arena cross-judge pool`. The PR's owner merges only on that verifier's pass at the current head.
+- **Each PR gets a verifier that isn't its author.** Start it as an owner of its own, from a different model vendor in the user's `arena cross-judge pool`. The PR's owner merges only on that verifier's pass at the current head.
 - **Start with one unit.** Take it through kickoff, owner, verifier, and merge before you fan out, so a flaw in the kickoff costs one agent instead of fifty. On near-identical cheap units, the first unit is that test.
 
 #### Supervision

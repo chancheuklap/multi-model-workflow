@@ -90,7 +90,7 @@ The operator's explicit choice of `inherit-parent` or `auto`. Both values run th
 An assignment with one seat per entry in `arena runners`, `architect runners`, or `interrogate reviewers`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Arena can add runners for multiple design directions using the configured models. Architect applies Arena's runner rules to its own list. [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
 
 **Arena cross-judge pool**:
-The operator's ordered list of models from which one read-only judge is selected. Arena takes the first available model from a different family than the parent's. If the parent's family is unknown, Arena can use an explicitly named model and reports that it could not check the family. Inherited entries cannot judge.
+The operator's ordered list of models from which one read-only judge is selected. Arena takes the first available model from a different vendor than the parent's. A vendor is the company that trains the model, and models from one vendor count as one vendor even when the vendor names its lines differently. If the parent's vendor is unknown, Arena can use an explicitly named model and reports that it could not check the vendor. Inherited entries cannot judge.
 
 **Second opinion**:
 An independent answer to the same prompt from a different model.

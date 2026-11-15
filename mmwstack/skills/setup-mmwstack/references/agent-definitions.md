@@ -53,7 +53,7 @@ You cannot start other agents. When the brief needs a skill or step you cannot r
 
 ## Find a role's droid
 
-Apply the naming rule to the role's line. Comment Sicko's droid is `mmwstack-comment-sicko`. A droid carries its own model and effort, so a spawn does not read the rule file. A list role's seats are the droids that carry its name followed by `-1`, `-2` and on. Read a droid's `model` when a step needs the model itself, as [arena](../../arena/SKILL.md) does to pick a judge from another family. `model: inherit` marks an inherited seat. A droid that does not exist leaves the role unfilled, so report it.
+Apply the naming rule to the role's line. Comment Sicko's droid is `mmwstack-comment-sicko`. A droid carries its own model and effort, so a spawn does not read the rule file. A list role's seats are the droids that carry its name followed by `-1`, `-2` and on. Read a droid's `model` when a step needs the model itself, as [arena](../../arena/SKILL.md) does to pick a judge from another vendor. `model: inherit` marks an inherited seat. A droid that does not exist leaves the role unfilled, so report it.
 
 ## Spawn a delegate
 
