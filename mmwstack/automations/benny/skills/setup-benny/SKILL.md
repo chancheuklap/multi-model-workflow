@@ -46,7 +46,6 @@ Preserve every unrelated top-level setting and every other plugin entry. If `plu
 
 Reload the target project or start a fresh agent rooted there in the automation environment. Verify that these shared mmwstack skills resolve from project scope:
 
-- `how`
 - `why`
 - `write-tests`
 - `unslop`

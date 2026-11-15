@@ -27,7 +27,7 @@ Update mode changes the rest of the flow:
 
 Locate the active workspace's transcripts before fanning out. Read only conversations from that workspace. If none are accessible, gather preferences in step 2 instead.
 
-Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents with the `how explorer` model from the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule) across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
+Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents with the `reader` model from the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule) across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 
 - Response preferences (length, tone, format, "dumb it down" corrections)
 - Delegation habits (subagents, models, specialized workflows, parallelism)

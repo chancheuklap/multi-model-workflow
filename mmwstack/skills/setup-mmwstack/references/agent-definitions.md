@@ -34,7 +34,7 @@ reasoningEffort: <effort>
 ```
 
 - **Description.** One line of about ten words. A list entry reads `mmwstack delegate for seat <n> of the <role line name> role`.
-- **Tools.** Omit `tools`, so the droid keeps every tool its host grants a subagent. Add `tools: read-only` below `reasoningEffort` only when the mmwstack skill the role's line is named for says in so many words that the role's delegates are read-only. "Read access" or "should not write" does not say so. [arena](../../arena/SKILL.md) calls its cross-judge a read-only judge, so `arena cross-judge pool` qualifies. [advisor](../../advisor/SKILL.md) says the advisor is read-only, so `advisor` qualifies. A line no skill names, such as `judgment and prose`, gets none.
+- **Tools.** Omit `tools`, so the droid keeps every tool its host grants a subagent. Add `tools: read-only` below `reasoningEffort` only when the mmwstack skill the role's line is named for says in so many words that the role's delegates are read-only. "Read access" or "should not write" does not say so. [arena](../../arena/SKILL.md) calls its cross-judge a read-only judge, so `arena cross-judge pool` qualifies. [advisor](../../advisor/SKILL.md) says the advisor is read-only, so `advisor` qualifies. The mode's Delegation says `reader` delegates are read-only, so `reader` qualifies. A line no skill names, such as `judgment and prose`, gets none.
 - **Role text.** The code roles and `hardest tasks` are the roles the mode's Delegation assigns to a playbook step's code delegate, so they carry the full text of [mmw-agent](../../../agents/mmw-agent.md) under the leaf rule. `advisor` carries the full text of [advisor](../../../agents/advisor.md). Every other role carries the leaf rule only. `judgment and prose` is shared by reviewers and researchers that other skills brief, and mmw-agent tells its holder to read the whole mode first, so no step gives it that style. [mmw-mode](../../mmw-mode/SKILL.md#subagents)
 - **Copied files.** Copy `agents/mmw-agent.md`, `agents/advisor.md` and `agents/comment-sicko.md` without their frontmatter. The droid sits outside the bundle, so replace each link with its text, which is the skill's name, and write no path: the agent loads a skill by name. The `agents/` files stay the single source of truth, and each run refreshes the copies.
 
@@ -53,7 +53,7 @@ You cannot start other agents. When the brief needs a skill or step you cannot r
 
 ## Find a role's droid
 
-Apply the naming rule to the role's line. Comment Sicko's droid is `mmwstack-comment-sicko`. A droid carries its own model and effort, so a spawn does not read the rule file. A list role's seats are the droids that carry its name followed by `-1`, `-2` and on. Read a droid's `model` when a step needs the model itself, as [arena](../../arena/SKILL.md) does to pick a judge from another family. `model: inherit` marks an inherited seat. A droid that does not exist leaves the role unfilled, so report it.
+Apply the naming rule to the role's line. Comment Sicko's droid is `mmwstack-comment-sicko`. A droid carries its own model and effort, so a spawn does not read the rule file. A list role's seats are the droids that carry its name followed by `-1`, `-2` and on. Read a droid's `model` when a step needs the model itself, as [arena](../../arena/SKILL.md) does to pick a judge from another vendor. `model: inherit` marks an inherited seat. A droid that does not exist leaves the role unfilled, so report it.
 
 ## Spawn a delegate
 

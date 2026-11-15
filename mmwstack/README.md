@@ -96,7 +96,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 
 ## skills
 
-[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([how](skills/how/SKILL.md), [why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
+[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
 
 ```
 /how do we cancel runs? do we have an n+1 when we look up every run to cancel?
@@ -114,9 +114,9 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [mmw-mode](./skills/mmw-mode/SKILL.md) | default entry point for any non-trivial task. |
 | [mmw-help](./skills/mmw-help/SKILL.md) | you're new to mmwstack, or unsure which skill, playbook, or principle fits. finds out what you're trying to do, answers that part, and hands you a prompt to type. run it with `/mmw-help`. |
 | [in-your-own-words](./skills/in-your-own-words/SKILL.md) | you want the agent to play back your goal and the problem before it starts. run it with `/in-your-own-words`. |
-| [sharpen](./skills/sharpen/SKILL.md) | you want a prompt made deeper, not bigger, before you send it: what a top professional would do that you didn't ask for, the raw material they'd start from, their methods and tools, and an outside check that the result is right. hands back the rewritten prompt and leaves your choices open. doesn't do the task. run it with `/sharpen`. |
+| [sharpen](./skills/sharpen/SKILL.md) | you want a prompt made deeper, not bigger, before you send it: what a top professional would do that you didn't ask for, the raw material they'd start from, their methods and tools, and an outside check that the result is right. hands back the rewritten prompt, which asks the agent to prototype any choice an experiment can settle and leaves product and preference choices to you. doesn't do the task. run it with `/sharpen`. |
 | [how](./skills/how/SKILL.md) | you want a walkthrough of how a subsystem works. |
-| [why](./skills/why/SKILL.md) | you want to know why something was built this way. discovers accessible sources at run time and queries each evidence category in parallel (source control, issue tracker, long-form docs, real-time chat, infra observability, error tracking, analytics warehouse). |
+| [why](./skills/why/SKILL.md) | you want to know why something was built this way. answers from the record, not the code: the commits and pr discussions that introduced it and each later change, and other sources when that trail is thin. cites what the authors wrote, marks its own inferences, and says what the record does not answer. |
 | [recall](./skills/recall/SKILL.md) | you're starting or resuming work and want your recent context on a topic rebuilt from your own chat history and the shared record, handed back as a tight current-state brief. |
 | [ketchup](./skills/ketchup/SKILL.md) | you want what changed in this chat since your last message, in plain words and small visuals, with every item waiting on you listed and decidable from the reply alone, even when that makes the reply long. |
 | [ketchup-video](./skills/ketchup-video/SKILL.md) | you want the [ketchup](skills/ketchup/SKILL.md) catch-up as a short subtitled video of slides, with the calls waiting on you as text under it. |

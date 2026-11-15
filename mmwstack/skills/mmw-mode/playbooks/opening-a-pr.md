@@ -21,6 +21,8 @@ Invoked at the end of every other playbook.
 
 After the sections, attach videos or screenshots when they prove a claim. Full SHAs, swarm or arena lane recitals, lever-correction essays, file-by-file checklists, and "CLEAN" verdicts go in a linked artifact, not the body.
 
+**Links.** Link the work in the PR body. If the PR's base is the repository's default branch, write `Closes #<issue>` in the body for each issue the PR completes. GitHub closes an issue from a closing keyword only when the PR merges into the default branch. Before the merge, record the Result on each of those issues with Update in [to-tickets](../../to-tickets/SKILL.md#update), because the merge closes them. If the PR's base is a project branch or a parent PR's branch, name its ticket as a plain `#<issue>` reference, with no closing keyword. In the PR that carries the project branch into the default branch, write `Closes #<issue>` for each issue the branch completed. A host can run `scripts/check-pr-links.mjs` as a hook. The script denies a `gh pr create` or `origin pr create` command that targets the default branch when the body has no closing keyword.
+
 **Forge.** Resolve the forge before the first PR operation and keep that choice for create, edit, view, watch, and merge. Prefer Origin when it is available and can resolve the repository. Otherwise use GitHub (`gh`) and record the fallback. Graphite is optional.
 
 **PR tool.** When the run provides a PR tool that tracks its changes, use it to create, edit, retarget, and mark ready. Changes made outside it escape that tracking. Use the selected forge for operations the tool does not cover, or for every operation when no such tool is available.

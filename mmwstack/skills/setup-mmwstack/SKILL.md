@@ -17,7 +17,7 @@ List the models, reasoning levels, and speeds this session can assign to subagen
 
 ### 2. Load current state
 
-If the rule exists, read its `# budget` line and each role's current assignment. On first setup, use the roles in step 5. Drop retired role names, such as `how critics`.
+If the rule exists, read its `# budget` line and each role's current assignment. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names, such as `how critics`, `how explainer`, `why investigators` and `why synthesizer`.
 
 ### 3. Budget, map, and confirm
 
@@ -30,7 +30,7 @@ If the rule exists, read its `# budget` line and each role's current assignment.
 
 **(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, and speeds. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners, interrogate reviewers) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It tries only values from a family other than the parent's, in list order, so order it by preference. An `inherit-parent` or `auto` value never judges. `swarm workers` assigns the workers. For a model race, each arm names its model from this configuration.
+**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners, interrogate reviewers) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It tries only values from a vendor other than the parent's, in list order, so order it by preference. An `inherit-parent` or `auto` value never judges. `swarm workers` assigns the workers. For a model race, each arm names its model from this configuration.
 
 ### 4. Validate
 
@@ -51,10 +51,7 @@ hillclimb: <model and settings>
 judgment and prose: <model and settings>
 hardest tasks: <model and settings>
 advisor: <model and settings>
-how explorer: <model and settings>
-how explainer: <model and settings>
-why investigators: <model and settings>
-why synthesizer: <model and settings>
+reader: <model and settings>
 reflect tooling: <model and settings>
 reflect judgment, divergent, synthesizer: <model and settings>
 arena runners: <one model and its settings per seat, comma-separated>
