@@ -21,9 +21,8 @@ const VALUE_FLAGS = new Map([
 	["-F", "bodyFile"],
 ]);
 
-// A word is its text with quoting removed. It is null when the shell computes
-// the text at run time, because the checker never runs the command.
-const join = (a, b) => (a === null || b === null ? null : a + b);
+const UNKNOWN = null;
+const join = (a, b) => (a === UNKNOWN || b === UNKNOWN ? UNKNOWN : a + b);
 
 function readDelimiter(src, at) {
 	let i = at;
@@ -68,11 +67,10 @@ function readDouble(src, at) {
 	return { value, end: i + 1 };
 }
 
-// Only `$(cat <<'EOF' ... EOF)` has a known value.
 function heredocText(commands) {
 	const [only] = commands;
 	const isCat = commands.length === 1 && only.words.length === 1 && only.words[0] === "cat";
-	if (!isCat || only.heredocs.length === 0 || only.heredocs.includes(null)) return null;
+	if (!isCat || only.heredocs.length === 0 || only.heredocs.includes(UNKNOWN)) return UNKNOWN;
 	return only.heredocs.join("");
 }
 
@@ -81,16 +79,13 @@ function readExpansion(src, at) {
 		let i = at + 1;
 		while (i < src.length && src[i] !== "`") i += src[i] === "\\" ? 2 : 1;
 		if (i >= src.length) throw new Error("unterminated backtick");
-		return { value: null, end: i + 1 };
+		return { value: UNKNOWN, end: i + 1 };
 	}
-	if (src[at + 1] !== "(") return { value: null, end: at + 1 };
+	if (src[at + 1] !== "(") return { value: UNKNOWN, end: at + 1 };
 	const inner = parse(src, at + 2, true);
 	return { value: heredocText(inner.commands), end: inner.end };
 }
 
-// Splits a shell command into simple commands. Quoted text, heredoc bodies and
-// substitutions never become commands, so text inside them is never mistaken
-// for an invocation.
 function parse(src, start, nested) {
 	const commands = [];
 	const pending = [];
@@ -126,7 +121,7 @@ function parse(src, start, nested) {
 				if ((strip ? line.replace(/^\t+/, "") : line) === delimiter) break;
 				body += `${line}\n`;
 			}
-			into.push(!quoted && /[$`]/.test(body) ? null : body);
+			into.push(!quoted && /[$`]/.test(body) ? UNKNOWN : body);
 		}
 	};
 
@@ -212,7 +207,7 @@ function readBodyFile(file, dir) {
 }
 
 function cdTarget(dir, args) {
-	if (dir === null || args.length !== 2 || args[1] === null) return null;
+	if (dir === null || args.length !== 2 || args[1] === UNKNOWN) return null;
 	if (args[1] === "~" || args[1].startsWith("~/")) return path.join(os.homedir(), args[1].slice(1));
 	return path.resolve(dir, args[1]);
 }
@@ -258,10 +253,12 @@ function decide(event) {
 	return ALLOW;
 }
 
-let decision = ALLOW;
-try {
-	decision = decide(JSON.parse(fs.readFileSync(0, "utf8")));
-} catch {
-	// A failure inside the checker must never block the caller.
+function decideOrAllow() {
+	try {
+		return decide(JSON.parse(fs.readFileSync(0, "utf8")));
+	} catch {
+		return ALLOW;
+	}
 }
-process.stdout.write(`${JSON.stringify(decision)}\n`);
+
+process.stdout.write(`${JSON.stringify(decideOrAllow())}\n`);
