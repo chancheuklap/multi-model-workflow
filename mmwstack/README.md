@@ -96,7 +96,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 
 ## skills
 
-[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([how](skills/how/SKILL.md), [why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
+[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
 
 ```
 /how do we cancel runs? do we have an n+1 when we look up every run to cancel?
