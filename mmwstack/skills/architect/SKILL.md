@@ -21,7 +21,7 @@ Start a checklist with one entry per phase before starting.
 
 Start with the evidence the invoker supplies: real callers, contracts, dependencies and decisions already settled.
 
-Build a real mental model of every system the new code touches. Run the [how](../how/SKILL.md) skill over each system that evidence leaves unexplained, where the gap could change the interface. Naming a file isn't grounding. Produce the architectural explanation [how](../how/SKILL.md) prescribes. If the design redefines ownership or layering, also run the [why](../why/SKILL.md) skill on the existing shape so the rationale becomes a constraint, not a guess.
+Build a real mental model of every system the new code touches. Trace each system that evidence leaves unexplained, where the gap could change the interface. Naming a file isn't grounding. Write an architectural explanation of each. If the design redefines ownership or layering, also run the [why](../why/SKILL.md) skill on the existing shape so the rationale becomes a constraint, not a guess.
 
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
@@ -72,7 +72,7 @@ Use judgment. A few edge cases don't condemn an architecture. Some problems are 
 
 When you scrap:
 
-1. Re-run the [how](../how/SKILL.md) skill over what's been built.
+1. Trace what's been built.
 2. Redesign as if the new constraints had been day-one assumptions, per redesign-from-first-principles.
 3. Subtract before adding, per the [principle-subtract-before-you-add](../principle-subtract-before-you-add/SKILL.md) principle skill. The new sketch should be smaller than the old one before it grows.
 4. Return to Phase B and re-run [arena](../arena/SKILL.md).

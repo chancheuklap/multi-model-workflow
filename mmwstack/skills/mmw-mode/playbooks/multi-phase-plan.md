@@ -126,7 +126,7 @@ Each live lane runs on its own remote machine at the PR head. Use the verificati
 
 ## Appendix D. Links and reading list
 
-<Docs to read before editing. Which changes need the `how` and `interrogate` skills. The trail per the `show-me-your-work` skill.>
+<Docs to read before editing. Which changes need the `interrogate` skill. The trail per the `show-me-your-work` skill.>
 ````
 
 **Reply:** the plan issue URL or draft path, the phases, their prerequisites and review gates, what the prototypes proved and what stays unproven, and the check script's output.
