@@ -25,7 +25,7 @@ The checkable predicate that defines completion before an autonomous run starts,
 A subagent that wakes the coordinator when a named event occurs, such as a PR merge. A **heartbeat** is the timed check that backs up a watcher or supplies the next check when there is no event to watch. Continued work after disconnection requires a wake-up that survives it. [Autonomous run playbook](../../../skills/mmw-mode/playbooks/autonomous-run.md)
 
 **Orchestrate**:
-The playbook for a standing project that spans many assignments and outlasts one agent's session. One coordinator assigns the work and checks the results. An independent verifier from a different model family in the operator's cross-judge pool checks each PR at its current head. [Orchestrate playbook](../../../skills/mmw-mode/playbooks/orchestrate.md)
+The playbook for a standing project that spans many assignments and outlasts one agent's session. One coordinator assigns the work and checks the results. An independent verifier from a different model vendor in the operator's cross-judge pool checks each PR at its current head. [Orchestrate playbook](../../../skills/mmw-mode/playbooks/orchestrate.md)
 
 **Autopilot-full**:
 The playbook for a queue of independent PRs built from trunk. The root coordinator owns the independent verification. Within the operator's grant, each PR owner carries its change through merge once the required verdict and checks hold. [Autopilot-full playbook](../../../skills/mmw-mode/playbooks/autopilot-full.md)
@@ -85,7 +85,7 @@ A decision-trail row with phase `start` that marks where a run adds to an existi
 A comparison of a run's decision rows with its transcript and the evidence each row points to. Missing decisions and unsupported claims get new rows. If the execution record is unavailable, the audit identifies the claims it could not check.
 
 **Attention**:
-The closing section of a report for a run that produced a decision trail. A reviewer from a different model family checks the log and transcript for weak evidence, skipped verification, or risky choices. The section identifies the reviewer and its flags, records no flags, or says the cross-model review could not run.
+The closing section of a report for a run that produced a decision trail. A reviewer from a different model vendor checks the log and transcript for weak evidence, skipped verification, or risky choices. The section identifies the reviewer and its flags, records no flags, or says the cross-model review could not run.
 
 [show-me-your-work](../../../skills/show-me-your-work/SKILL.md) · [Decision log header](../../../skills/show-me-your-work/references/decision-log-template.tsv)
 
