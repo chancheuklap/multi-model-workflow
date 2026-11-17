@@ -23,12 +23,479 @@ import {
   pendingCheck,
 } from "./fakes.test-helper.ts";
 import { parsePrNumber } from "./types.ts";
+import type * as T from "./types.ts";
+import type { FakeReaderOptions } from "./fakes.test-helper.ts";
+import { readSnapshot, runQueued, runSimple } from "./policy.ts";
 
 const context = {
   owner: "owner",
   repo: "repo",
   number: parsePrNumber(42),
 };
+
+const emptyChecks = { kind: "checks", checks: [] } satisfies T.ChecksFastPath;
+const noChecksOptions = {
+  interval: 1,
+  sweepInterval: 2,
+  timeout: 1000,
+  maxQueryErrors: 5,
+  allowDraft: false,
+} satisfies T.PollingOptions;
+
+function noChecksRun(reader: T.GitHubReader, options = noChecksOptions) {
+  let now = 0;
+  const events: T.ProgressVerdict[] = [];
+  const sleeps: number[] = [];
+  const dependencies = {
+    reader,
+    emit: (event: T.ProgressVerdict) => events.push(event),
+    clock: {
+      now: () => now,
+      observedAt: () => new Date(now * 1000).toISOString(),
+      async sleep(seconds: number) {
+        sleeps.push(seconds);
+        now += seconds;
+      },
+    },
+  };
+  return {
+    events,
+    sleeps,
+    simple(
+      contexts: T.NonEmpty<T.PrContext> = [context],
+      mode: T.WatchMode = "single",
+      statusOnly = false
+    ) {
+      return runSimple({ dependencies, contexts, mode, statusOnly, options });
+    },
+    queued(contexts: T.NonEmpty<T.PrContext> = [context]) {
+      return runQueued({ dependencies, contexts, options });
+    },
+  };
+}
+
+describe("no-checks confirmation", () => {
+  it("requires two CLEAN observations and preserves the first-empty retry", async () => {
+    const reader = fakeReader({ fastPath: emptyChecks });
+    const run = noChecksRun(reader);
+    const verdict = await run.simple();
+    expect(verdict).toMatchObject({
+      kind: "READY",
+      scope: { pr: { proof: { ci: {
+        kind: "ci-clean", source: "no-checks", all: [], failed: [], pending: [],
+        github: { kind: "allowed", basis: "merge-state", mergeStateStatus: "CLEAN" },
+      } } } },
+    });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    expect(run.events[0]).toMatchObject({
+      failure: { kind: "checks-unavailable" }, consecutiveFailures: 1,
+    });
+    expect(run.sleeps).toEqual([60]);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(2);
+    expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(2);
+  });
+
+  it("retains the one-error budget and one-shot snapshot behavior", async () => {
+    const reader = fakeReader({ fastPath: emptyChecks });
+    const run = noChecksRun(reader, { ...noChecksOptions, maxQueryErrors: 1 });
+    expect(await run.simple()).toMatchObject({
+      kind: "BLOCKER", blocker: { kind: "status-query", failures: 1 },
+    });
+    await expect(readSnapshot({
+      reader, context, pendingHistory: "include", allowDraft: false,
+    })).rejects.toBeInstanceOf(ChecksUnavailable);
+  });
+
+  it("waits rather than accepting empty once followed by pending checks", async () => {
+    const run = noChecksRun(fakeReader({
+      fastPath: emptyChecks,
+      observe: (_context, read) => read === 1 ? {} : {
+        fastPath: { kind: "checks", checks: [pendingCheck()] },
+      },
+    }), { ...noChecksOptions, timeout: 61 });
+    expect(await run.simple()).toMatchObject({
+      kind: "TIMEOUT", reason: { kind: "pending-checks" },
+    });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "WAITING", "WAITING"]);
+  });
+
+  const nonCleanStates: readonly Exclude<T.MergeStateStatus, "CLEAN">[] = [
+    "BLOCKED", "BEHIND", "DIRTY", "UNKNOWN", "CONFLICTING", "DRAFT",
+    "HAS_HOOKS", "UNSTABLE",
+  ];
+  for (const mergeStateStatus of nonCleanStates)
+    it(`does not confirm empty checks in ${mergeStateStatus}`, async () => {
+      const run = noChecksRun(fakeReader({
+        fastPath: emptyChecks, facts: { mergeStateStatus },
+      }), { ...noChecksOptions, maxQueryErrors: 2 });
+      expect(await run.simple()).toMatchObject({
+        kind: "BLOCKER",
+        blocker: { kind: "status-query", failure: { kind: "checks-unavailable" } },
+      });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    });
+
+  for (const headRefOid of [null, ""])
+    it(`cannot confirm a missing head ${JSON.stringify(headRefOid)}`, async () => {
+      const run = noChecksRun(fakeReader({
+        fastPath: emptyChecks, facts: { headRefOid },
+      }), { ...noChecksOptions, maxQueryErrors: 2 });
+      expect(await run.simple()).toMatchObject({
+        kind: "BLOCKER", blocker: { kind: "status-query" },
+      });
+    });
+
+  const queryError = () => new WatcherQueryError({
+    kind: "command-exit", retryable: true, code: 1, detail: "temporary failure",
+  });
+  const interruptions: readonly [
+    string,
+    (read: number) => FakeReaderOptions,
+    T.ProgressVerdict["kind"][],
+  ][] = [
+    ["head A/B/A", (read) => ({
+      facts: { headRefOid: read === 2 ? "B" : "A" },
+    }), ["RETRY", "RETRY", "RETRY"]],
+    ["facts error", (read) => {
+      if (read === 2) throw queryError();
+      return {};
+    }, ["RETRY", "RETRY", "RETRY"]],
+    ["history error", (read) => ({
+      commitRollups: read === 2 ? queryError() : [{ oid: "head", state: null }],
+    }), ["RETRY", "RETRY", "RETRY"]],
+    ["non-CLEAN", (read) => ({
+      facts: { mergeStateStatus: read === 2 ? "UNKNOWN" : "CLEAN" },
+    }), ["RETRY", "RETRY", "RETRY"]],
+    ["pending checks", (read) => read === 2 ? {
+      fastPath: { kind: "checks", checks: [pendingCheck()] },
+    } : {}, ["RETRY", "WAITING", "RETRY"]],
+  ];
+  for (const [name, observe, expected] of interruptions)
+    it(`restarts confirmation after ${name}`, async () => {
+      const reader = fakeReader({ fastPath: emptyChecks, observe: (_context, read) => observe(read) });
+      const run = noChecksRun(reader);
+      expect(await run.simple()).toMatchObject({ kind: "READY" });
+      expect(run.events.map((event) => event.kind)).toEqual(expected);
+      expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    });
+
+  it("resets confirmed evidence after nonempty passing checks in queued mode", async () => {
+    const reader = fakeReader({
+      fastPath: emptyChecks,
+      observe: (_context, read) => {
+        if (read === 3) return { fastPath: { kind: "checks", checks: [passingCheck()] } };
+        if (read >= 6) return { facts: { state: "MERGED", mergedAt: "merged" } };
+        return {};
+      },
+    });
+    const run = noChecksRun(reader);
+    expect(await run.queued()).toMatchObject({ kind: "COMPLETE" });
+    expect(run.events.filter((event) => event.kind === "RETRY")).toHaveLength(2);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(6);
+  });
+
+  it("keeps confirmation private to sequential and concurrent runs sharing a reader", async () => {
+    const reader = fakeReader({ fastPath: emptyChecks });
+    for (const run of [noChecksRun(reader), noChecksRun(reader)]) {
+      expect(await run.simple()).toMatchObject({ kind: "READY" });
+      expect(run.events.filter((event) => event.kind === "RETRY")).toHaveLength(1);
+    }
+    const runs = [noChecksRun(reader), noChecksRun(reader)];
+    expect((await Promise.all(runs.map((run) => run.simple()))).map((v) => v.kind))
+      .toEqual(["READY", "READY"]);
+    expect(runs.map((run) => run.events.filter((event) => event.kind === "RETRY").length))
+      .toEqual([1, 1]);
+  });
+
+  for (const mode of ["single", "stack", "queued-stack"] satisfies T.WatchMode[])
+    it(`confirms status-only ${mode} using full PR identity`, async () => {
+      const contexts: T.NonEmpty<T.PrContext> = mode === "single" ? [context] : [
+        context, { ...context, repo: "another" }, { ...context, owner: "another" },
+      ];
+      const reads: string[] = [];
+      const run = noChecksRun(fakeReader({
+        fastPath: emptyChecks,
+        observe: (requested) => {
+          reads.push(`${requested.owner}/${requested.repo}`);
+          return {};
+        },
+      }));
+      const verdict = await run.simple(contexts, mode, true);
+      expect(verdict.kind).toBe("STATUS");
+      if (verdict.kind !== "STATUS") throw new Error("expected status");
+      expect(verdict.rows.map((row) => row.kind === "open" ? row.ci.source : row.kind))
+        .toEqual(contexts.map(() => "no-checks"));
+      expect(reads).toEqual([...contexts, ...contexts].map((pr) => `${pr.owner}/${pr.repo}`));
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    });
+
+  it("confirms six empty PRs together within the default five-error budget", async () => {
+    const contexts: T.NonEmpty<T.PrContext> = [context, ...[43, 44, 45, 46, 47].map(
+      (number) => ({ ...context, number: parsePrNumber(number) })
+    )];
+    const reader = fakeReader({ fastPath: emptyChecks });
+    const run = noChecksRun(reader);
+    expect(await run.simple(contexts, "stack")).toMatchObject({ kind: "READY" });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "STATUS"]);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(12);
+    expect(run.sleeps).toEqual([60]);
+  });
+
+  it("preserves queued sweep retries and waits for each actual merge", async () => {
+    const second = { ...context, number: parsePrNumber(43) };
+    const reads: number[] = [];
+    const run = noChecksRun(fakeReader({
+      fastPath: emptyChecks,
+      observe: (requested, read) => {
+        reads.push(requested.number);
+        return read >= 4 ? { facts: { state: "MERGED", mergedAt: "merged" } } : {};
+      },
+    }));
+    expect(await run.queued([context, second])).toMatchObject({ kind: "COMPLETE" });
+    expect(reads.slice(0, 4)).toEqual([42, 42, 43, 43]);
+    expect(run.events.filter((event) => event.kind === "RETRY")).toHaveLength(2);
+    expect(run.events).toContainEqual(expect.objectContaining({
+      kind: "WAITING", reason: { kind: "merge-queue", unmergedCount: 2 },
+    }));
+    expect(run.events.some((event) => event.kind === "ADVANCE")).toBe(true);
+    expect(run.events.filter((event) => event.kind === "STATUS").length).toBeGreaterThan(1);
+    const status = run.events.find((event) => event.kind === "STATUS");
+    expect(status).toMatchObject({
+      rows: [
+        { kind: "open", ci: { kind: "ci-clean", source: "no-checks", all: [] } },
+        { kind: "open", ci: { kind: "ci-clean", source: "no-checks", all: [] } },
+      ],
+    });
+  });
+});
+
+describe("empty-checks same-poll evidence", () => {
+  const nonNullStates: readonly Exclude<T.RollupState, null>[] = [
+    "FAILURE", "ERROR", "PENDING", "EXPECTED", "SUCCESS",
+  ];
+  for (const state of nonNullStates) {
+    it(`rejects a same-head ${state} rollup despite empty checks and CLEAN facts`, async () => {
+      const reader = fakeReader({
+        fastPath: emptyChecks,
+        commitRollups: [{ oid: "head", state }],
+      });
+      const run = noChecksRun(reader, { ...noChecksOptions, maxQueryErrors: 2 });
+      expect(await run.simple()).toMatchObject({
+        kind: "BLOCKER",
+        blocker: { kind: "status-query", failure: { kind: "checks-unavailable" } },
+      });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+      expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(2);
+    });
+
+    it(`resets an eligible observation after a ${state} rollup`, async () => {
+      const reader = fakeReader({
+        fastPath: emptyChecks,
+        observe: (_context, read) => ({
+          commitRollups: [{ oid: "head", state: read === 2 ? state : null }],
+        }),
+      });
+      const run = noChecksRun(reader);
+      expect(await run.simple()).toMatchObject({ kind: "READY" });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "RETRY", "RETRY"]);
+      expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    });
+  }
+
+  it("confirms two explicit same-head null rollups", async () => {
+    const reader = fakeReader({
+      fastPath: emptyChecks,
+      facts: { headRefOid: "A" },
+      commitRollups: [{ oid: "older", state: "SUCCESS" }, { oid: "A", state: null }],
+    });
+    const run = noChecksRun(reader);
+    expect(await run.simple()).toMatchObject({
+      kind: "READY",
+      scope: { pr: { proof: { ci: {
+        source: "no-checks", hadPreviousPassingCi: true,
+        github: { headRollupState: null },
+      } } } },
+    });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(2);
+  });
+
+  it("rejects a same-poll advanced head and requires two fresh reads of the later head", async () => {
+    const reader = fakeReader({
+      fastPath: emptyChecks,
+      observe: (_context, read) => ({
+        facts: { headRefOid: read <= 2 ? "A" : "B" },
+        commitRollups: read === 1
+          ? [{ oid: "A", state: null }]
+          : [{ oid: "A", state: null }, { oid: "B", state: null }],
+      }),
+    });
+    const run = noChecksRun(reader);
+    expect(await run.simple()).toMatchObject({ kind: "READY" });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "RETRY", "RETRY"]);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(4);
+  });
+
+  const missingHeads: readonly [string, readonly T.CommitRollup[]][] = [
+    ["empty history", []],
+    ["history without the facts head", [{ oid: "older", state: null }]],
+  ];
+  for (const [name, commitRollups] of missingHeads) {
+    it(`cannot confirm ${name}`, async () => {
+      const run = noChecksRun(fakeReader({ fastPath: emptyChecks, commitRollups }), {
+        ...noChecksOptions, maxQueryErrors: 2,
+      });
+      expect(await run.simple()).toMatchObject({
+        kind: "BLOCKER", blocker: { kind: "status-query" },
+      });
+    });
+
+    it(`resets an eligible observation after ${name}`, async () => {
+      const reader = fakeReader({
+        fastPath: emptyChecks,
+        observe: (_context, read) => ({
+          commitRollups: read === 2 ? commitRollups : [{ oid: "head", state: null }],
+        }),
+      });
+      const run = noChecksRun(reader);
+      expect(await run.simple()).toMatchObject({ kind: "READY" });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "RETRY", "RETRY"]);
+      expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    });
+  }
+
+  it("keeps resolveChecks errors unavailable at policy level despite explicit null head evidence", async () => {
+    const reader = fakeReader({
+      fastPath: { kind: "unusable", exitCode: 1, stderr: "authentication failed" },
+      rollupPages: [{ checks: [], endCursor: null }],
+      commitRollups: [{ oid: "head", state: null }],
+    });
+    const run = noChecksRun(reader, { ...noChecksOptions, maxQueryErrors: 2 });
+    expect(await run.simple()).toMatchObject({
+      kind: "BLOCKER",
+      blocker: {
+        kind: "status-query", failures: 2,
+        failure: { kind: "checks-unavailable", detail: expect.stringContaining("fast path exit=1") },
+      },
+    });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(2);
+  });
+
+  it("independently retries queued repositories sharing PR number and head", async () => {
+    const first = { owner: "o", repo: "a", number: context.number };
+    const second = { ...first, repo: "b" };
+    const reads: string[] = [];
+    const run = noChecksRun(fakeReader({
+      fastPath: emptyChecks,
+      commitRollups: [{ oid: "head", state: null }],
+      observe: (requested) => {
+        reads.push(`${requested.owner}/${requested.repo}#${requested.number}`);
+        return {};
+      },
+    }), { ...noChecksOptions, timeout: 120 });
+    expect(await run.queued([first, second])).toMatchObject({ kind: "TIMEOUT" });
+    expect(reads).toEqual(["o/a#42", "o/a#42", "o/b#42", "o/b#42"]);
+    expect(run.events.filter((event) => event.kind === "RETRY")).toHaveLength(2);
+    expect(run.sleeps).toEqual([60, 60]);
+  });
+});
+
+function noChecksAdapter(args: {
+  code: number;
+  stdout: string;
+  stderr: string;
+  nodes?: readonly unknown[];
+  operation?: "page";
+}) {
+  const directory = mkdtempSync(join(tmpdir(), "watch-pr-empty-"));
+  try {
+    const response = {
+      data: { repository: { pullRequest: { commits: { nodes: [{
+        commit: { statusCheckRollup: { contexts: {
+          nodes: args.nodes ?? [],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        } } },
+      }] } } } },
+    };
+    writeFileSync(join(directory, "gh"), `#!${process.execPath}
+if (process.argv[2] === "pr" && process.argv[3] === "checks") {
+  process.stdout.write(${JSON.stringify(args.stdout)});
+  process.stderr.write(${JSON.stringify(args.stderr)});
+  process.exit(${args.code});
+}
+if (process.argv[2] !== "api") process.exit(2);
+process.stdout.write(${JSON.stringify(JSON.stringify(response))});
+`, { mode: 0o755 });
+    const program = `import { GhGitHubReader, resolveChecks } from ${JSON.stringify(import.meta.dir + "/github.ts")};
+      const reader = new GhGitHubReader();
+      const context = ${JSON.stringify(context)};
+      try {
+        if (${args.operation === "page"}) {
+          console.log(JSON.stringify({ ok: true, page: await reader.checkRollupPage(context, null) }));
+          process.exit(0);
+        }
+        const fast = await reader.checksFastPath(context);
+        console.log(JSON.stringify({ ok: true, fast, read: await resolveChecks(reader, context) }));
+      } catch (error) {
+        console.log(JSON.stringify({ ok: false, name: error.name, failure: error.failure }));
+      }`;
+    const child = spawnSync(process.execPath, ["-e", program], {
+      encoding: "utf8", timeout: 4000,
+      env: { ...process.env, PATH: directory + ":" + process.env.PATH },
+    });
+    expect(child.error).toBeUndefined();
+    expect(child.status).toBe(0);
+    return JSON.parse(child.stdout);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+describe("no-checks transport evidence", () => {
+  const diagnostic = "no checks reported on the 'fix/1533-pr-links-real-body' branch\n";
+  it("normalizes the captured gh exit-1 diagnostic and explicit JSON emptiness", () => {
+    for (const stdout of ["", " \n", "[]"])
+      expect(noChecksAdapter({ code: 1, stdout, stderr: diagnostic })).toMatchObject({
+        ok: true, fast: { kind: "checks", checks: [] },
+        read: { source: "empty", checks: [] },
+      });
+  });
+
+  it("rejects arbitrary failures rather than treating an empty rollup as proof", () => {
+    for (const args of [
+      { code: 1, stdout: "", stderr: "authentication failed" },
+      { code: 1, stdout: "", stderr: "" },
+      { code: 8, stdout: "", stderr: diagnostic },
+      { code: 0, stdout: "", stderr: diagnostic },
+      { code: 1, stdout: "not JSON", stderr: diagnostic },
+      { code: 1, stdout: "", stderr: diagnostic + "authentication failed\n" },
+    ])
+      expect(noChecksAdapter(args)).toMatchObject({
+        ok: false, failure: { kind: "checks-unavailable" },
+      });
+  });
+
+  it("still uses nonempty GraphQL fallback after explicit emptiness or CLI errors", () => {
+    for (const stderr of [diagnostic, "authentication failed"])
+      expect(noChecksAdapter({
+        code: 1, stdout: "", stderr,
+        nodes: [{ __typename: "StatusContext", context: "ci", state: "PENDING" }],
+      })).toMatchObject({
+        ok: true, read: { source: "graphql-rollup", checks: [{ kind: "pending" }] },
+      });
+  });
+
+  it("rejects unknown raw rollup nodes instead of claiming empty checks", () => {
+    expect(noChecksAdapter({
+      code: 1, stdout: "[]", stderr: "",
+      nodes: [{ __typename: "FutureNode" }],
+      operation: "page",
+    })).toMatchObject({ ok: false });
+    expect(mapRollupNode({ __typename: "FutureNode" })).toBeNull();
+  });
+});
 
 describe("checks fallback chain", () => {
   it("uses a non-empty fast-path result without a rollup query", async () => {
@@ -64,9 +531,8 @@ describe("checks fallback chain", () => {
       fastPath: { kind: "checks", checks: [] },
       rollupPages: [{ checks: [pendingCheck("fallback")], endCursor: null }],
     });
-    expect((await resolveChecks(reader, context)).checks[0].name).toBe(
-      "fallback"
-    );
+    expect((await resolveChecks(reader, context)).checks.map((check) => check.name))
+      .toEqual(["fallback"]);
     expect(reader.calls).toEqual(["checksFastPath", "checkRollupPage:null"]);
   });
 

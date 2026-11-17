@@ -20,7 +20,8 @@ export interface FakeReaderOptions {
   readonly rollupPages?: readonly RollupPage[];
   readonly threads?: readonly ReviewThread[];
   readonly threadPages?: readonly ReviewThreadPage[];
-  readonly commitRollups?: readonly CommitRollup[];
+  readonly commitRollups?: readonly CommitRollup[] | Error;
+  readonly observe?: (context: PrContext, read: number) => FakeReaderOptions;
   readonly openPullRequests?: readonly OpenPullRequest[];
   readonly origin?: Repository | null;
   readonly current?: PrContext;
@@ -86,6 +87,12 @@ export function fakeReader(
   };
   let page = 0;
   let threadPage = 0;
+  const reads = new Map<string, number>();
+  const observations = new Map<string, FakeReaderOptions>();
+  const key = (requested: PrContext) =>
+    JSON.stringify([requested.owner, requested.repo, requested.number]);
+  const observation = (requested: PrContext) =>
+    observations.get(key(requested)) ?? options;
   return {
     calls,
     async originRepo() {
@@ -100,30 +107,52 @@ export function fakeReader(
     },
     async pullRequest(requested) {
       calls.push("pullRequest");
-      return { ...defaults, ...options.facts, context: requested };
+      const identity = key(requested);
+      const read = (reads.get(identity) ?? 0) + 1;
+      reads.set(identity, read);
+      const current = { ...options, ...options.observe?.(requested, read) };
+      observations.set(identity, current);
+      return { ...defaults, ...current.facts, context: requested };
     },
     async openPullRequests() {
       calls.push("openPullRequests");
       return options.openPullRequests ?? [];
     },
-    async checksFastPath() {
+    async checksFastPath(requested) {
       calls.push("checksFastPath");
-      return options.fastPath ?? { kind: "checks", checks: [passingCheck()] };
+      return observation(requested).fastPath ?? {
+        kind: "checks",
+        checks: [passingCheck()],
+      };
     },
-    async checkRollupPage(_requested, after) {
+    async checkRollupPage(requested, after) {
       calls.push(`checkRollupPage:${after ?? "null"}`);
-      return options.rollupPages?.[page++] ?? { checks: [], endCursor: null };
-    },
-    async reviewThreadPage(_requested, after) {
-      calls.push(`reviewThreadPage:${after ?? "null"}`);
-      return options.threadPages?.[threadPage++] ?? {
-        threads: (options.threads ?? []).map(toRawThread),
+      return observation(requested).rollupPages?.[page++] ?? {
+        checks: [],
         endCursor: null,
       };
     },
-    async commitRollups() {
+    async reviewThreadPage(requested, after) {
+      calls.push(`reviewThreadPage:${after ?? "null"}`);
+      const current = observation(requested);
+      return current.threadPages?.[threadPage++] ?? {
+        threads: (current.threads ?? []).map(toRawThread),
+        endCursor: null,
+      };
+    },
+    async commitRollups(requested) {
       calls.push("commitRollups");
-      return options.commitRollups ?? [{ oid: "head", state: "SUCCESS" }];
+      const current = observation(requested);
+      const rollups = current.commitRollups;
+      if (rollups instanceof Error) throw rollups;
+      if (rollups !== undefined) return rollups;
+      if (
+        current.fastPath?.kind === "checks" &&
+        current.fastPath.checks.length === 0 &&
+        !current.rollupPages?.some((page) => page.checks.length > 0)
+      )
+        return [{ oid: current.facts?.headRefOid ?? "head", state: null }];
+      return [{ oid: "head", state: "SUCCESS" }];
     },
   };
 }
