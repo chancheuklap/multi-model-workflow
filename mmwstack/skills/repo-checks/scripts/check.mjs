@@ -2,7 +2,7 @@
 import { accessSync, appendFileSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFileSync, fork, spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { cpus, homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -603,119 +603,28 @@ function killTree(child) {
   }
 }
 
-const workloadVariable = 'MMW_CHECK_WORKLOAD';
-const lifetimeSupport = process.platform === 'win32'
-  ? { method: 'process-tree', limitation: 'Windows process-tree cleanup is unverified. A process reparented between snapshots may escape observation.' }
-  : { method: 'inherited-token-and-process-tree', limitation: 'A descendant that clears its inherited environment and reparents between process snapshots may escape observation. This is not an OS sandbox.' };
+let activeCommand = null;
 
-function processTable() {
-  const env = { ...process.env };
-  delete env[workloadVariable];
-  if (process.platform === 'win32') {
-    const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-      'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,@{Name="Start";Expression={$_.CreationDate.ToUniversalTime().Ticks.ToString()}} | ConvertTo-Json -Compress'],
-    { encoding: 'utf8', env, timeout: 5000, maxBuffer: 32 * 1024 * 1024 });
-    if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error(`Cannot inspect workload processes: ${result.stderr.trim()}`);
-    const rows = JSON.parse(result.stdout);
-    return (Array.isArray(rows) ? rows : [rows]).map(row => ({
-      pid: row.ProcessId, parent: row.ParentProcessId, start: row.Start, environment: '', state: '',
-    }));
-  }
-  const result = spawnSync('ps', ['eww', '-axo', 'pid=,ppid=,stat=,lstart=,command='], {
-    encoding: 'utf8', env, timeout: 2000, maxBuffer: 32 * 1024 * 1024,
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`Cannot inspect workload processes: ${result.stderr.trim()}`);
-  return result.stdout.split('\n').flatMap(line => {
-    const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\w+\s+\w+\s+\d+\s+[\d:]+\s+\d+)\s+(.*)$/);
-    if (!match) return [];
-    const pid = Number(match[1]);
-    return [{ pid, parent: Number(match[2]), state: match[3],
-      start: process.platform === 'linux' ? processStart(pid) : match[4], environment: match[5] }];
-  });
-}
-
-function ownedProcesses(workload, known = new Map()) {
-  const table = processTable().filter(row => row.start && !row.state.startsWith('Z'));
-  const token = `${workloadVariable}=${workload.token}`;
-  const owned = new Set(table.filter(row =>
-    (row.pid === workload.pid && row.start === workload.start) ||
-    known.get(row.pid) === row.start ||
-    row.environment.split(/\s+/).includes(token)).map(row => row.pid));
-  let size;
-  do {
-    size = owned.size;
-    for (const row of table) if (owned.has(row.parent)) owned.add(row.pid);
-  } while (owned.size !== size);
-  const rows = table.filter(row => owned.has(row.pid));
-  for (const row of rows) known.set(row.pid, row.start);
-  return rows;
-}
-
-async function terminateWorkload(workload, known = new Map()) {
-  const deadline = performance.now() + 5000;
-  for (;;) {
-    const owned = ownedProcesses(workload, known).filter(row => row.pid !== process.pid);
-    if (!owned.length) return;
-    for (const row of owned.reverse()) {
-      if (processStart(row.pid) !== row.start) continue;
-      if (process.platform === 'win32') {
-        const killed = spawnSync('taskkill', ['/PID', String(row.pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 });
-        if (killed.error) throw killed.error;
-      } else {
-        try { process.kill(row.pid, 'SIGKILL'); }
-        catch (error) { if (error.code !== 'ESRCH') throw error; }
-      }
-    }
-    if (performance.now() >= deadline) throw new Error('Owned workload did not terminate; resource lease retained');
-    await sleep(25);
-  }
-}
-
-async function settleWorkload(workload, timeout) {
-  if (!workload) return;
-  const deadline = performance.now() + timeout * 1000 + 5000;
-  const known = new Map();
-  while (ownedProcesses(workload, known).length) {
-    if (performance.now() >= deadline) {
-      await terminateWorkload(workload, known);
-      return;
-    }
-    await sleep(50);
-  }
-}
-
-async function commandProcess(command, timeout, log, token) {
+async function commandProcess(command, timeout, log) {
   const fd = log ? openSync(log, 'a') : null;
   const start = performance.now();
   let child;
   try {
     child = spawn(command, {
       shell: true, detached: process.platform !== 'win32',
-      env: { ...process.env, [workloadVariable]: token },
       stdio: ['ignore', fd ?? 'pipe', fd ?? 'pipe'],
     });
   } finally { if (fd !== null) closeSync(fd); }
-  const workload = { token, pid: child.pid, start: child.pid ? processStart(child.pid) : null };
-  const known = new Map();
   let reason = null;
   let failure = null;
   let stdout = '';
   let stderr = '';
   let size = 0;
   const stop = () => {
-    try {
-      for (const row of ownedProcesses(workload, known).reverse()) {
-        if (row.pid === process.pid || processStart(row.pid) !== row.start) continue;
-        if (process.platform === 'win32') killTree({ pid: row.pid });
-        else process.kill(row.pid, 'SIGKILL');
-      }
-    } catch (error) {
-      if (error.code !== 'ESRCH') failure ??= error;
-      child.kill('SIGKILL');
-    }
+    try { killTree(child); }
+    catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
   };
+  activeCommand = stop;
   const collect = stream => bytes => {
     size += bytes.length;
     if (size > 16 * 1024 * 1024) { reason = 'output exceeds 16 MiB'; stop(); }
@@ -730,48 +639,13 @@ async function commandProcess(command, timeout, log, token) {
     child.once('exit', (code, signal) => resolveExit({ code, signal }));
   });
   const timer = setTimeout(() => { reason = 'timeout'; stop(); }, Math.max(1, timeout * 1000 - (performance.now() - start)));
-  const tracking = setInterval(() => {
-    try { ownedProcesses(workload, known); }
-    catch (error) { failure ??= error; stop(); }
-  }, 50);
   const { code, signal } = await exited;
   clearTimeout(timer);
-  clearInterval(tracking);
-  await terminateWorkload(workload, known);
   await closed;
+  activeCommand = null;
   if (failure) throw failure;
   if (reason && log) appendFileSync(log, `${reason}\n`);
-  return { exit_code: code, signal, seconds: (performance.now() - start) / 1000, log, reason, stdout, stderr, lifetime: lifetimeSupport };
-}
-
-function ownedCommand(task, lease, marker) {
-  return new Promise((resolveCommand, reject) => {
-    const child = fork(fileURLToPath(import.meta.url), [], {
-      detached: process.platform !== 'win32', stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-    });
-    const workload = { token: randomUUID(), pid: child.pid, start: processStart(child.pid) };
-    let result;
-    let failure;
-    child.on('message', message => {
-      try {
-        if (message.type === 'ready') {
-          lease.publish(workload);
-          if (marker) writeFileSync(marker, JSON.stringify({ pid: process.pid, start: processStart(process.pid), workload }));
-          sendWorker({ type: 'ownership', workload });
-          child.send({ type: 'go' });
-        } else if (message.type === 'result') result = message.result;
-        else if (message.type === 'error') failure = new Error(message.message);
-      } catch (error) { failure = error; child.disconnect(); }
-    });
-    child.once('error', error => { failure = error; });
-    child.once('exit', (code, signal) => {
-      settleWorkload(workload, task.timeout).then(() => {
-        if (failure || !result || code !== 0) reject(failure ?? new Error(`Owned workload exited without a successful result (${code ?? signal})`));
-        else resolveCommand(result);
-      }, reject);
-    });
-    child.send({ type: 'workload', task, token: workload.token });
-  });
+  return { exit_code: code, signal, seconds: (performance.now() - start) / 1000, log, reason, stdout, stderr };
 }
 
 function sendWorker(message) {
@@ -793,8 +667,7 @@ function processStart(pid) {
 }
 
 function liveOwner(owner) {
-  return Boolean(owner && ((owner.start && processStart(owner.pid) === owner.start) ||
-    (owner.workload && ownedProcesses(owner.workload).length)));
+  return Boolean(owner?.start && processStart(owner.pid) === owner.start);
 }
 
 function cacheLocks() {
@@ -815,40 +688,8 @@ function removeToken(directory, token) {
 
 const sleep = ms => new Promise(resolveSleep => setTimeout(resolveSleep, ms));
 
-class ResourceLease {
-  constructor(owner = null, directory = null, token = null) {
-    this.owner = owner;
-    this.directory = directory;
-    this.token = token;
-  }
-
-  publish(workload) {
-    this.owner.workload = workload;
-    if (!this.directory) return;
-    const nonce = randomUUID();
-    const nextToken = `${nonce}.json`;
-    const temporary = join(dirname(this.directory), `.${nonce}.tmp`);
-    try {
-      writeFileSync(temporary, JSON.stringify(this.owner), { flag: 'wx' });
-      renameSync(temporary, join(this.directory, nextToken));
-      const previousToken = this.token;
-      this.token = nextToken;
-      removeToken(this.directory, previousToken);
-    } finally {
-      try { unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    }
-  }
-
-  release() {
-    if (!this.owner) return true;
-    if (this.owner.workload && ownedProcesses(this.owner.workload).length) return false;
-    if (this.directory) removeToken(this.directory, this.token);
-    return true;
-  }
-}
-
 async function acquireLock(name, timeout, cancelled) {
-  if (!name) return new ResourceLease({ pid: process.pid, start: processStart(process.pid) });
+  if (!name) return { release() {} };
   const root = cacheLocks();
   const canonical = join(root, hash(name));
   const nonce = randomUUID();
@@ -861,10 +702,10 @@ async function acquireLock(name, timeout, cancelled) {
   let waited = false;
   try {
     for (;;) {
-      if (cancelled()) return new ResourceLease();
+      if (cancelled()) return { release() {} };
       try {
         renameSync(candidate, canonical);
-        return new ResourceLease(owner, canonical, token);
+        return { release: () => removeToken(canonical, token) };
       } catch (error) {
         if (!['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES'].includes(error.code)) throw error;
       }
@@ -909,8 +750,6 @@ function preparationHash(prepare) {
 }
 
 async function worker(task) {
-  const marker = task.log ? join(dirname(task.log), `.${randomUUID()}.active.json`) : null;
-  if (marker) writeFileSync(marker, JSON.stringify({ pid: process.pid, start: processStart(process.pid) }));
   let started = false;
   let cancelled = false;
   let cancelGrant;
@@ -918,18 +757,18 @@ async function worker(task) {
     cancelGrant = resolveGrant;
     process.once('message', () => { started = true; resolveGrant(); });
   });
-  let lease;
+  const abandon = () => { cancelled = true; if (activeCommand) activeCommand(); };
+  process.on('SIGINT', abandon);
+  process.on('SIGTERM', abandon);
   process.once('disconnect', () => { if (!started) { cancelled = true; cancelGrant(); } });
-  lease = await acquireLock(task.lock, task.timeout, () => cancelled);
+  const lease = await acquireLock(task.lock, task.timeout, () => cancelled);
   if (cancelled) {
     lease.release();
-    if (marker) unlinkSync(marker);
     return;
   }
   if (lease.blocked) {
     sendWorker({ type: 'result', result: { blocked: true, reason: lease.reason, holder: lease.holder } });
     if (process.connected) process.disconnect();
-    if (marker) unlinkSync(marker);
     return;
   }
   let heartbeat;
@@ -952,7 +791,7 @@ async function worker(task) {
     }), 19000);
     const attempts = [];
     for (let i = 0; i <= task.retry; i++) {
-      const attempt = await ownedCommand(task, lease, marker);
+      const attempt = await commandProcess(task.command, task.timeout, task.log);
       attempts.push(attempt);
       if (attempt.exit_code === 0 && !attempt.reason) break;
     }
@@ -964,37 +803,36 @@ async function worker(task) {
     sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare) } });
   } finally {
     clearInterval(heartbeat);
-    const released = lease.release();
-    if (marker && released) unlinkSync(marker);
+    lease.release();
     if (process.connected) process.disconnect();
   }
 }
 
+const runningChecks = new Set();
+
 function supervisor(task, slot, event) {
   return new Promise((resolveTask, reject) => {
     const child = fork(fileURLToPath(import.meta.url), [], { detached: process.platform !== 'win32', stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+    runningChecks.add(child);
     let release = null;
     let result = null;
-    let workload = null;
     child.on('message', message => {
       Promise.resolve().then(async () => {
         if (message.type === 'ready') {
           release = await slot();
           if (child.connected) child.send({ type: 'go' });
           else { release(); release = null; }
-        } else if (message.type === 'ownership') workload = message.workload;
-        else if (message.type === 'event') event(message.event);
+        } else if (message.type === 'event') event(message.event);
         else if (message.type === 'error') result = { error: message.message };
         else if (message.type === 'result') result = message.result;
       }).catch(error => { result = { error: error.message }; if (child.connected) child.disconnect(); });
     });
-    child.once('error', reject);
+    child.once('error', error => { runningChecks.delete(child); reject(error); });
     child.once('exit', (code, signal) => {
-      settleWorkload(workload, task.timeout).then(() => {
-        release?.();
-        if (!result || result.error || code !== 0) reject(new Error(result?.error ?? `Command supervisor exited without a successful result (${code ?? signal})`));
-        else resolveTask(result);
-      }, error => { release?.(); reject(error); });
+      runningChecks.delete(child);
+      release?.();
+      if (!result || result.error || code !== 0) reject(new Error(result?.error ?? `Command supervisor exited without a successful result (${code ?? signal})`));
+      else resolveTask(result);
     });
     child.send({ type: 'task', task });
   });
@@ -1260,12 +1098,13 @@ function eventLines(event) {
   if (type === 'BLOCKED') return [`BLOCKED ${event.id} ${event.reason}${event.log ? ` log=${event.log}` : ''}`, ...event.tail];
   if (type === 'FAIL') return [`FAIL ${event.id} ${event.seconds.toFixed(3)}s log=${event.log}`, ...event.tail];
   if (type === 'SUMMARY') return [event.selected === 0 ? 'SUMMARY nothing selected' :
-    `SUMMARY ${event.selected} selected, ${event.passed} passed, ${event.failed} failed, ${event.skipped} skipped`];
+    `SUMMARY ${event.selected} selected, ${event.passed} passed, ${event.failed} failed, ${event.skipped + event.blocked} skipped`];
   if (type === 'ERROR') return [`${event.rule.toUpperCase()} ${event.message}`];
   throw new Error(`Unknown event ${type}`);
 }
 
 function emit(facts, json) {
+  if (interrupted) return;
   if (emitted) { process.exitCode = facts.exit_code; return; }
   emitted = true;
   if (json) console.log(JSON.stringify(facts));
@@ -1283,6 +1122,7 @@ const json = argv.includes('--json');
 const args = argv.filter(arg => arg !== '--json');
 let facts = args[0] === 'lint' ? { mode: 'lint', findings: [] } : newRun();
 let emitted = false;
+let interrupted = false;
 function unexpected(error) {
   const message = error instanceof Error ? error.message : String(error);
   if (typeof process.send === 'function') {
@@ -1304,26 +1144,31 @@ function finalOutput() {
     emit(facts, json);
   });
 }
+function interrupt(signal) {
+  if (interrupted) return;
+  interrupted = true;
+  const code = signal === 'SIGINT' ? 130 : 143;
+  process.exitCode = code;
+  for (const child of runningChecks) child.kill(signal);
+  const deadline = Date.now() + 5000;
+  const wait = () => {
+    if (runningChecks.size && Date.now() < deadline) setTimeout(wait, 25);
+    else process.exit(code);
+  };
+  wait();
+}
 process.on('uncaughtException', unexpected);
 process.on('unhandledRejection', unexpected);
 if (typeof process.send === 'function' && args.length === 0) {
-  process.once('message', async ({ type, task, token }) => {
+  process.once('message', async ({ task }) => {
     try {
       loadedEngineHash = hash(readFileSync(new URL(import.meta.url)));
-      if (type === 'workload') {
-        const granted = await new Promise(resolveGrant => {
-          process.once('message', () => resolveGrant(true));
-          process.once('disconnect', () => resolveGrant(false));
-          sendWorker({ type: 'ready' });
-        });
-        if (!granted) return;
-        const result = await commandProcess(task.command, task.timeout, task.log, token);
-        sendWorker({ type: 'result', result });
-        if (process.connected) process.disconnect();
-      } else await worker(task);
+      await worker(task);
     } catch (error) { unexpected(error); }
   });
 } else try {
+  process.on('SIGINT', () => interrupt('SIGINT'));
+  process.on('SIGTERM', () => interrupt('SIGTERM'));
   loadedEngineHash = hash(readFileSync(new URL(import.meta.url)));
   if (argv.length === 1 && argv[0] === '--help') {
     console.log([
@@ -1335,7 +1180,7 @@ if (typeof process.send === 'function' && args.length === 0) {
       '--all         Run whole checks instead of selecting affected tests.',
       '--only <ids>  Restrict to comma-separated ids; does not force selection without --all.',
       '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
-      '--json        Print exactly one JSON object with selection, results and timings.',
+      '--json        Print one JSON object: a run reports selection, results and timings, lint reports findings.',
       '--help        Show this help.',
       'Filename interpolation requires a POSIX shell host.',
       '',

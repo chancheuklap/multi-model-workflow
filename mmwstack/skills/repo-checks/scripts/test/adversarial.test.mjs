@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copyFileSync, existsSync, readFileSync, readdirSync, realpathSync, rmdirSync, symlinkSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, readdirSync, realpathSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { cleanConfig, fixture } from './fixture.mjs';
@@ -30,17 +30,16 @@ function facts(result, status = 0) {
   assert.equal(value.exit_code, status);
   return value;
 }
-function lockRecord(f) {
+function lockOwner(f) {
   const cache = process.platform === 'darwin'
     ? join(f.home, 'Library/Caches/repo-checks/locks')
     : join(f.env.XDG_CACHE_HOME, 'repo-checks/locks');
   for (const name of readdirSync(cache).filter(name => !name.startsWith('.'))) {
     const directory = join(cache, name);
-    for (const token of readdirSync(directory)) return { directory, path: join(directory, token), owner: JSON.parse(readFileSync(join(directory, token))) };
+    for (const token of readdirSync(directory)) return JSON.parse(readFileSync(join(directory, token)));
   }
-  throw new Error('No published resource lease');
+  throw new Error('No published lock');
 }
-const lockOwner = f => lockRecord(f).owner;
 
 test('I1 gitlink changes and dirty submodules cannot be hidden by git configuration', t => {
   const { f } = setup(t, (c, f) => {
@@ -95,72 +94,6 @@ for (const id of ['unit,build', '-unit']) test(`I4 schema rejects unaddressable 
   const { f } = setup(t, c => { c.checks[0].id = id; });
   assert.ok(facts(f.cli('lint', '--json'), 1).findings.some(x => x.field === 'checks[0].id'));
   facts(f.cli('--all', '--json'), 2);
-});
-
-test('I5 coordinator death preserves the lease through surviving workload lifetime', async t => {
-  const eventsPath = f => join(f.home, 'resource-events');
-  const { f } = setup(t, (c, f) => {
-    c.checks[0].lock = 'coordinator-death';
-    c.checks[0].run = command(`const fs=require('node:fs');const event=e=>fs.appendFileSync(${JSON.stringify(eventsPath(f))},JSON.stringify({e,label:process.env.LABEL,time:Date.now(),pid:process.pid})+"\\n");event("start");setTimeout(()=>event("end"),process.env.LABEL==="A"?1500:50)`);
-  });
-  const linked = join(f.root, 'linked');
-  f.git('worktree', 'add', '-b', 'lease-regression', linked, 'HEAD');
-  const a = f.start(['--all', '--json'], { env: { ...f.env, LABEL: 'A' } });
-  await until(() => existsSync(eventsPath(f)));
-  const owner = lockOwner(f);
-  process.kill(owner.pid, 'SIGKILL');
-  const b = f.start(['--all', '--json'], { repo: linked, env: { ...f.env, LABEL: 'B' } });
-  const [ar, br] = await Promise.all([a.done, b.done]);
-  facts(ar, 70);
-  facts(br);
-  const events = readFileSync(eventsPath(f), 'utf8').trim().split('\n').map(JSON.parse);
-  assert.deepEqual(events.map(x => `${x.label}-${x.e}`), ['A-start', 'A-end', 'B-start', 'B-end']);
-  assert.ok(owner.workload?.token, 'Workload ownership must be published before the workload starts');
-});
-
-test('I5 a stale lease observation cannot delete a newly published retry workload', async t => {
-  const { f } = setup(t, (c, f) => {
-    c.checks[0].lock = 'retry-handoff';
-    c.checks[0].retry = 1;
-    c.checks[0].run = command(`const fs=require('node:fs'),p=${JSON.stringify(join(f.home, 'attempt'))};const label=process.env.LABEL;const n=label==="B"?0:(fs.existsSync(p)?Number(fs.readFileSync(p)):0)+1;if(n)fs.writeFileSync(p,String(n));fs.appendFileSync(${JSON.stringify(join(f.home, 'retry-events'))},label+n+"-start\\n");setTimeout(()=>{fs.appendFileSync(${JSON.stringify(join(f.home, 'retry-events'))},label+n+"-end\\n");process.exit(n===1?1:0)},n===2?1500:400)`);
-  });
-  const linked = join(f.root, 'linked');
-  f.git('worktree', 'add', '-b', 'retry-handoff', linked, 'HEAD');
-  const first = f.start(['--all', '--json'], { env: { ...f.env, LABEL: 'A' } });
-  const events = () => readFileSync(join(f.home, 'retry-events'), 'utf8');
-  await until(() => existsSync(join(f.home, 'attempt')));
-  const observed = lockRecord(f);
-  await until(() => events().includes('A2-start'));
-  process.kill(observed.owner.pid, 'SIGKILL');
-  try { unlinkSync(observed.path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  try { rmdirSync(observed.directory); } catch (error) { if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error; }
-  const second = f.start(['--all', '--json'], { repo: linked, env: { ...f.env, LABEL: 'B' } });
-  const [ar, br] = await Promise.all([first.done, second.done]);
-  facts(ar, 70);
-  facts(br);
-  assert.ok(events().indexOf('A2-end') < events().indexOf('B0-start'), events());
-});
-
-for (const timeout of [false, true]) test(`I6 detached descendants cannot outlive ${timeout ? 'timeout' : 'PASS'} and overlap a linked worktree`, async t => {
-  const { f } = setup(t, (c, f) => {
-    const ready = join(f.home, 'detached-ready');
-    c.checks[0].lock = 'detached-lifetime';
-    c.checks[0].timeout_s = timeout ? 0.35 : 8;
-    c.checks[0].run = command(`
-      const fs=require('node:fs');
-      if(process.env.LABEL==="B") fs.writeFileSync(${JSON.stringify(join(f.home, 'B-start'))},String(Date.now()));
-      else {
-        require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(`const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(ready)},String(process.pid));setTimeout(()=>fs.writeFileSync(${JSON.stringify(join(f.home, 'escaped'))},String(Date.now())),1000)`)}],{detached:true,stdio:'ignore'}).unref();
-        const timer=setInterval(()=>{if(fs.existsSync(${JSON.stringify(ready)})){clearInterval(timer);${timeout ? 'setTimeout(()=>{},10000)' : ''}}},10);
-      }`);
-  });
-  const linked = join(f.root, 'linked');
-  f.git('worktree', 'add', '-b', 'detached-regression', linked, 'HEAD');
-  const a = facts(await f.start(['--all', '--json'], { env: { ...f.env, LABEL: 'A' } }).done, timeout ? 1 : 0);
-  assert.equal(a.results[0].reason, timeout ? 'timeout' : null);
-  facts(await f.start(['--all', '--json'], { repo: linked, env: { ...f.env, LABEL: 'B' } }).done);
-  await pause(1150);
-  assert.equal(existsSync(join(f.home, 'escaped')), false, 'Detached workload must terminate before resource release');
 });
 
 for (const failure of ['supervisor-death', 'log-disappearance']) test(`I7 ${failure} preserves all terminal outcomes and writes one final record`, async t => {

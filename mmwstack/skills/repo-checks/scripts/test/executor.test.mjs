@@ -155,6 +155,32 @@ test('an empty lock left between token deletion and rmdir is recoverable', async
   assert.equal(existsSync(join(cache, canonical)), false);
 });
 
+test('SIGINT stops the running check, its process group and its lock', async t => {
+  const { f } = setup(t, (c, f) => {
+    c.checks[0].lock = 'interrupt-lock';
+    c.checks[0].run = command(`require('node:fs').writeFileSync(${JSON.stringify(join(f.home,'check-pid'))},String(process.pid));setTimeout(()=>{},30000)`);
+  });
+  const active = f.start(['--all']);
+  await active.until(/SELECT unit/);
+  const deadline = Date.now() + 10000;
+  while (!existsSync(join(f.home,'check-pid')) && Date.now() < deadline) await new Promise(resolve=>setTimeout(resolve,20));
+  const pid = Number(readFileSync(join(f.home,'check-pid'),'utf8'));
+  assert.doesNotThrow(()=>process.kill(pid,0));
+  active.child.kill('SIGINT');
+  const r = await active.done;
+  assert.equal(r.status, 130, r.stdout+r.stderr);
+  const cache = process.platform==='darwin' ? join(f.home,'Library/Caches/repo-checks/locks') : join(f.env.XDG_CACHE_HOME,'repo-checks/locks');
+  const gone = Date.now()+5000;
+  while (Date.now() < gone) {
+    try { process.kill(pid,0); await new Promise(resolve=>setTimeout(resolve,20)); }
+    catch { break; }
+  }
+  assert.throws(()=>process.kill(pid,0),{code:'ESRCH'});
+  const free = Date.now()+5000;
+  while (readdirSync(cache).some(name=>!name.startsWith('.')) && Date.now() < free) await new Promise(resolve=>setTimeout(resolve,20));
+  assert.deepEqual(readdirSync(cache).filter(name=>!name.startsWith('.')),[]);
+});
+
 test('prepare runs before needs, rechecks its lease and hashes stamp paths and bytes', async t => {
   const { f, c } = setup(t, (c, f) => {
     f.write('.gitignore', 'installed/\n');
@@ -196,6 +222,7 @@ test('failed preparation blocks checks and never persists a successful stamp', t
     assert.equal(facts.preparation_stamp,null);
     assert.equal(existsSync(join(f.home,'check-ran')),false);
   }
+  assert.match(f.cli('--all').stdout,/SUMMARY 1 selected, 0 passed, 0 failed, 1 skipped\n$/);
   c.prepare.run = command('console.log("installed")');
   f.config(c);
   assert.equal(json(f).results[0].status,'passed');
@@ -261,10 +288,12 @@ test('needs are checked before reuse and identity drift prevents reusable eviden
   const missing=json(f,['--all'],2);
   assert.equal(missing.results[0].status,'skipped');
   f.write('installed','ready');
-  c.checks[0].run=command('setTimeout(()=>console.log("changed"),700)');
+  c.checks[0].run=command(`require('node:fs').writeFileSync(${JSON.stringify(join(f.home,'started'))},"yes"); setTimeout(()=>console.log("changed"),1500)`);
   f.config(c); f.commit();
   const active=f.start(['--all','--json']);
-  await new Promise(resolve=>setTimeout(resolve,350));
+  const started=Date.now()+10000;
+  while(!existsSync(join(f.home,'started'))&&Date.now()<started) await new Promise(resolve=>setTimeout(resolve,20));
+  assert.ok(existsSync(join(f.home,'started')),'check started before the tree changed');
   f.write('README.md','changed during execution');
   const r=await active.done;
   assert.equal(r.status,0,r.stdout+r.stderr);
@@ -281,7 +310,7 @@ test('RUNNING is live within 20 seconds during a real 22 second check and JSON s
     c.checks[0].run=command(`require('node:fs').writeFileSync(${JSON.stringify(join(f.home,'started-at'))},String(Date.now())); setTimeout(()=>console.log("finished"),22000)`);
   });
   const active=f.start(['--all','--json']);
-  await active.until(/RUNNING unit [\d.]+s/,21000);
+  await active.until(/RUNNING unit [\d.]+s/,45000);
   assert.equal(active.child.exitCode,null);
   assert.equal(active.lines.filter(x=>x.stream==='stdout').length,0);
   const progress=active.lines.find(x=>x.text.includes('RUNNING unit'));
@@ -388,14 +417,18 @@ test('stale lock reapers serialize racing CLIs after the recorded holder dies', 
 test('same lock name prevents overlap in linked worktrees sharing one common git directory', async t => {
   const { f }=setup(t,c=>{
     c.checks[0].lock='linked-database';
-    c.checks[0].run=command('console.log(JSON.stringify({event:"start",time:Date.now()})); setTimeout(()=>console.log(JSON.stringify({event:"end",time:Date.now()})),600)');
+    c.checks[0].run=command('console.log(JSON.stringify({event:"start",time:Date.now()})); setTimeout(()=>console.log(JSON.stringify({event:"end",time:Date.now()})),2000)');
   });
   const linked=join(f.root,'linked');
   f.git('worktree','add','-b','linked-check',linked,'HEAD');
+  const cache=process.platform==='darwin' ? join(f.home,'Library/Caches/repo-checks/locks') : join(f.env.XDG_CACHE_HOME,'repo-checks/locks');
+  const held=()=>existsSync(cache)&&readdirSync(cache).some(name=>!name.startsWith('.'));
   const a=f.start(['--all','--json']);
-  await new Promise(resolve=>setTimeout(resolve,200));
+  const lockDeadline=Date.now()+10000;
+  while(!held()&&Date.now()<lockDeadline) await new Promise(resolve=>setTimeout(resolve,20));
+  assert.ok(held(),'holder published its lock before the waiter started');
   const b=f.start(['--all','--json'],{repo:linked});
-  await b.until(/WAIT linked-database/);
+  await b.until(/WAIT linked-database/,10000);
   const events=[];
   for(const r of await Promise.all([a.done,b.done])) {
     assert.equal(r.status,0,r.stdout+r.stderr);

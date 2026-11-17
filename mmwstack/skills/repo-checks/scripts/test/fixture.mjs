@@ -52,6 +52,7 @@ export function fixture(t, nodeArgs = []) {
   git('var', 'GIT_COMMITTER_IDENT');
   git('init', '--bare', '--template=', join(root, 'origin.git'));
   git('--git-dir', join(root, 'origin.git'), 'config', 'core.hooksPath', hooks);
+  git('--git-dir', join(root, 'origin.git'), 'symbolic-ref', 'HEAD', 'refs/heads/main');
   git('init', '--template=', '-b', 'main');
   git('config', 'core.hooksPath', hooks);
   git('remote', 'add', 'origin', join(root, 'origin.git'));

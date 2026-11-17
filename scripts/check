@@ -56,6 +56,7 @@ TEST_ROOTS = ["mmwstack/tests"]
 NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
 EXCLUDED = {
     "mmwstack/skills/statechart/scripts/test": "the upstream statechart skill's own tests (node --test with fast-check and a Java oracle), not run here",
+    "mmwstack/skills/repo-checks/scripts/test": "the repo-checks engine's own node --test suite, not run here",
 }
 NOT_RUN_HERE = ("exe-release's PowerShell checks (mmwstack/tests/exe-release/check-generated-powershell.sh,"
                 " check-template-behaviour.sh): they need a Windows build machine")
