@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["integration", "ci_workflow", "test_files", "inert", "affects_all", "checks", "lanes", "excluded"],
+  "properties": {
+    "integration": { "$ref": "#/$defs/text" },
+    "ci_workflow": { "anyOf": [{ "$ref": "#/$defs/relative" }, { "type": "null" }] },
+    "test_files": { "$ref": "#/$defs/patterns" },
+    "inert": { "$ref": "#/$defs/patterns" },
+    "affects_all": { "$ref": "#/$defs/patterns" },
+    "marker_exempt": { "$ref": "#/$defs/patterns" },
+    "prepare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run", "stamps"],
+      "properties": {
+        "run": { "$ref": "#/$defs/text" },
+        "stamps": { "$ref": "#/$defs/patterns" }
+      }
+    },
+    "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+    "lanes": { "type": "array", "items": { "$ref": "#/$defs/lane" } },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["paths", "reason"],
+        "properties": {
+          "paths": { "$ref": "#/$defs/patterns" },
+          "reason": { "$ref": "#/$defs/text" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "id": { "type": "string", "pattern": "^\\S+$" },
+    "relative": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/|[A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000]+$"
+    },
+    "patterns": { "type": "array", "items": { "$ref": "#/$defs/relative", "format": "repo-glob" } },
+    "full_command": {
+      "allOf": [
+        { "$ref": "#/$defs/text" },
+        { "pattern": "^(?![\\s\\S]*\\{(?:files|tests)\\})" }
+      ]
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "run", "inputs", "tests", "ci"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "run": { "$ref": "#/$defs/text" },
+        "run_all": { "$ref": "#/$defs/full_command" },
+        "inputs": { "$ref": "#/$defs/patterns" },
+        "sources": { "$ref": "#/$defs/patterns" },
+        "select": { "$ref": "#/$defs/text" },
+        "tests": { "$ref": "#/$defs/patterns" },
+        "needs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:docker|cmd:[^\\s/\\\\:]+|os:(?:darwin|linux|windows)|env:[A-Za-z_][A-Za-z0-9_]*|path:(?!/|[A-Za-z]:)(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:/|$))[^\\\\\\u0000]+)$"
+          }
+        },
+        "ci": { "type": "boolean" },
+        "ci_run": { "$ref": "#/$defs/text" },
+        "ci_reason": { "$ref": "#/$defs/text" },
+        "timeout_s": { "type": "number", "exclusiveMinimum": 0 },
+        "retry": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "lock": { "$ref": "#/$defs/text" }
+      },
+      "dependentRequired": { "sources": ["select"], "select": ["sources"] },
+      "allOf": [
+        {
+          "if": { "required": ["ci"], "properties": { "ci": { "enum": [true] } } },
+          "then": { "required": ["ci_run"] },
+          "else": { "required": ["ci_reason"] }
+        },
+        {
+          "if": { "required": ["run"], "properties": { "run": { "type": "string", "pattern": "\\{(?:files|tests)\\}" } } },
+          "then": { "required": ["run_all"] }
+        }
+      ]
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "reason", "run_by", "tests"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["ci-only", "device", "owner-only"] },
+        "reason": { "$ref": "#/$defs/text" },
+        "run_by": { "$ref": "#/$defs/text" },
+        "tests": { "$ref": "#/$defs/patterns" },
+        "command": { "$ref": "#/$defs/text" }
+      }
+    }
+  }
+}
