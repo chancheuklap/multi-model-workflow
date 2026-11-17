@@ -1,4 +1,5 @@
 import {
+  ChecksUnavailable,
   WatcherQueryError,
   resolveChecks,
   resolveReviewThreads,
@@ -56,12 +57,28 @@ const AUTOMATION_TOKENS = [
   "pr review automation",
   "review automation",
 ] as const;
-export async function readSnapshot(args: {
+interface SnapshotArgs {
   readonly reader: T.GitHubReader;
   readonly context: T.PrContext;
   readonly pendingHistory: "include" | "omit";
   readonly allowDraft: boolean;
-}): Promise<T.PrSnapshot> {
+}
+type NoChecksCandidates = Map<string, string>;
+class NoChecksUnconfirmed extends ChecksUnavailable {}
+export async function readSnapshot(args: SnapshotArgs): Promise<T.PrSnapshot> {
+  return readSnapshotWithState(args, new Map());
+}
+async function readSnapshotWithState(
+  args: SnapshotArgs,
+  candidates: NoChecksCandidates
+): Promise<T.PrSnapshot> {
+  const identity = JSON.stringify([
+    args.context.owner,
+    args.context.repo,
+    args.context.number,
+  ]);
+  const previousHead = candidates.get(identity);
+  candidates.delete(identity);
   const facts = await args.reader.pullRequest(args.context);
   if (facts.state === "MERGED" || facts.mergedAt !== null)
     return { kind: "merged", context: args.context, facts };
@@ -69,6 +86,39 @@ export async function readSnapshot(args: {
     return { kind: "closed", context: args.context, facts };
   const threads = await resolveReviewThreads(args.reader, args.context);
   const checks = await resolveChecks(args.reader, args.context);
+  if (checks.source === "empty") {
+    if (facts.mergeStateStatus !== "CLEAN" || !facts.headRefOid)
+      throw new ChecksUnavailable(
+        "empty checks require a CLEAN merge state and a head OID"
+      );
+    const merge = await mergeAssessment(args.reader, facts);
+    candidates.set(identity, facts.headRefOid);
+    if (previousHead !== facts.headRefOid)
+      throw new NoChecksUnconfirmed(
+        "empty checks require a second CLEAN observation of the same head"
+      );
+    return {
+      kind: "open",
+      context: args.context,
+      facts,
+      threads,
+      ci: {
+        kind: "ci-clean",
+        source: "no-checks",
+        all: [],
+        failed: [],
+        pending: [],
+        hadPreviousPassingCi: merge.hadPreviousPassingCi,
+        github: {
+          kind: "allowed",
+          basis: "merge-state",
+          mergeStateStatus: facts.mergeStateStatus,
+          headRollupState: merge.github.headRollupState,
+        },
+      },
+      reviewAutomationRunning: false,
+    };
+  }
   const failed = nonEmpty(
     checks.checks.filter(
       (check): check is T.FailedCheck => check.kind === "failed"
@@ -428,17 +478,29 @@ export async function runSimple(args: {
   readonly options: T.PollingOptions;
 }): Promise<T.TerminalVerdict> {
   const stamp = verdictFactory(args.dependencies.clock, args.mode);
+  const candidates: NoChecksCandidates = new Map();
   const step = async (): Promise<StepResult<T.TerminalVerdict>> => {
     const rows: T.PrSnapshot[] = [];
-    for (const context of args.contexts)
-      rows.push(
-        await readSnapshot({
-          reader: args.dependencies.reader,
-          context,
-          pendingHistory: "include",
-          allowDraft: args.options.allowDraft,
-        })
-      );
+    let unconfirmed: NoChecksUnconfirmed | null = null;
+    for (const context of args.contexts) {
+      try {
+        rows.push(
+          await readSnapshotWithState(
+            {
+              reader: args.dependencies.reader,
+              context,
+              pendingHistory: "include",
+              allowDraft: args.options.allowDraft,
+            },
+            candidates
+          )
+        );
+      } catch (error) {
+        if (!(error instanceof NoChecksUnconfirmed)) throw error;
+        unconfirmed ??= error;
+      }
+    }
+    if (unconfirmed !== null) throw unconfirmed;
     const complete = nonEmpty(rows);
     if (complete === null) throw new Error("watch context cannot be empty");
     if (args.statusOnly)
@@ -716,6 +778,7 @@ export async function runQueued(args: {
   readonly options: T.PollingOptions;
 }): Promise<T.QueueTerminalVerdict> {
   let state = createQueueState(args.contexts, args.dependencies.clock.now());
+  const candidates: NoChecksCandidates = new Map();
   const stamp = verdictFactory(args.dependencies.clock, "queued-stack");
   args.dependencies.emit(
     stamp({ kind: "QUEUE", terminal: false, queue: args.contexts })
@@ -745,12 +808,15 @@ export async function runQueued(args: {
       state.work.kind === "whole-stack-sweep"
         ? state.work.remaining[0]
         : state.work.frontier;
-    const snapshot = await readSnapshot({
-      reader: args.dependencies.reader,
-      context,
-      pendingHistory: "omit",
-      allowDraft: args.options.allowDraft,
-    });
+    const snapshot = await readSnapshotWithState(
+      {
+        reader: args.dependencies.reader,
+        context,
+        pendingHistory: "omit",
+        allowDraft: args.options.allowDraft,
+      },
+      candidates
+    );
     const applied = applyQueueSnapshot(
       state,
       snapshot,

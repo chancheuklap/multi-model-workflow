@@ -531,6 +531,12 @@ export class GhGitHubReader implements T.GitHubReader {
       "--json",
       "name,state,description,link,workflow,bucket",
     ]);
+    if (
+      result.code === 1 &&
+      !result.stdout.trim() &&
+      /^no checks reported on the '[^\r\n]+' branch$/.test(result.stderr.trim())
+    )
+      return { kind: "checks", checks: [] };
     if ([0, 1, 8].includes(result.code) && result.stdout.trim()) {
       try {
         const value = parseJson(result.stdout, "gh pr checks");
@@ -564,9 +570,12 @@ export class GhGitHubReader implements T.GitHubReader {
       at(commit, ["statusCheckRollup", "contexts"]),
       "contexts"
     );
-    const checks = list(contexts.nodes, "contexts.nodes")
+    const nodes = list(contexts.nodes, "contexts.nodes");
+    const checks = nodes
       .map(mapRollupNode)
       .filter((check): check is T.Check => check !== null);
+    if (nodes.length > 0 && checks.length === 0)
+      throw new ChecksUnavailable("GraphQL rollup contained no recognized checks");
     const page = record(contexts.pageInfo, "contexts.pageInfo");
     if (typeof page.hasNextPage !== "boolean")
       missing("contexts.pageInfo.hasNextPage", page.hasNextPage);
@@ -613,7 +622,7 @@ export class GhGitHubReader implements T.GitHubReader {
 export async function resolveChecks(
   reader: T.GitHubReader,
   context: T.PrContext
-): Promise<T.CheckRead> {
+): Promise<T.CheckObservation> {
   const fast = await reader.checksFastPath(context);
   const direct = fast.kind === "checks" ? nonEmpty(fast.checks) : null;
   if (direct !== null) return { source: "gh-pr-checks", checks: direct };
@@ -626,10 +635,8 @@ export async function resolveChecks(
   } while (after !== null);
   const fallback = nonEmpty(checks);
   if (fallback !== null) return { source: "graphql-rollup", checks: fallback };
-  const suffix =
-    fast.kind === "unusable"
-      ? `fast path exit=${fast.exitCode}; GraphQL rollup was empty${firstLine(fast.stderr) ? `; ${firstLine(fast.stderr)}` : ""}`
-      : "fast path and GraphQL rollup were empty";
+  if (fast.kind === "checks") return { source: "empty", checks: [] };
+  const suffix = `fast path exit=${fast.exitCode}; GraphQL rollup was empty${firstLine(fast.stderr) ? `; ${firstLine(fast.stderr)}` : ""}`;
   throw new ChecksUnavailable(`could not read PR checks: ${suffix}`);
 }
 export async function resolveReviewThreads(

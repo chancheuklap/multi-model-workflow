@@ -91,6 +91,11 @@ export interface CheckRead {
   readonly source: "gh-pr-checks" | "graphql-rollup";
   readonly checks: NonEmpty<Check>;
 }
+export interface EmptyCheckRead {
+  readonly source: "empty";
+  readonly checks: readonly [];
+}
+export type CheckObservation = CheckRead | EmptyCheckRead;
 export interface CommitRollup {
   readonly oid: string;
   readonly state: RollupState;
@@ -136,12 +141,28 @@ export type CiPending = CiBase & {
   readonly failed: readonly [];
   readonly pending: NonEmpty<PendingCheck>;
 };
-export type CiClean = CiBase & {
+type CiChecksClean = CiBase & {
   readonly kind: "ci-clean";
   readonly failed: readonly [];
   readonly pending: readonly [];
   readonly github: GitHubMergeAllowed;
 };
+export type CiClean =
+  | CiChecksClean
+  | {
+      readonly kind: "ci-clean";
+      readonly source: "no-checks";
+      readonly all: readonly [];
+      readonly failed: readonly [];
+      readonly pending: readonly [];
+      readonly hadPreviousPassingCi: boolean;
+      readonly github: Extract<
+        GitHubMergeAllowed,
+        { readonly basis: "merge-state" }
+      > & {
+        readonly mergeStateStatus: "CLEAN";
+      };
+  };
 export type CiState = CiFailing | CiGithubRejected | CiPending | CiClean;
 export type PrSnapshot =
   | {
