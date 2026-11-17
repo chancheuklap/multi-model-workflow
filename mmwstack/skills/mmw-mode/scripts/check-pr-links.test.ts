@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, test } from "bun:test";
@@ -43,16 +43,35 @@ writeFileSync(
 	}),
 );
 
+// A stand-in for `gh` that logs its arguments and prints the reply file of the directory FAKE_GH_DIR names.
+// Without a reply file it fails, as `gh` does when the PR cannot be read.
+const fakeBin = join(root, "bin");
+mkdirSync(fakeBin);
+writeFileSync(
+	join(fakeBin, "gh"),
+	'#!/bin/sh\necho "$*" >> "$FAKE_GH_DIR/calls"\n[ -f "$FAKE_GH_DIR/reply.json" ] || exit 1\ncat "$FAKE_GH_DIR/reply.json"\n',
+);
+chmodSync(join(fakeBin, "gh"), 0o755);
+
+type PullRequestReply = { body: string; baseRefName: string; headRefName: string };
+
+const fakeGh = (reply?: PullRequestReply) => {
+	const dir = mkdtempSync(join(root, "gh-"));
+	if (reply) writeFileSync(join(dir, "reply.json"), JSON.stringify(reply));
+	const calls = () => (existsSync(join(dir, "calls")) ? readFileSync(join(dir, "calls"), "utf8").trim().split("\n") : []);
+	return { dir, calls };
+};
+
 type Decision =
 	| { decision: "allow" }
 	| { decision: "deny"; reason: string; fix: string }
 	| { decision: "context"; text: string };
 
-const decide = (stdin: string): Decision => {
+const decide = (stdin: string, gh = fakeGh()): Decision => {
 	const result = spawnSync("node", [checker], {
 		input: stdin,
 		encoding: "utf8",
-		env: { ...process.env, HOOK_REGISTRY: registryFile },
+		env: { ...process.env, HOOK_REGISTRY: registryFile, PATH: `${fakeBin}:${process.env.PATH}`, FAKE_GH_DIR: gh.dir },
 	});
 	expect(result.status).toBe(0);
 	expect(result.stdout.endsWith("\n")).toBe(true);
@@ -60,7 +79,8 @@ const decide = (stdin: string): Decision => {
 	return JSON.parse(result.stdout);
 };
 
-const shell = (command: string, cwd = repo) => decide(JSON.stringify({ harness: "test", kind: "shell", cwd, command }));
+const shell = (command: string, cwd = repo, phase?: "before" | "after", gh?: ReturnType<typeof fakeGh>) =>
+	decide(JSON.stringify({ harness: "test", kind: "shell", cwd, command, phase }), gh);
 
 const heredoc = (text: string) => `gh pr create --title t --body "$(cat <<'EOF'\n${text}\nEOF\n)"`;
 
@@ -244,4 +264,66 @@ test("allows when the default branch cannot be found", () => {
 
 test("allows a command it cannot parse", () => {
 	expect(shell('gh pr create --body "no link').decision).toBe("allow");
+});
+
+const written = (file: string, text: string) => `cat > ${file} <<'EOF'\n${text}\nEOF\ngh pr create --body-file ${file}`;
+
+test("allows before and denies after when the command writes its own body file", () => {
+	const file = join(repo, "late.md");
+	rmSync(file, { force: true });
+	const command = written("late.md", "no link");
+	expect(shell(command, repo, "before").decision).toBe("allow");
+	expect(shell(command, repo, "after").decision).toBe("allow");
+	writeFileSync(file, "no link\n");
+	expect(shell(command, repo, "after").decision).toBe("deny");
+	writeFileSync(file, "Closes #1\n");
+	expect(shell(command, repo, "after").decision).toBe("allow");
+});
+
+test("treats an event without a phase, or with an unknown one, as before", () => {
+	const file = join(repo, "phaseless.md");
+	rmSync(file, { force: true });
+	const event = { harness: "test", kind: "shell", cwd: repo, command: written("phaseless.md", "no link") };
+	const replying = () => fakeGh({ body: "no link", baseRefName: "main", headRefName: "main" });
+	expect(decide(JSON.stringify(event), replying()).decision).toBe("allow");
+	expect(decide(JSON.stringify({ ...event, phase: "unknown" }), replying()).decision).toBe("allow");
+	expect(decide(JSON.stringify({ ...event, phase: "after" }), replying()).decision).toBe("deny");
+});
+
+test("reads the PR after the command when the command does not carry the body", () => {
+	const unlinked = { body: "no link", baseRefName: "main", headRefName: "feat/7-x" };
+	for (const flags of ["--fill", "--web", "--editor", '--body "$(cat notes.md)"', "--body-file -"]) {
+		const gh = fakeGh(unlinked);
+		expect(shell(`gh pr create ${flags}`, ticketedRepo, "after", gh).decision).toBe("deny");
+		expect(gh.calls()).toEqual(["pr view feat/7-x --json body,baseRefName,headRefName"]);
+		expect(shell(`gh pr create ${flags}`, ticketedRepo, "after", fakeGh({ ...unlinked, body: "Closes #7" })).decision).toBe("allow");
+	}
+});
+
+test("does not read the PR before the command runs", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell("gh pr create --fill", ticketedRepo, "before", gh).decision).toBe("allow");
+	expect(shell('gh pr create --body "$(cat notes.md)"', ticketedRepo, undefined, gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+});
+
+test("reads the PR of a registered repository by its head branch and slug", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell("gh pr create --repo owner/other --head feat/7-x --fill", repo, "after", gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual(["pr view feat/7-x --repo owner/other --json body,baseRefName,headRefName"]);
+});
+
+test("allows after the command when the PR cannot be read", () => {
+	expect(shell("gh pr create --fill", ticketedRepo, "after").decision).toBe("allow");
+});
+
+test("allows after the command when the PR it opened does not merge into the default branch", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "feat/parent", headRefName: "feat/7-x" });
+	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
+});
+
+test("does not read the PR after the command when the command carries a readable body", () => {
+	const gh = fakeGh({ body: "Closes #7", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell('gh pr create --body "no link"', ticketedRepo, "after", gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([]);
 });

@@ -234,10 +234,10 @@ const isRegistered = (slug) => registry().some((entry) => entry.slug === slug);
 // The repository a command acts on: the registered one a `--repo` flag names, else the one in `dir`.
 // `repoDir` is where its default branch is read. Null when the flag names an unregistered or unknown repository.
 function resolveTarget(repo, dir) {
-	if (repo === undefined) return { slug: slugOf(git(dir, ["remote", "get-url", "origin"])), repoDir: dir };
+	if (repo === undefined) return { slug: slugOf(git(dir, ["remote", "get-url", "origin"])), repoDir: dir, flagged: false };
 	const slug = typeof repo === "string" ? repo.toLowerCase() : null;
 	const entry = registry().find((candidate) => candidate.slug === slug);
-	return entry ? { slug, repoDir: entry.path } : null;
+	return entry ? { slug, repoDir: entry.path, flagged: true } : null;
 }
 
 function readBodyFile(file, dir) {
@@ -267,6 +267,9 @@ function readFlags(args) {
 	}
 	return given;
 }
+
+// The body the command carries, or null when its text is not known before the command runs.
+const commandBody = (given, dir) => (given.body !== undefined ? given.body : readBodyFile(given.bodyFile, dir));
 
 // The ticket number a branch named `<type>/<issue>-<slug>` carries, else null.
 function branchTicket(head) {
@@ -313,19 +316,42 @@ function denial(judgment, branch, ticket, head) {
 	};
 }
 
-function checkCreate(args, dir) {
+// The PR as GitHub holds it, or null when it cannot be read within the hook's budget.
+function readPullRequest(selector, target, dir) {
+	const args = ["pr", "view", ...(selector === null ? [] : [selector]), ...(target.flagged ? ["--repo", target.slug] : [])];
+	try {
+		const output = execFileSync("gh", [...args, "--json", "body,baseRefName,headRefName"], {
+			cwd: dir ?? undefined,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+			timeout: 1500,
+		});
+		const { body, baseRefName, headRefName } = JSON.parse(output);
+		return typeof baseRefName === "string" && typeof headRefName === "string" ? { body: body ?? "", baseRefName, headRefName } : null;
+	} catch {
+		return null;
+	}
+}
+
+function checkCreate(args, { dir, phase }) {
 	const given = readFlags(args);
 	const target = resolveTarget(given.repo, dir);
-	if (target === null || given.fill) return ALLOW;
+	if (target === null) return ALLOW;
 
 	const branch = defaultBranch(target.repoDir);
 	const base = given.base === undefined ? branch : given.base;
 	if (branch === null || base !== branch) return ALLOW;
 
-	const body = given.body !== undefined ? given.body : readBodyFile(given.bodyFile, dir);
-	if (body === null) return ALLOW;
-
 	const head = given.head === undefined ? currentBranch(dir) : (given.head?.split(":").pop() ?? null);
+	let body = given.fill ? null : commandBody(given, dir);
+	if (body === null) {
+		// Before the command runs, a body it writes or computes does not exist yet. After it runs, GitHub holds the real one.
+		if (phase === "before" || head === null) return ALLOW;
+		const pr = readPullRequest(head, target, dir);
+		if (pr === null || pr.baseRefName !== branch) return ALLOW;
+		body = pr.body;
+	}
+
 	const ticket = branchTicket(head);
 	const judgment = judgeBody(body, ticket, target);
 	return judgment === "linked" ? ALLOW : denial(judgment, branch, ticket, head);
@@ -333,12 +359,13 @@ function checkCreate(args, dir) {
 
 function decide(event) {
 	if (event.kind !== "shell" || typeof event.command !== "string" || typeof event.cwd !== "string") return ALLOW;
+	const phase = event.phase === "after" ? "after" : "before";
 	let dir = event.cwd;
 	for (const { words } of parse(event.command, 0, false).commands) {
 		if (words[0] === "cd") {
 			dir = cdTarget(dir, words);
 		} else if (CREATE_COMMANDS.some((command) => command.every((part, k) => words[k] === part))) {
-			const decision = checkCreate(words.slice(3), dir);
+			const decision = checkCreate(words.slice(3), { dir, phase });
 			if (decision.decision === "deny") return decision;
 		}
 	}
