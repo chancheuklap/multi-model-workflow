@@ -34,22 +34,29 @@ const ticketedRepo = join(root, "ticketed");
 initRepo(ticketedRepo, "git@github.com:owner/ticketed.git");
 execFileSync("git", ["-C", ticketedRepo, "symbolic-ref", "HEAD", "refs/heads/feat/7-x"]);
 
-const registryFile = join(root, "registry.json");
-writeFileSync(
-	registryFile,
-	JSON.stringify({
-		home: { name: "home", path: homeRepo, remote: "git@github.com:owner/home.git", integration: "main" },
-		repos: [{ name: "other", path: registeredRepo, remote: "https://github.com/owner/other.git", integration: "main" }],
-	}),
-);
+// The registry writes some paths as `~/...`; the checker runs with HOME set to the fixture root so they resolve here.
+const tildeRepo = join(root, "tilde-repo");
+initRepo(tildeRepo, "https://github.com/owner/tilde.git");
 
-// A stand-in for `gh` that logs its arguments and prints the reply file of the directory FAKE_GH_DIR names.
-// Without a reply file it fails, as `gh` does when the PR cannot be read.
+const registry = {
+	home: { name: "home", path: homeRepo, remote: "git@github.com:owner/home.git", integration: "main" },
+	repos: [
+		{ name: "other", path: registeredRepo, remote: "https://github.com/owner/other.git", integration: "main" },
+		{ name: "tilde", path: "~/tilde-repo", remote: "https://github.com/owner/tilde.git", integration: "main" },
+	],
+};
+const registryFile = join(root, "registry.json");
+writeFileSync(registryFile, JSON.stringify(registry));
+mkdirSync(join(root, ".agents", "repos"), { recursive: true });
+writeFileSync(join(root, ".agents", "repos", "registry.json"), JSON.stringify(registry));
+
+// A stand-in for `gh` that logs its arguments and prints the reply file of the directory FAKE_GH_DIR names,
+// after the seconds its `delay` file holds. Without a reply file it fails, as `gh` does when the PR cannot be read.
 const fakeBin = join(root, "bin");
 mkdirSync(fakeBin);
 writeFileSync(
 	join(fakeBin, "gh"),
-	'#!/bin/sh\necho "$*" >> "$FAKE_GH_DIR/calls"\n[ -f "$FAKE_GH_DIR/reply.json" ] || exit 1\ncat "$FAKE_GH_DIR/reply.json"\n',
+	'#!/bin/sh\necho "$*" >> "$FAKE_GH_DIR/calls"\n[ -f "$FAKE_GH_DIR/delay" ] && sleep "$(cat "$FAKE_GH_DIR/delay")"\n[ -f "$FAKE_GH_DIR/reply.json" ] || exit 1\ncat "$FAKE_GH_DIR/reply.json"\n',
 );
 chmodSync(join(fakeBin, "gh"), 0o755);
 
@@ -67,11 +74,13 @@ type Decision =
 	| { decision: "deny"; reason: string; fix: string }
 	| { decision: "context"; text: string };
 
-const decide = (stdin: string, gh = fakeGh()): Decision => {
+type Env = Record<string, string | undefined>;
+
+const decide = (stdin: string, gh = fakeGh(), env: Env = {}): Decision => {
 	const result = spawnSync("node", [checker], {
 		input: stdin,
 		encoding: "utf8",
-		env: { ...process.env, HOOK_REGISTRY: registryFile, PATH: `${fakeBin}:${process.env.PATH}`, FAKE_GH_DIR: gh.dir },
+		env: { ...process.env, HOME: root, HOOK_REGISTRY: registryFile, PATH: `${fakeBin}:${process.env.PATH}`, FAKE_GH_DIR: gh.dir, ...env },
 	});
 	expect(result.status).toBe(0);
 	expect(result.stdout.endsWith("\n")).toBe(true);
@@ -157,16 +166,30 @@ test("allows when the final body is not the body argument", () => {
 	}
 });
 
+test("reads registry paths written with a leading ~", () => {
+	expect(shell('gh pr create --repo owner/tilde --body "no link"', plainDirectory).decision).toBe("deny");
+});
+
+test("reads ~/.agents/repos/registry.json when HOOK_REGISTRY is not set", () => {
+	const event = JSON.stringify({ harness: "test", kind: "shell", cwd: repo, command: 'gh pr create --repo owner/other --body "no link"' });
+	expect(decide(event, fakeGh(), { HOOK_REGISTRY: undefined }).decision).toBe("deny");
+});
+
+test("allows a PR that targets another repository when the registry cannot be read", () => {
+	const event = JSON.stringify({ harness: "test", kind: "shell", cwd: repo, command: 'gh pr create --repo owner/other --body "no link"' });
+	expect(decide(event, fakeGh(), { HOOK_REGISTRY: join(root, "missing.json") }).decision).toBe("allow");
+});
+
 test("allows a PR that targets a repository the registry does not list", () => {
 	for (const flag of ["-R other/repo", "-Rother/repo", "--repo other/repo", "--repo=other/repo", "--repo $REPO"]) {
 		expect(shell(`gh pr create ${flag} --body "no link"`).decision).toBe("allow");
 	}
 });
 
-test("checks a PR that targets a registered repository", () => {
+test("checks a PR that targets a registered repository, however the flag is written", () => {
 	for (const flag of ["-R owner/other", "-Rowner/other", "--repo owner/other", "--repo=owner/other", "--repo Owner/Other"]) {
-		expect(shell(`gh pr create ${flag} --base main --body "no link"`).decision).toBe("deny");
-		expect(shell(`gh pr create ${flag} --base main --body "Closes #1"`).decision).toBe("allow");
+		expect(shell(`gh pr create ${flag} --base main --body "no link"`, plainDirectory).decision).toBe("deny");
+		expect(shell(`gh pr create ${flag} --base main --body "Closes #1"`, plainDirectory).decision).toBe("allow");
 	}
 });
 
@@ -272,7 +295,9 @@ test("allows before and denies after when the command writes its own body file",
 	const file = join(repo, "late.md");
 	rmSync(file, { force: true });
 	const command = written("late.md", "no link");
-	expect(shell(command, repo, "before").decision).toBe("allow");
+	const before = fakeGh({ body: "no link", baseRefName: "main", headRefName: "main" });
+	expect(shell(command, repo, "before", before).decision).toBe("allow");
+	expect(before.calls()).toEqual([]);
 	expect(shell(command, repo, "after").decision).toBe("allow");
 	writeFileSync(file, "no link\n");
 	expect(shell(command, repo, "after").decision).toBe("deny");
@@ -294,7 +319,9 @@ test("reads the PR after the command when the command does not carry the body", 
 	const unlinked = { body: "no link", baseRefName: "main", headRefName: "feat/7-x" };
 	for (const flags of ["--fill", "--web", "--editor", '--body "$(cat notes.md)"', "--body-file -"]) {
 		const gh = fakeGh(unlinked);
-		expect(shell(`gh pr create ${flags}`, ticketedRepo, "after", gh).decision).toBe("deny");
+		const result = shell(`gh pr create ${flags}`, ticketedRepo, "after", gh);
+		expect(result.decision).toBe("deny");
+		if (result.decision === "deny") expect(result.fix).toContain("gh pr edit feat/7-x --body-file");
 		expect(gh.calls()).toEqual(["pr view feat/7-x --json body,baseRefName,headRefName"]);
 		expect(shell(`gh pr create ${flags}`, ticketedRepo, "after", fakeGh({ ...unlinked, body: "Closes #7" })).decision).toBe("allow");
 	}
@@ -317,6 +344,12 @@ test("allows after the command when the PR cannot be read", () => {
 	expect(shell("gh pr create --fill", ticketedRepo, "after").decision).toBe("allow");
 });
 
+test("allows when gh does not answer within the time the hook can spend", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
+	writeFileSync(join(gh.dir, "delay"), "4");
+	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
+});
+
 test("allows after the command when the PR it opened does not merge into the default branch", () => {
 	const gh = fakeGh({ body: "no link", baseRefName: "feat/parent", headRefName: "feat/7-x" });
 	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
@@ -326,4 +359,92 @@ test("does not read the PR after the command when the command carries a readable
 	const gh = fakeGh({ body: "Closes #7", baseRefName: "main", headRefName: "feat/7-x" });
 	expect(shell('gh pr create --body "no link"', ticketedRepo, "after", gh).decision).toBe("deny");
 	expect(gh.calls()).toEqual([]);
+});
+
+const viewing = (body: string, headRefName = "feat/7-x", baseRefName = "feat/parent") => fakeGh({ body, baseRefName, headRefName });
+const VIEW = "--json body,baseRefName,headRefName";
+
+test("denies retargeting a PR onto the default branch when its current body does not close the branch ticket", () => {
+	const gh = viewing("no link");
+	const result = shell("gh pr edit 5 --base main", repo, undefined, gh);
+	expect(result.decision).toBe("deny");
+	if (result.decision !== "deny") return;
+	expect(result.reason).toContain("retargeted onto the default branch `main`");
+	expect(result.reason).toContain("#7");
+	expect(result.fix).toContain("`Closes #7`");
+	expect(result.fix).toContain("without asking the owner");
+	expect(result.fix).not.toContain("\n");
+	expect(gh.calls()).toEqual([`pr view 5 ${VIEW}`]);
+});
+
+test("allows retargeting onto the default branch when the current body closes the branch ticket", () => {
+	expect(shell("gh pr edit 5 --base main", repo, undefined, viewing("Closes #7")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 -B main", repo, undefined, viewing("Closes #7")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 --base=main", repo, undefined, viewing("owner/other#7")).decision).toBe("allow");
+});
+
+test("denies retargeting when the current body closes only another ticket", () => {
+	const result = shell("gh pr edit 5 --base main", repo, undefined, viewing("Closes #8"));
+	expect(result.decision).toBe("deny");
+	if (result.decision !== "deny") return;
+	expect(result.reason).toContain("names a different ticket");
+});
+
+test("allows retargeting onto any base that is not the default branch without reading the PR", () => {
+	for (const command of ["gh pr edit 5 --base feat/parent", "gh pr edit 5 --title t", "gh pr edit 5 --body 'no link'"]) {
+		const gh = viewing("no link");
+		expect(shell(command, repo, undefined, gh).decision).toBe("allow");
+		expect(gh.calls()).toEqual([]);
+	}
+});
+
+test("checks the body an edit sets instead of the current body, and still reads the head branch", () => {
+	const gh = viewing("Closes #7");
+	expect(shell('gh pr edit 5 --base main --body "no link"', repo, undefined, gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([`pr view 5 ${VIEW}`]);
+	expect(shell('gh pr edit 5 --base main --body "Closes #7"', repo, undefined, viewing("no link")).decision).toBe("allow");
+});
+
+test("reads the body file an edit sets from the directory the command runs in", () => {
+	writeFileSync(join(repo, "edit-linked.md"), "Closes #7\n");
+	writeFileSync(join(repo, "edit-unlinked.md"), "no link\n");
+	expect(shell("gh pr edit 5 --base main --body-file edit-linked.md", repo, undefined, viewing("no link")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 --base main -F edit-unlinked.md", repo, undefined, viewing("Closes #7")).decision).toBe("deny");
+});
+
+test("waits for the PR after the command when an edit sets a body it cannot read yet", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "before", gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", gh).decision).toBe("deny");
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", viewing("Closes #7")).decision).toBe("allow");
+});
+
+test("reads the PR of a registered repository by its slug when editing", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit 5 --repo owner/other --base main", plainDirectory, undefined, gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([`pr view 5 --repo owner/other ${VIEW}`]);
+});
+
+test("allows editing a PR of an unregistered repository without reading it", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit 5 --repo other/repo --base main", repo, undefined, gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+});
+
+test("reads the PR of the current branch when the edit names none", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit --base main", repo, undefined, gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([`pr view ${VIEW}`]);
+});
+
+test("allows an edit whose PR the shell chooses or whose PR cannot be read", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit $PR --base main", repo, undefined, gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+	expect(shell("gh pr edit 5 --base main").decision).toBe("allow");
+});
+
+test("allows an edit when the default branch cannot be found", () => {
+	expect(shell("gh pr edit 5 --base main", plainDirectory, undefined, viewing("no link")).decision).toBe("allow");
 });

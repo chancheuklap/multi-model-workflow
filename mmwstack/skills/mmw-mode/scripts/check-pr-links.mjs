@@ -9,9 +9,10 @@ const ALLOW = { decision: "allow" };
 const REFERENCE = /(?:\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+)?(?:([\w.-]+\/[\w.-]+))?#(\d+)/gi;
 const BRANCH_TICKET = /^(?:feat|fix|docs|chore|refactor|test|ci|perf|revert)\/(\d+)-/;
 const REMOTE_SLUG = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/;
-const CREATE_COMMANDS = [
-	["gh", "pr", "create"],
-	["origin", "pr", "create"],
+const PR_COMMANDS = [
+	{ action: "create", words: ["gh", "pr", "create"] },
+	{ action: "create", words: ["origin", "pr", "create"] },
+	{ action: "edit", words: ["gh", "pr", "edit"] },
 ];
 const FLAGS_WITHOUT_FINAL_BODY = new Set(["--fill", "-f", "--fill-first", "--fill-verbose", "--web", "-w", "--editor", "-e"]);
 const VALUE_FLAGS = new Map([
@@ -258,18 +259,28 @@ function readFlags(args) {
 	const given = {};
 	for (let k = 0; k < args.length; k++) {
 		const arg = args[k];
-		if (typeof arg !== "string") continue;
+		if (typeof arg !== "string") {
+			given.selector ??= null;
+			continue;
+		}
 		const eq = arg.startsWith("--") ? arg.indexOf("=") : -1;
 		const key = VALUE_FLAGS.get(eq === -1 ? arg : arg.slice(0, eq));
 		if (key) given[key] = (eq === -1 ? args[++k] : arg.slice(eq + 1)) ?? null;
 		else if (arg.startsWith("-R") && arg.length > 2) given.repo = arg.slice(2);
 		else if (FLAGS_WITHOUT_FINAL_BODY.has(arg)) given.fill = true;
+		else if (!arg.startsWith("-")) given.selector ??= arg;
 	}
 	return given;
 }
 
 // The body the command carries, or null when its text is not known before the command runs.
 const commandBody = (given, dir) => (given.body !== undefined ? given.body : readBodyFile(given.bodyFile, dir));
+
+// The branch a `gh pr create` opens the PR from: `--head`, else the checked-out branch.
+function createHead(given, dir) {
+	if (given.head === undefined) return currentBranch(dir);
+	return given.head === null ? null : given.head.split(":").pop();
+}
 
 // The ticket number a branch named `<type>/<issue>-<slug>` carries, else null.
 function branchTicket(head) {
@@ -296,29 +307,29 @@ function judgeBody(body, ticket, target) {
 	return references.some((ref) => ref.closing) ? "different" : "missing";
 }
 
-function denial(judgment, branch, ticket, head) {
-	const merge = `This PR merges into the default branch \`${branch}\``;
+function denial(judgment, { action, phase, branch, ticket, head }) {
+	const merge = action === "edit" ? "This PR is retargeted onto" : "This PR merges into";
+	const prefix = `${merge} the default branch \`${branch}\``;
+	const line = ticket === null ? "a line `Closes #<issue>` for each issue this PR completes" : `a line \`Closes #${ticket}\``;
+	const elsewhere = ticket === null ? "" : ` (name \`owner/repo#${ticket}\` instead when that ticket lives in another registered repository)`;
+	let where = "to the body and run the command again";
+	if (phase === "after") where = `to the PR body with \`gh pr edit ${head ?? "<pr>"} --body-file <file>\`, keeping the PR's current text`;
+	else if (action === "edit") where = "to the body that `--body` or `--body-file` sets, keeping the PR's current text, and run the command again";
+	const fix = `Add ${line} ${where}${elsewhere}; handle this yourself without asking the owner.`;
+
 	if (ticket === null) {
-		return {
-			decision: "deny",
-			reason: `${merge}, where GitHub closes issues from closing keywords, and the body has none.`,
-			fix: "Add a line `Closes #<issue>` to the body for each issue this PR completes, then run the same command again; handle this yourself without asking the owner.",
-		};
+		return { decision: "deny", reason: `${prefix}, where GitHub closes issues from closing keywords, and the body has none.`, fix };
 	}
 	const reason =
 		judgment === "different"
-			? `${merge}, and its body names a different ticket than #${ticket}, which branch \`${head}\` carries.`
-			: `${merge}, where GitHub closes issues from closing keywords, and the body does not close ticket #${ticket}, which branch \`${head}\` carries.`;
-	return {
-		decision: "deny",
-		reason,
-		fix: `Add a line \`Closes #${ticket}\` to the body, or \`owner/repo#${ticket}\` naming its repository when that ticket lives in another registered repository, then run the same command again; handle this yourself without asking the owner.`,
-	};
+			? `${prefix}, and its body names a different ticket than #${ticket}, which branch \`${head}\` carries.`
+			: `${prefix}, where GitHub closes issues from closing keywords, and the body does not close ticket #${ticket}, which branch \`${head}\` carries.`;
+	return { decision: "deny", reason, fix };
 }
 
 // The PR as GitHub holds it, or null when it cannot be read within the hook's budget.
 function readPullRequest(selector, target, dir) {
-	const args = ["pr", "view", ...(selector === null ? [] : [selector]), ...(target.flagged ? ["--repo", target.slug] : [])];
+	const args = ["pr", "view", ...(selector === undefined ? [] : [selector]), ...(target.flagged ? ["--repo", target.slug] : [])];
 	try {
 		const output = execFileSync("gh", [...args, "--json", "body,baseRefName,headRefName"], {
 			cwd: dir ?? undefined,
@@ -333,28 +344,34 @@ function readPullRequest(selector, target, dir) {
 	}
 }
 
-function checkCreate(args, { dir, phase }) {
+function checkPr(action, args, { dir, phase }) {
 	const given = readFlags(args);
 	const target = resolveTarget(given.repo, dir);
 	if (target === null) return ALLOW;
 
+	const edit = action === "edit";
 	const branch = defaultBranch(target.repoDir);
-	const base = given.base === undefined ? branch : given.base;
+	const base = given.base === undefined && !edit ? branch : given.base;
 	if (branch === null || base !== branch) return ALLOW;
 
-	const head = given.head === undefined ? currentBranch(dir) : (given.head?.split(":").pop() ?? null);
+	let head = edit ? null : createHead(given, dir);
 	let body = given.fill ? null : commandBody(given, dir);
-	if (body === null) {
+	// An edit that sets no body leaves the PR's current body in force, so that is the body to check.
+	const keepsBody = edit && given.body === undefined && given.bodyFile === undefined;
+	if (body === null && phase === "before" && !keepsBody) return ALLOW;
+	if (body === null || edit) {
 		// Before the command runs, a body it writes or computes does not exist yet. After it runs, GitHub holds the real one.
-		if (phase === "before" || head === null) return ALLOW;
-		const pr = readPullRequest(head, target, dir);
-		if (pr === null || pr.baseRefName !== branch) return ALLOW;
-		body = pr.body;
+		const selector = edit ? given.selector : head;
+		if (selector === null) return ALLOW;
+		const pr = readPullRequest(selector, target, dir);
+		if (pr === null || (!edit && pr.baseRefName !== branch)) return ALLOW;
+		body ??= pr.body;
+		head ??= pr.headRefName;
 	}
 
 	const ticket = branchTicket(head);
 	const judgment = judgeBody(body, ticket, target);
-	return judgment === "linked" ? ALLOW : denial(judgment, branch, ticket, head);
+	return judgment === "linked" ? ALLOW : denial(judgment, { action, phase, branch, ticket, head });
 }
 
 function decide(event) {
@@ -364,8 +381,9 @@ function decide(event) {
 	for (const { words } of parse(event.command, 0, false).commands) {
 		if (words[0] === "cd") {
 			dir = cdTarget(dir, words);
-		} else if (CREATE_COMMANDS.some((command) => command.every((part, k) => words[k] === part))) {
-			const decision = checkCreate(words.slice(3), { dir, phase });
+		} else {
+			const command = PR_COMMANDS.find(({ words: expected }) => expected.every((part, k) => words[k] === part));
+			const decision = command ? checkPr(command.action, words.slice(3), { dir, phase }) : ALLOW;
 			if (decision.decision === "deny") return decision;
 		}
 	}
