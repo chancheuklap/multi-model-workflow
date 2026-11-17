@@ -181,6 +181,45 @@ test('SIGINT stops the running check, its process group and its lock', async t =
   assert.deepEqual(readdirSync(cache).filter(name=>!name.startsWith('.')),[]);
 });
 
+test('SIGINT never retries a check or leaves its lock blocking the next run', async t => {
+  const { f } = setup(t, (c, f) => {
+    c.checks[0].retry = 1;
+    c.checks[0].lock = 'interrupt-retry-lock';
+    c.checks[0].run = `echo $$ >> ${quote(join(f.home, 'pids'))}; if [ ! -f ${quote(join(f.home, 'fast'))} ]; then sleep 30 & echo $! >> ${quote(join(f.home, 'pids'))}; wait; fi`;
+  });
+  const pids = () => readFileSync(join(f.home, 'pids'), 'utf8').trim().split('\n').map(Number);
+  const active = f.start(['--all']);
+  try {
+    await active.until(/SELECT unit/);
+    const deadline = Date.now() + 10000;
+    while ((!existsSync(join(f.home, 'pids')) || pids().length < 2) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(pids().length, 2);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    active.child.kill('SIGINT');
+    const result = await active.done;
+    assert.equal(result.status, 130, result.stdout + result.stderr);
+    for (const pid of pids()) assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+    const cache = process.platform === 'darwin'
+      ? join(f.home, 'Library/Caches/repo-checks/locks')
+      : join(f.env.XDG_CACHE_HOME, 'repo-checks/locks');
+    assert.deepEqual(readdirSync(cache).filter(name => !name.startsWith('.')), []);
+    assert.equal(pids().length, 2, 'An interrupted attempt must not be retried');
+    f.write('../home/fast', '');
+    const next = f.cli('--all');
+    assert.equal(next.status, 0, next.stdout + next.stderr);
+    assert.doesNotMatch(next.stdout, /WAIT /);
+    assert.ok(next.elapsed_ms < 3000, `Next run took ${next.elapsed_ms} ms`);
+    assert.equal(pids().length, 3);
+  } finally {
+    if (existsSync(join(f.home, 'pids'))) for (const pid of pids()) {
+      try { process.kill(pid, 'SIGKILL'); }
+      catch (error) { if (error.code !== 'ESRCH') throw error; }
+    }
+  }
+});
+
 test('prepare runs before needs, rechecks its lease and hashes stamp paths and bytes', async t => {
   const { f, c } = setup(t, (c, f) => {
     f.write('.gitignore', 'installed/\n');

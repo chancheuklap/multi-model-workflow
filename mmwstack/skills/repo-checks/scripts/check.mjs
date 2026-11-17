@@ -790,7 +790,7 @@ async function worker(task) {
       type: 'event', event: { type: 'RUNNING', id: task.id, seconds: (performance.now() - start) / 1000 },
     }), 19000);
     const attempts = [];
-    for (let i = 0; i <= task.retry; i++) {
+    for (let i = 0; i <= task.retry && !cancelled; i++) {
       const attempt = await commandProcess(task.command, task.timeout, task.log);
       attempts.push(attempt);
       if (attempt.exit_code === 0 && !attempt.reason) break;
