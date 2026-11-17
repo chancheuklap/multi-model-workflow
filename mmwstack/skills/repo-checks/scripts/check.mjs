@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { accessSync, closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
+import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const configPath = '.agents/checks.json';
 
@@ -326,29 +328,382 @@ function lint(schema) {
   return { mode: 'lint', ok: findings.length === 0, exit_code: findings.length ? 1 : 0, findings };
 }
 
+const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
+
+class RequestError extends Error {
+  constructor(message, rule = 'request') {
+    super(message);
+    this.rule = rule;
+  }
+}
+
+function parseRequest(args) {
+  const request = { scope: 'changed', only: null, base: null };
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--all') request.scope = 'all';
+    else if ((arg === '--only' || arg === '--base') && args[i + 1] && !args[i + 1].startsWith('-')) {
+      const value = args[++i];
+      if (arg === '--base') request.base = value;
+      else {
+        const ids = value.split(',');
+        if (ids.some(id => !id || /\s/.test(id))) throw new RequestError('--only requires comma-separated check ids', 'usage');
+        request.only = [...new Set([...(request.only ?? []), ...ids])];
+      }
+    } else throw new RequestError(`Invalid argument ${JSON.stringify(arg)}. Use --help.`, 'usage');
+  }
+  return request;
+}
+
+function git(...args) {
+  return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function changedNames(output) {
+  const fields = output.split('\0');
+  const paths = [];
+  for (let i = 0; i < fields.length && fields[i];) {
+    const status = fields[i++];
+    paths.push(fields[i++]);
+    if (/^[RC]/.test(status)) paths.push(fields[i++]);
+  }
+  return paths;
+}
+
+function newRun() {
+  return {
+    mode: 'run', ok: false, exit_code: 70, record_version: 1,
+    request: { scope: 'changed', only: null, base: null },
+    selection: [], results: [], summary: { selected: 0, passed: 0, failed: 0, skipped: 0, blocked: 0 },
+    lanes: [], events: [], timing: { select_ms: 0 }, preparation_stamp: null,
+  };
+}
+
+function fetchIntegration(integration) {
+  return new Promise((resolveFetch, reject) => {
+    const child = spawn('git', [
+      '-c', 'credential.interactive=false', '-c', 'maintenance.auto=false',
+      'fetch', '--no-tags', '--no-recurse-submodules', '--refmap=', 'origin',
+      `+refs/heads/${integration}:refs/remotes/origin/${integration}`,
+    ], { stdio: 'ignore', detached: process.platform !== 'win32', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    const timer = setTimeout(() => {
+      try {
+        if (process.platform === 'win32') {
+          const killed = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', timeout: 2000 });
+          if (killed.error) throw killed.error;
+          child.kill('SIGKILL');
+        } else process.kill(-child.pid, 'SIGKILL');
+      } catch (error) {
+        if (error.code !== 'ESRCH') reject(error);
+      }
+    }, 2500);
+    child.once('error', error => { clearTimeout(timer); reject(error); });
+    child.once('close', code => { clearTimeout(timer); resolveFetch(code === 0); });
+  });
+}
+
+async function collectChanges(config, facts) {
+  const remote = `refs/remotes/origin/${config.integration}`;
+  const validRef = spawnSync('git', ['check-ref-format', `refs/heads/${config.integration}`], { stdio: 'ignore' });
+  if (validRef.error) throw validRef.error;
+  if (validRef.status !== 0 || config.integration === 'HEAD') throw new RequestError(`Invalid integration branch ${JSON.stringify(config.integration)}`);
+  facts.timing.fetch_ms = 0;
+  if (!facts.request.base) {
+    const fetchStart = performance.now();
+    const fetched = await fetchIntegration(config.integration);
+    facts.timing.fetch_ms = performance.now() - fetchStart;
+    if (!fetched) facts.events.push({
+      type: 'BASE', ref: remote, fallback: true,
+      reason: `fetch failed; using local ${remote}`,
+    });
+  }
+  const start = performance.now();
+  const invalidIntegration = facts.request.base ? [] : integrationFindings(config);
+  if (invalidIntegration.length) throw new RequestError(invalidIntegration[0].message);
+  facts.identity = {
+    worktree: git('rev-parse', '--show-toplevel').trim(),
+    head: git('rev-parse', 'HEAD').trim(),
+    tree: git('rev-parse', 'HEAD^{tree}').trim(),
+    config_hash: hash(readFileSync(configPath)),
+    engine_hash: hash(readFileSync(new URL(import.meta.url))),
+  };
+  facts.identity.engine_version = facts.identity.engine_hash;
+  const ref = facts.request.base ?? remote;
+  let base;
+  try { base = git('merge-base', 'HEAD', ref).trim(); }
+  catch (error) {
+    if (!error.status) throw error;
+    throw new RequestError(`Cannot find merge base with ${ref}: ${error.stderr?.toString().trim()}`);
+  }
+  facts.base = { ref, commit: base };
+  const diff = (...range) => changedNames(git('diff', '--name-status', '-z', '--find-renames', ...range, '--'));
+  const committed = diff(base, 'HEAD');
+  const staged = diff('--cached');
+  const unstaged = diff();
+  const untracked = git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean);
+  facts.changed_paths = [...new Set([...committed, ...staged, ...unstaged, ...untracked])].sort();
+  facts.identity.dirty = staged.length + unstaged.length + untracked.length > 0;
+  facts.timing.select_ms += performance.now() - start;
+}
+
+function expandCommand(template, scope) {
+  if (scope.kind === 'whole') return template;
+  return template.replace(/\{(files|tests)\}/g, (_, list) => scope[list].map(shellQuote).join(' '));
+}
+
+function selectorTests(check, files, facts) {
+  const command = expandCommand(check.select, { kind: 'narrowed', files, tests: [] });
+  const start = performance.now();
+  let result;
+  try {
+    result = spawnSync(command, { shell: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  } finally {
+    facts.timing.selector_ms += performance.now() - start;
+  }
+  if (result.error) {
+    if (result.error.code !== 'ENOBUFS') throw result.error;
+    throw new RequestError(`Selector ${check.id}: output exceeds 16 MiB`);
+  }
+  if (result.status !== 0) throw new RequestError(`Selector ${check.id} failed (${result.status ?? result.signal}): ${result.stderr.trim()}`);
+  let tests;
+  try { tests = JSON.parse(result.stdout); }
+  catch { throw new RequestError(`Selector ${check.id}: stdout must be a JSON array of test paths`); }
+  if (!Array.isArray(tests)) throw new RequestError(`Selector ${check.id}: expected a JSON array of test paths`);
+  const belongs = patternsMatch(check.tests);
+  for (const path of tests) {
+    if (typeof path !== 'string' || !/^(?!\/|[A-Za-z]:)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\0]+$/.test(path) || !belongs(path)) {
+      throw new RequestError(`Selector ${check.id}: invalid or unclaimed test path ${JSON.stringify(path)}`);
+    }
+    if (existsSync(path)) {
+      const destination = relative(realpathSync('.'), realpathSync(path));
+      if (isAbsolute(destination) || destination === '..' || destination.startsWith(`..${sep}`)) {
+        throw new RequestError(`Selector ${check.id}: test path escapes repository ${JSON.stringify(path)}`);
+      }
+    }
+  }
+  return [...new Set(tests)];
+}
+
+function selectChecks(config, facts) {
+  const start = performance.now();
+  facts.timing.selector_ms = 0;
+  try {
+    const affects = patternsMatch(config.affects_all);
+    const classified = patternsMatch([
+      ...config.inert, ...config.affects_all,
+      ...config.checks.flatMap(check => [...check.inputs, ...(check.sources ?? [])]),
+    ]);
+    let widened;
+    if (facts.request.scope !== 'all') {
+      for (const path of facts.changed_paths) {
+        let reason;
+        if (affects(path)) reason = `affects_all ${path}`;
+        else if (!classified(path)) {
+          facts.events.push({ type: 'UNCLASSIFIED', path });
+          reason = `UNCLASSIFIED ${path}`;
+        }
+        if (reason) {
+          widened ??= reason;
+          facts.events.push({ type: 'WIDEN', reason, path });
+        }
+      }
+    }
+    facts.selection = config.checks.flatMap(check => {
+      if (facts.request.only && !facts.request.only.includes(check.id)) return [];
+      if (facts.request.scope === 'all' || widened) return [{
+        check, reason: facts.request.scope === 'all' ? '--all' : widened, scope: { kind: 'whole' },
+      }];
+      const match = patternsMatch(check.inputs);
+      const path = facts.changed_paths.find(match);
+      if (path) return [{ check, reason: `inputs ${path}`, scope: { kind: 'whole' } }];
+      const files = facts.changed_paths.filter(patternsMatch(check.sources ?? []));
+      if (!files.length) return [];
+      const tests = selectorTests(check, files, facts);
+      return tests.length ? [{ check, reason: `sources ${files[0]}`, scope: { kind: 'narrowed', files, tests } }] : [];
+    });
+    facts.events.push(...facts.selection.map(({ check, reason }) => ({ type: 'SELECT', id: check.id, reason })));
+  } finally {
+    facts.timing.select_ms += performance.now() - start - facts.timing.selector_ms;
+  }
+}
+
+function runStorage(facts) {
+  const common = resolve(git('rev-parse', '--git-common-dir').trim());
+  const folder = join(common, 'repo-checks', hash(facts.identity.worktree).slice(0, 24));
+  const id = `${Date.now()}-${randomUUID()}`;
+  const logs = join(folder, 'logs', id);
+  const records = join(folder, 'records');
+  mkdirSync(logs, { recursive: true });
+  mkdirSync(records, { recursive: true });
+  facts.storage = { worktree_dir: folder, record: join(records, `${id}.json`), logs };
+}
+
+function commandExists(name) {
+  const extensions = process.platform === 'win32' ? ['', ...(process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';')] : [''];
+  for (const folder of (process.env.PATH ?? '').split(delimiter)) {
+    for (const extension of extensions) {
+      const path = join(folder, `${name}${extension}`);
+      try {
+        accessSync(path, constants.X_OK);
+        if (statSync(path).isFile()) return true;
+      } catch (error) {
+        if (!['ENOENT', 'ENOTDIR', 'EACCES'].includes(error.code)) throw error;
+      }
+    }
+  }
+  return false;
+}
+
+function needSatisfied(need) {
+  if (need === 'docker') {
+    const probe = spawnSync('docker', ['info'], { stdio: 'ignore', timeout: 2500 });
+    if (probe.error && !['ENOENT', 'ETIMEDOUT'].includes(probe.error.code)) throw probe.error;
+    return probe.status === 0;
+  }
+  const colon = need.indexOf(':');
+  const kind = need.slice(0, colon);
+  const value = need.slice(colon + 1);
+  if (kind === 'cmd') return commandExists(value);
+  if (kind === 'os') return (process.platform === 'win32' ? 'windows' : process.platform) === value;
+  if (kind === 'env') return Object.hasOwn(process.env, value);
+  if (kind === 'path') return existsSync(value);
+  throw new Error(`Unknown need ${need}`);
+}
+
+function executeSerial(facts) {
+  for (const { check, scope } of facts.selection) {
+    const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
+    const missing = (check.needs ?? []).filter(need => !needSatisfied(need));
+    if (missing.length) {
+      const outcome = {
+        id: check.id, status: 'skipped', reason: `needs ${missing.join(', ')}`,
+        missing_needs: missing, gate_runs_it: check.ci,
+        ci: check.ci, ci_reason: check.ci_reason ?? null,
+        command, scope, seconds: 0, log: null, tail: [], attempts: [],
+      };
+      facts.results.push(outcome);
+      facts.events.push({ type: 'SKIP', ...outcome });
+      continue;
+    }
+    const log = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`);
+    const fd = openSync(log, 'w');
+    const start = performance.now();
+    let result;
+    try { result = spawnSync(command, { shell: true, stdio: ['ignore', fd, fd] }); }
+    finally { closeSync(fd); }
+    if (result.error) throw result.error;
+    const seconds = (performance.now() - start) / 1000;
+    const status = result.status === 0 ? 'passed' : 'failed';
+    const tail = readFileSync(log, 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').slice(-40);
+    const outcome = {
+      id: check.id, status, seconds, command, scope, log, tail,
+      ci: check.ci, ci_reason: check.ci_reason ?? null,
+      attempts: [{ exit_code: result.status, signal: result.signal, seconds, log }],
+    };
+    facts.results.push(outcome);
+    facts.events.push({ type: status === 'passed' ? 'PASS' : 'FAIL', ...outcome });
+  }
+}
+
+function finishRun(facts) {
+  facts.summary.selected = facts.selection.length;
+  for (const result of facts.results) facts.summary[result.status]++;
+  const uncovered = facts.results.some(result => result.status === 'skipped' && !result.gate_runs_it);
+  facts.exit_code = uncovered || facts.summary.blocked ? 2 : facts.summary.failed ? 1 : 0;
+  facts.ok = facts.exit_code === 0;
+  facts.events.push(...facts.lanes.map(lane => ({ type: 'LANE', ...lane })));
+  facts.events.push({ type: 'SUMMARY', ...facts.summary });
+  const temporary = `${facts.storage.record}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(facts)}\n`);
+  renameSync(temporary, facts.storage.record);
+}
+
+async function run(schema, facts) {
+  let config;
+  try { config = JSON.parse(readFileSync(configPath, 'utf8')); }
+  catch (error) { throw new RequestError(`${configPath}: ${error.message}`); }
+  const findings = [...configFindings(config, schema)];
+  if (findings.length) throw new RequestError(findings.map(x => x.message).join('\n'));
+  findings.push(...protectedFindings(config));
+  if (findings.length) throw new RequestError(findings.map(x => x.message).join('\n'));
+  for (const id of facts.request.only ?? []) {
+    if (!config.checks.some(check => check.id === id)) throw new RequestError(`Unknown check id ${JSON.stringify(id)}`, 'usage');
+  }
+  await collectChanges(config, facts);
+  selectChecks(config, facts);
+  facts.lanes = config.lanes;
+  runStorage(facts);
+  executeSerial(facts);
+  finishRun(facts);
+}
+
+function eventLines(event) {
+  const { type } = event;
+  if (type === 'SELECT') return [`SELECT ${event.id} ${event.reason}`];
+  if (type === 'BASE') return [`BASE ${event.reason}`];
+  if (type === 'UNCLASSIFIED') return [`UNCLASSIFIED ${event.path}`];
+  if (type === 'WIDEN') return [`WIDEN ${event.reason}`];
+  if (type === 'SKIP') return [`SKIP ${event.id} ${event.reason}${event.gate_runs_it ? ' (gate runs it)' : ''}`];
+  if (type === 'LANE') return [`not run here ${event.id} ${event.kind}: ${event.reason}; run_by=${event.run_by}`];
+  if (type === 'PASS') return [`PASS ${event.id} ${event.seconds.toFixed(3)}s`];
+  if (type === 'FAIL') return [`FAIL ${event.id} ${event.seconds.toFixed(3)}s log=${event.log}`, ...event.tail];
+  if (type === 'SUMMARY') return [event.selected === 0 ? 'SUMMARY nothing selected' :
+    `SUMMARY ${event.selected} selected, ${event.passed} passed, ${event.failed} failed, ${event.skipped} skipped`];
+  if (type === 'ERROR') return [`${event.rule.toUpperCase()} ${event.message}`];
+  throw new Error(`Unknown event ${type}`);
+}
+
 function emit(facts, json) {
   if (json) console.log(JSON.stringify(facts));
-  else if (facts.ok) console.log('LINT clean');
-  else for (const finding of facts.findings) console.log(`LINT ${finding.rule} ${finding.message}`);
+  else if (facts.mode === 'lint') {
+    if (facts.ok) console.log('LINT clean');
+    else for (const finding of facts.findings) console.log(`LINT ${finding.rule} ${finding.message}`);
+  } else {
+    for (const event of facts.events) for (const line of eventLines(event)) console.log(line);
+  }
   process.exitCode = facts.exit_code;
 }
 
 const argv = process.argv.slice(2);
 const json = argv.includes('--json');
 const args = argv.filter(arg => arg !== '--json');
+let facts = args[0] === 'lint' ? { mode: 'lint', findings: [] } : newRun();
 try {
   if (argv.length === 1 && argv[0] === '--help') {
-    console.log('Usage: scripts/check lint [--json]\n       scripts/check --help\n\nExit codes: 0 clean, 1 findings, 2 unreadable config or usage, 70 engine error.');
-  } else if (args.length !== 1 || args[0] !== 'lint') {
-    emit({ mode: 'lint', ok: false, exit_code: 2, findings: [{
-      rule: 'usage', message: 'Usage: scripts/check lint [--json]. Use --help for exit codes.',
-    }] }, json);
+    console.log([
+      'Usage: scripts/check [--all] [--only <ids>] [--base <ref>] [--json]',
+      '       scripts/check lint [--json]',
+      '       scripts/check --help',
+      '',
+      'Default: committed changes since merge base plus staged, unstaged and untracked files.',
+      '--all         Run whole checks instead of selecting affected tests.',
+      '--only <ids>  Restrict to comma-separated ids; does not force selection without --all.',
+      '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
+      '--json        Print exactly one JSON object with selection, results and timings.',
+      '--help        Show this help.',
+      '',
+      'Exit codes:',
+      '  0  Selected checks passed, gate-covered skips, or nothing selected.',
+      '  1  A check failed, or lint found invalid configuration.',
+      '  2  Invalid request/configuration, selector failure, or uncovered missing need.',
+      ' 70  Engine unavailable or unexpected internal error.',
+    ].join('\n'));
   } else {
     const schema = JSON.parse(readFileSync(new URL('./checks.schema.json', import.meta.url), 'utf8'));
-    emit(lint(schema), json);
+    if (args.length === 1 && args[0] === 'lint') facts = lint(schema);
+    else {
+      if (args[0] === 'lint') throw new RequestError('Usage: scripts/check lint [--json]. Use --help.', 'usage');
+      facts.request = parseRequest(args);
+      await run(schema, facts);
+    }
+    emit(facts, json);
   }
 } catch (error) {
-  emit({ mode: 'lint', ok: false, exit_code: 70, findings: [{
-    rule: 'engine', message: `Engine error: ${error.message}`,
-  }] }, json);
+  facts.ok = false;
+  facts.exit_code = error instanceof RequestError ? 2 : 70;
+  const finding = { rule: error instanceof RequestError ? error.rule : 'engine', message: error.message };
+  if (facts.mode === 'lint') facts.findings.push(finding);
+  else facts.events.push({ type: 'ERROR', ...finding });
+  emit(facts, json);
 }

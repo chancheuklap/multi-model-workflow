@@ -293,18 +293,21 @@ test('lint contextual legacy markers allow unrelated terms and apply marker_exem
   ]);
 });
 
-test('the Part 1 CLI advertises only lint and refuses unsupported requests', t => {
+test('the CLI advertises implemented modes and refuses unsupported requests', t => {
   const f = fixture(t);
   const help = f.cli('--help');
   assert.equal(help.status, 0);
   assert.match(help.stdout, /lint.*--json/);
   assert.ok(help.stdout.split('\n').length <= 40);
-  assert.doesNotMatch(help.stdout, /--all|--push|ensure|selftest|replay/);
-  for (const args of [[], ['ensure'], ['--all'], ['lint', '--typo'], ['lint', 'extra']]) {
+  for (const flag of ['--all', '--only', '--base', '--json', '--help']) assert.ok(help.stdout.includes(flag));
+  for (const code of [0, 1, 2, 70]) assert.match(help.stdout, new RegExp(`\\b${code}\\b`));
+  assert.doesNotMatch(help.stdout, /--push|--staged|ensure|selftest|replay/);
+  for (const args of [['ensure'], ['--push'], ['lint', '--typo'], ['lint', 'extra']]) {
     const facts = JSON.parse(f.cli(...args, '--json').stdout);
     assert.equal(facts.exit_code, 2);
     assert.equal(facts.ok, false);
-    assert.equal(facts.findings[0].rule, 'usage');
+    const error = facts.mode === 'lint' ? facts.findings[0] : facts.events.find(x => x.type === 'ERROR');
+    assert.equal(error.rule, 'usage');
   }
 });
 
