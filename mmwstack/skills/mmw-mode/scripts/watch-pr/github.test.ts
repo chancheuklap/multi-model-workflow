@@ -161,7 +161,7 @@ describe("no-checks confirmation", () => {
       return {};
     }, ["RETRY", "RETRY", "RETRY"]],
     ["history error", (read) => ({
-      commitRollups: read === 2 ? queryError() : [],
+      commitRollups: read === 2 ? queryError() : [{ oid: "head", state: null }],
     }), ["RETRY", "RETRY", "RETRY"]],
     ["non-CLEAN", (read) => ({
       facts: { mergeStateStatus: read === 2 ? "UNKNOWN" : "CLEAN" },
@@ -266,6 +266,139 @@ describe("no-checks confirmation", () => {
         { kind: "open", ci: { kind: "ci-clean", source: "no-checks", all: [] } },
       ],
     });
+  });
+});
+
+describe("empty-checks same-poll evidence", () => {
+  const nonNullStates: readonly Exclude<T.RollupState, null>[] = [
+    "FAILURE", "ERROR", "PENDING", "EXPECTED", "SUCCESS",
+  ];
+  for (const state of nonNullStates) {
+    it(`rejects a same-head ${state} rollup despite empty checks and CLEAN facts`, async () => {
+      const reader = fakeReader({
+        fastPath: emptyChecks,
+        commitRollups: [{ oid: "head", state }],
+      });
+      const run = noChecksRun(reader, { ...noChecksOptions, maxQueryErrors: 2 });
+      expect(await run.simple()).toMatchObject({
+        kind: "BLOCKER",
+        blocker: { kind: "status-query", failure: { kind: "checks-unavailable" } },
+      });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+      expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(2);
+    });
+
+    it(`resets an eligible observation after a ${state} rollup`, async () => {
+      const reader = fakeReader({
+        fastPath: emptyChecks,
+        observe: (_context, read) => ({
+          commitRollups: [{ oid: "head", state: read === 2 ? state : null }],
+        }),
+      });
+      const run = noChecksRun(reader);
+      expect(await run.simple()).toMatchObject({ kind: "READY" });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "RETRY", "RETRY"]);
+      expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    });
+  }
+
+  it("confirms two explicit same-head null rollups", async () => {
+    const reader = fakeReader({
+      fastPath: emptyChecks,
+      facts: { headRefOid: "A" },
+      commitRollups: [{ oid: "older", state: "SUCCESS" }, { oid: "A", state: null }],
+    });
+    const run = noChecksRun(reader);
+    expect(await run.simple()).toMatchObject({
+      kind: "READY",
+      scope: { pr: { proof: { ci: {
+        source: "no-checks", hadPreviousPassingCi: true,
+        github: { headRollupState: null },
+      } } } },
+    });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(2);
+  });
+
+  it("rejects a same-poll advanced head and requires two fresh reads of the later head", async () => {
+    const reader = fakeReader({
+      fastPath: emptyChecks,
+      observe: (_context, read) => ({
+        facts: { headRefOid: read <= 2 ? "A" : "B" },
+        commitRollups: read === 1
+          ? [{ oid: "A", state: null }]
+          : [{ oid: "A", state: null }, { oid: "B", state: null }],
+      }),
+    });
+    const run = noChecksRun(reader);
+    expect(await run.simple()).toMatchObject({ kind: "READY" });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "RETRY", "RETRY"]);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(4);
+  });
+
+  const missingHeads: readonly [string, readonly T.CommitRollup[]][] = [
+    ["empty history", []],
+    ["history without the facts head", [{ oid: "older", state: null }]],
+  ];
+  for (const [name, commitRollups] of missingHeads) {
+    it(`cannot confirm ${name}`, async () => {
+      const run = noChecksRun(fakeReader({ fastPath: emptyChecks, commitRollups }), {
+        ...noChecksOptions, maxQueryErrors: 2,
+      });
+      expect(await run.simple()).toMatchObject({
+        kind: "BLOCKER", blocker: { kind: "status-query" },
+      });
+    });
+
+    it(`resets an eligible observation after ${name}`, async () => {
+      const reader = fakeReader({
+        fastPath: emptyChecks,
+        observe: (_context, read) => ({
+          commitRollups: read === 2 ? commitRollups : [{ oid: "head", state: null }],
+        }),
+      });
+      const run = noChecksRun(reader);
+      expect(await run.simple()).toMatchObject({ kind: "READY" });
+      expect(run.events.map((event) => event.kind)).toEqual(["RETRY", "RETRY", "RETRY"]);
+      expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(4);
+    });
+  }
+
+  it("keeps resolveChecks errors unavailable at policy level despite explicit null head evidence", async () => {
+    const reader = fakeReader({
+      fastPath: { kind: "unusable", exitCode: 1, stderr: "authentication failed" },
+      rollupPages: [{ checks: [], endCursor: null }],
+      commitRollups: [{ oid: "head", state: null }],
+    });
+    const run = noChecksRun(reader, { ...noChecksOptions, maxQueryErrors: 2 });
+    expect(await run.simple()).toMatchObject({
+      kind: "BLOCKER",
+      blocker: {
+        kind: "status-query", failures: 2,
+        failure: { kind: "checks-unavailable", detail: expect.stringContaining("fast path exit=1") },
+      },
+    });
+    expect(run.events.map((event) => event.kind)).toEqual(["RETRY"]);
+    expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(2);
+  });
+
+  it("independently retries queued repositories sharing PR number and head", async () => {
+    const first = { owner: "o", repo: "a", number: context.number };
+    const second = { ...first, repo: "b" };
+    const reads: string[] = [];
+    const run = noChecksRun(fakeReader({
+      fastPath: emptyChecks,
+      commitRollups: [{ oid: "head", state: null }],
+      observe: (requested) => {
+        reads.push(`${requested.owner}/${requested.repo}#${requested.number}`);
+        return {};
+      },
+    }), { ...noChecksOptions, timeout: 120 });
+    expect(await run.queued([first, second])).toMatchObject({ kind: "TIMEOUT" });
+    expect(reads).toEqual(["o/a#42", "o/a#42", "o/b#42", "o/b#42"]);
+    expect(run.events.filter((event) => event.kind === "RETRY")).toHaveLength(2);
+    expect(run.sleeps).toEqual([60, 60]);
   });
 });
 

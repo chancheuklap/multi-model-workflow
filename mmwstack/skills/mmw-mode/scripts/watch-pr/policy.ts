@@ -42,6 +42,7 @@ async function mergeAssessment(
       : (commits.find((commit) => commit.oid === facts.headRefOid)?.state ??
         null);
   return {
+    newestCommitOid: commits.at(-1)?.oid ?? null,
     hadPreviousPassingCi: commits.some(
       (commit) => commit.oid !== facts.headRefOid && commit.state === "SUCCESS"
     ),
@@ -87,11 +88,16 @@ async function readSnapshotWithState(
   const threads = await resolveReviewThreads(args.reader, args.context);
   const checks = await resolveChecks(args.reader, args.context);
   if (checks.source === "empty") {
-    if (facts.mergeStateStatus !== "CLEAN" || !facts.headRefOid)
-      throw new ChecksUnavailable(
-        "empty checks require a CLEAN merge state and a head OID"
-      );
     const merge = await mergeAssessment(args.reader, facts);
+    if (
+      facts.mergeStateStatus !== "CLEAN" ||
+      !facts.headRefOid ||
+      merge.newestCommitOid !== facts.headRefOid ||
+      merge.github.headRollupState !== null
+    )
+      throw new ChecksUnavailable(
+        "empty checks require a CLEAN merge state, the same latest head OID, and a null head rollup"
+      );
     candidates.set(identity, facts.headRefOid);
     if (previousHead !== facts.headRefOid)
       throw new NoChecksUnconfirmed(
@@ -113,7 +119,7 @@ async function readSnapshotWithState(
           kind: "allowed",
           basis: "merge-state",
           mergeStateStatus: facts.mergeStateStatus,
-          headRollupState: merge.github.headRollupState,
+          headRollupState: null,
         },
       },
       reviewAutomationRunning: false,

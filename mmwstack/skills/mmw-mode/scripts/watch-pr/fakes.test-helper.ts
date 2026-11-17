@@ -142,9 +142,17 @@ export function fakeReader(
     },
     async commitRollups(requested) {
       calls.push("commitRollups");
-      const rollups = observation(requested).commitRollups;
+      const current = observation(requested);
+      const rollups = current.commitRollups;
       if (rollups instanceof Error) throw rollups;
-      return rollups ?? [{ oid: "head", state: "SUCCESS" }];
+      if (rollups !== undefined) return rollups;
+      if (
+        current.fastPath?.kind === "checks" &&
+        current.fastPath.checks.length === 0 &&
+        !current.rollupPages?.some((page) => page.checks.length > 0)
+      )
+        return [{ oid: current.facts?.headRefOid ?? "head", state: null }];
+      return [{ oid: "head", state: "SUCCESS" }];
     },
   };
 }

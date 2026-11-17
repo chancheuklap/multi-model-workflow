@@ -161,6 +161,7 @@ export type CiClean =
         { readonly basis: "merge-state" }
       > & {
         readonly mergeStateStatus: "CLEAN";
+        readonly headRollupState: null;
       };
   };
 export type CiState = CiFailing | CiGithubRejected | CiPending | CiClean;
