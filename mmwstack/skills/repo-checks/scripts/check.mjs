@@ -1,0 +1,1210 @@
+#!/usr/bin/env node
+import { accessSync, appendFileSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync, fork, spawn, spawnSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
+import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { cpus, homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const configPath = '.agents/checks.json';
+
+const schemaKeywords = new Set([
+  '$schema', '$defs', '$ref', 'type', 'properties', 'required', 'additionalProperties',
+  'items', 'minLength', 'pattern', 'enum', 'minimum', 'maximum', 'exclusiveMinimum',
+  'allOf', 'anyOf', 'if', 'then', 'else', 'dependentRequired', 'format',
+]);
+const matchesType = (value, type) => {
+  if (type === 'null') return value === null;
+  if (type === 'array') return Array.isArray(value);
+  if (type === 'object') return value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (type === 'integer') return Number.isInteger(value);
+  return typeof value === type;
+};
+const childField = (field, key) => field ? `${field}.${key}` : key;
+
+function validate(value, schema, node = schema, field = '') {
+  for (const key of Object.keys(node)) {
+    if (!schemaKeywords.has(key)) throw new Error(`Unsupported schema keyword ${key}`);
+  }
+  const findings = [];
+  const invalid = (message, at = field) => findings.push({
+    rule: 'schema', field: at || 'root', message: `${at || 'root'}: ${message}`,
+  });
+  if (node.$ref) {
+    const target = node.$ref.split('/').slice(1).reduce((part, key) => part[key], schema);
+    findings.push(...validate(value, schema, target, field));
+  }
+  if (node.type && !matchesType(value, node.type)) {
+    invalid(`expected ${node.type}`);
+    return findings;
+  }
+  if (node.enum && !node.enum.includes(value)) invalid(`expected one of ${JSON.stringify(node.enum)}`);
+  if (typeof value === 'string') {
+    if (node.minLength !== undefined && value.length < node.minLength) invalid(`minimum length ${node.minLength}`);
+    if (node.pattern && !new RegExp(node.pattern).test(value)) invalid(`does not match ${node.pattern}`);
+    if (node.format) {
+      if (node.format !== 'repo-glob') throw new Error(`Unsupported schema format ${node.format}`);
+      try { compileGlob(value); }
+      catch (error) { invalid(`invalid glob: ${error.message}`); }
+    }
+  }
+  if (typeof value === 'number') {
+    if (node.minimum !== undefined && value < node.minimum) invalid(`minimum ${node.minimum}`);
+    if (node.maximum !== undefined && value > node.maximum) invalid(`maximum ${node.maximum}`);
+    if (node.exclusiveMinimum !== undefined && value <= node.exclusiveMinimum) invalid(`must exceed ${node.exclusiveMinimum}`);
+  }
+  if (matchesType(value, 'object')) {
+    for (const key of node.required ?? []) {
+      if (!Object.hasOwn(value, key)) invalid('required field', childField(field, key));
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (Object.hasOwn(node.properties ?? {}, key)) findings.push(...validate(item, schema, node.properties[key], childField(field, key)));
+      else if (node.additionalProperties === false) invalid('unknown field', childField(field, key));
+    }
+    for (const [key, required] of Object.entries(node.dependentRequired ?? {})) {
+      if (!Object.hasOwn(value, key)) continue;
+      for (const dependency of required) {
+        if (!Object.hasOwn(value, dependency)) invalid(`required with ${key}`, childField(field, dependency));
+      }
+    }
+  }
+  if (Array.isArray(value) && node.items) {
+    value.forEach((item, index) => findings.push(...validate(item, schema, node.items, `${field}[${index}]`)));
+  }
+  for (const item of node.allOf ?? []) findings.push(...validate(value, schema, item, field));
+  if (node.anyOf && !node.anyOf.some(item => validate(value, schema, item, field).length === 0)) invalid('does not match any allowed form');
+  if (node.if) {
+    const branch = validate(value, schema, node.if, field).length === 0 ? node.then : node.else;
+    if (branch) findings.push(...validate(value, schema, branch, field));
+  }
+  return findings;
+}
+
+function configFindings(config, schema) {
+  const findings = validate(config, schema);
+  if (findings.length) return findings;
+  const ids = new Set();
+  config.checks.forEach((check, index) => {
+    if (ids.has(check.id)) findings.push({
+      rule: 'schema', field: `checks[${index}].id`, check: check.id,
+      message: `checks[${index}].id: duplicate check id ${check.id}`,
+    });
+    ids.add(check.id);
+    if (check.ci && config.ci_workflow === null) findings.push({
+      rule: 'schema', field: 'ci_workflow', check: check.id,
+      message: `ci_workflow: ${check.id} is marked ci but no gate workflow is configured`,
+    });
+  });
+  return findings;
+}
+
+function globSource(pattern) {
+  let source = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const char = pattern[i];
+    if (char === '{') {
+      let depth = 1;
+      let end = i + 1;
+      let start = end;
+      const parts = [];
+      for (; end < pattern.length && depth; end++) {
+        if (pattern[end] === '{') depth++;
+        if (pattern[end] === '}') depth--;
+        if ((pattern[end] === ',' && depth === 1) || depth === 0) {
+          parts.push(pattern.slice(start, end));
+          start = end + 1;
+        }
+      }
+      if (depth === 0 && parts.length > 1) {
+        source += `(?:${parts.map(globSource).join('|')})`;
+        i = end - 1;
+        continue;
+      }
+    }
+    if (char === '*') {
+      const start = i;
+      while (pattern[i + 1] === '*') i++;
+      const globstar = i > start && (start === 0 || pattern[start - 1] === '/') &&
+        (i + 1 === pattern.length || pattern[i + 1] === '/');
+      if (globstar && pattern[i + 1] === '/') {
+        source += '(?:[^/]+/)*';
+        i++;
+      } else source += globstar ? '.*' : '[^/]*';
+    } else if (char === '?') source += '[^/]';
+    else if (char === '[' && pattern.indexOf(']', i + 1) > i + 1) {
+      const end = pattern.indexOf(']', i + 1);
+      let range = pattern.slice(i + 1, end);
+      if (range.startsWith('!')) range = `^${range.slice(1)}`;
+      source += `(?!/)[${range}]`;
+      i = end;
+    } else source += char.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+  }
+  return source;
+}
+
+const globCache = new Map();
+function compileGlob(pattern) {
+  if (!globCache.has(pattern)) globCache.set(pattern, new RegExp(`^(?:${globSource(pattern)})$`, 's'));
+  return globCache.get(pattern);
+}
+
+function patternsMatch(patterns) {
+  const compiled = patterns.map(compileGlob);
+  return path => compiled.some(pattern => pattern.test(path));
+}
+
+function ciFindings(config) {
+  const checks = config.checks.filter(check => check.ci);
+  if (!checks.length) return [];
+  const path = config.ci_workflow.includes('/') ? config.ci_workflow : `.github/workflows/${config.ci_workflow}`;
+  let workflow;
+  try {
+    workflow = readFileSync(path, 'utf8');
+  } catch (error) {
+    return checks.map(check => ({
+      rule: 'ci-workflow', check: check.id, path,
+      message: `${check.id}: cannot read gate workflow ${path}: ${error.message}`,
+    }));
+  }
+  return checks.filter(check => !workflow.includes(check.ci_run)).map(check => ({
+    rule: 'ci-command', check: check.id, field: 'ci_run', path,
+    message: `${check.id}: ci_run ${JSON.stringify(check.ci_run)} is absent from ${path}`,
+  }));
+}
+
+function protectedFindings(config) {
+  const protectedLanes = config.lanes.filter(lane => lane.kind === 'owner-only' || lane.kind === 'device');
+  const findings = [];
+  config.checks.forEach((check, index) => {
+    for (const commandField of ['run', 'run_all', 'select']) {
+      if (!check[commandField]) continue;
+      for (const lane of protectedLanes) {
+        if (check[commandField] !== lane.command) continue;
+        const field = `checks[${index}].${commandField}`;
+        findings.push({
+          rule: 'protected-command', check: check.id, field,
+          message: `${check.id}: ${field} equals protected ${lane.kind} lane ${lane.id} command`,
+        });
+      }
+    }
+  });
+  return findings;
+}
+
+function integrationFindings(config) {
+  const ref = `refs/remotes/origin/${config.integration}`;
+  const refs = execFileSync('git', ['for-each-ref', '--format=%(refname)%00%(objecttype)%00%(symref)', 'refs/remotes/origin/'], { encoding: 'utf8' });
+  const branch = refs.trimEnd().split('\n').some(line => {
+    const [name, type, symbolic] = line.split('\0');
+    return name === ref && type === 'commit' && symbolic === '' && config.integration !== 'HEAD';
+  });
+  return branch ? [] : [{
+    rule: 'integration', field: 'integration',
+    message: `integration: ${JSON.stringify(config.integration)} is not a remote branch at ${ref}`,
+  }];
+}
+
+const legacyMarkers = [
+  { marker: 'MMW_BASE_REF', pattern: /\bMMW_BASE_REF\b/g },
+  { marker: '.scratch/check', pattern: /\.scratch\/check(?![\w.-])/g },
+  { marker: 'run by MMW before every ticket lands', pattern: /run\s+by\s+MMW\s+before\s+every\s+ticket\s+lands|MMW[^\n]{0,30}每(?:张|个)?(?:工单|票据|票)[^\n]{0,12}(?:合并|落地)前/gi },
+  { marker: 'scripts/check --step', pattern: /\bscripts\/check\s+--step\b/g },
+  { marker: 'dispatch.sh', pattern: /\bdispatch\.sh\b/g, context: 'checks' },
+  { marker: 'verify-ticket', pattern: /\bverify-ticket\b/g, context: 'checks' },
+  { marker: 'setup-mmw', pattern: /\bsetup-mmw\b/g, context: 'checks' },
+  { marker: '.worktrees/', pattern: /(?<![\w.-])(?<!\.\.\/)\.worktrees(?:\/|(?=[\s"'`,\]}]|$))/g, context: 'exclusion' },
+  { marker: '.mmw/', pattern: /\.mmw(?:\/|(?=[\s"'`,\]}]|$))/g, context: 'workflow-filter' },
+  { marker: 'v4 check tiers', pattern: /\bdefault\s+tier\b|--(?:all|staged)\s+tier\b|\bthree\s+tiers\b|三档|默认档/gi, context: 'checks' },
+  ...['INPUTS', 'READS', 'NOT_INPUTS', 'GROUP_MAP', 'GATE_INPUTS'].map(marker => ({
+    marker, pattern: new RegExp(`\\b${marker}\\b`, 'g'), context: 'checks',
+  })),
+  { marker: 'verify-erp ticket CHECK', pattern: /\bCHECK\b/g, context: 'ticket-check' },
+];
+
+const anyLegacyMarker = new RegExp(legacyMarkers.map(({ pattern }) => `(?:${pattern.source})`).join('|'), 'i');
+
+function workflowFilterAt(text, index) {
+  let offset = 0;
+  let filterIndent = null;
+  let inTriggers = false;
+  for (const line of text.split('\n')) {
+    const indent = line.search(/\S/);
+    const topKey = indent === 0 && !line.startsWith('#');
+    if (topKey) inTriggers = /^["']?on["']?\s*:/.test(line);
+    const key = line.match(/^(\s*)["']?paths(?:-ignore)?["']?\s*:/);
+    const inlineFilter = /[,{]\s*["']?paths(?:-ignore)?["']?\s*:/.test(line);
+    if (inTriggers && (key || inlineFilter)) filterIndent = indent;
+    else if (!inTriggers || (filterIndent !== null && indent >= 0 && !line.trimStart().startsWith('#') && indent <= filterIndent)) filterIndent = null;
+    if (offset + line.length >= index) return filterIndent !== null;
+    offset += line.length + 1;
+  }
+  return false;
+}
+
+function markerContext(kind, path, text, index) {
+  if (!kind) return true;
+  const before = text.slice(0, index);
+  const after = text.slice(index);
+  const nearby = [...before.split('\n').slice(-3), ...after.split('\n').slice(0, 3)].join('\n');
+  const heading = before.match(/^#{1,6}\s+.*$/gm)?.at(-1) ?? '';
+  const context = `${heading}\n${nearby}`;
+  const workflow = /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
+  if (kind === 'workflow-filter') return workflow && workflowFilterAt(text, index);
+  if (kind === 'exclusion') {
+    if (workflow) return workflowFilterAt(text, index);
+    const tomlSection = before.match(/^\s*\[([^\]]+)\]/gm)?.at(-1) ?? '';
+    const testOrLintSection = /(?:^|\/)pyproject\.toml$/.test(path) &&
+      /\[tool\.(?:pytest|ruff|black|isort|coverage|pylint|flake8|mypy)(?:[.\]]|$)/.test(tomlSection);
+    const pytestSection = /(?:^|\/)(?:setup\.cfg|tox\.ini)$/.test(path) &&
+      /^\s*\[(?:tool:pytest|pytest)\]\s*$/.test(tomlSection);
+    return testOrLintSection || pytestSection || /(?:^|\/)\.(?:gitignore|dockerignore|ignore|eslintignore|prettierignore)$|(?:eslint|oxlint|vitest|jest|pytest|ruff)[^/]*(?:config|\.ini|\.json|\.toml)/.test(path) ||
+      /\b(?:ignore[sd]?|exclud\w*|omit)\b|排除|忽略/i.test(context);
+  }
+  if (kind === 'ticket-check') return /(?:^|\/)verify-erp(?:\/|$)/.test(path) && /\bticket\b|工单|票据/i.test(context);
+  return path === 'scripts/check' || /^\.githooks\//.test(path) ||
+    /\bscripts\/check\b|\bcheck(?:s|ers)?\b|检查|MMW[^\n]*(?:工单|ticket)/i.test(context);
+}
+
+function markerFindings(path) {
+  let text;
+  try {
+    const stat = constants.O_NOFOLLOW === undefined ? lstatSync(path) : null;
+    if (stat?.isDirectory()) return [];
+    try {
+      text = stat?.isSymbolicLink() ? readlinkSync(path) :
+        readFileSync(path, { encoding: 'utf8', flag: constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) });
+    } catch (error) {
+      if (error.code !== 'ELOOP') throw error;
+      text = readlinkSync(path);
+    }
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'EISDIR') return [];
+    return [{ rule: 'tracked-read', path, message: `${JSON.stringify(path)}: cannot scan tracked file: ${error.message}` }];
+  }
+  if (text.includes('\0') || !anyLegacyMarker.test(text)) return [];
+  const findings = [];
+  for (const { marker, pattern, context } of legacyMarkers) {
+    for (const match of text.matchAll(pattern)) {
+      if (!markerContext(context, path, text, match.index)) continue;
+      findings.push({
+        rule: 'legacy-marker', path, marker,
+        message: `${JSON.stringify(path)}: legacy marker ${JSON.stringify(marker)} (${JSON.stringify(match[0])})`,
+      });
+      break;
+    }
+  }
+  return findings;
+}
+
+function repositoryFindings(config) {
+  const findings = [...integrationFindings(config), ...ciFindings(config), ...protectedFindings(config)];
+  const classified = patternsMatch([
+    ...config.inert, ...config.affects_all,
+    ...config.checks.flatMap(check => [...check.inputs, ...(check.sources ?? [])]),
+  ]);
+  const isTest = patternsMatch(config.test_files);
+  const exempt = patternsMatch(config.marker_exempt ?? []);
+  const claimed = patternsMatch([
+    ...config.checks.flatMap(check => check.tests),
+    ...config.lanes.flatMap(lane => lane.tests),
+    ...config.excluded.flatMap(exclusion => exclusion.paths),
+  ]);
+  const tracked = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
+    .split('\0').filter(Boolean);
+  for (const path of tracked) {
+    if (!classified(path)) findings.push({
+      rule: 'unclassified', path,
+      message: `${JSON.stringify(path)}: matches none of inputs, sources, inert or affects_all`,
+    });
+    if (isTest(path) && !claimed(path)) findings.push({
+      rule: 'unclaimed-test', path,
+      message: `${JSON.stringify(path)}: no check tests, lane or exclusion claims this test`,
+    });
+    if (!exempt(path)) findings.push(...markerFindings(path));
+  }
+  return findings;
+}
+
+function lint(schema) {
+  let config;
+  try {
+    config = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    return { mode: 'lint', ok: false, exit_code: 2, findings: [{
+      rule: 'config-read', path: configPath, message: `${configPath}: ${error.message}`,
+    }] };
+  }
+  const findings = configFindings(config, schema);
+  if (!findings.length) findings.push(...repositoryFindings(config));
+  return { mode: 'lint', ok: findings.length === 0, exit_code: findings.length ? 1 : 0, findings };
+}
+
+const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+let loadedEngineHash;
+const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
+
+class RequestError extends Error {
+  constructor(message, rule = 'request') {
+    super(message);
+    this.rule = rule;
+  }
+}
+
+function parseRequest(args) {
+  const request = { scope: 'changed', only: null, base: null };
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--all') request.scope = 'all';
+    else if ((arg === '--only' || arg === '--base') && args[i + 1] && !args[i + 1].startsWith('-')) {
+      const value = args[++i];
+      if (arg === '--base') request.base = value;
+      else {
+        const ids = value.split(',');
+        if (ids.some(id => !id || /\s/.test(id))) throw new RequestError('--only requires comma-separated check ids', 'usage');
+        request.only = [...new Set([...(request.only ?? []), ...ids])];
+      }
+    } else throw new RequestError(`Invalid argument ${JSON.stringify(arg)}. Use --help.`, 'usage');
+  }
+  return request;
+}
+
+function git(...args) {
+  return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function changedNames(output) {
+  const fields = output.split('\0');
+  const paths = [];
+  for (let i = 0; i < fields.length && fields[i];) {
+    const status = fields[i++];
+    paths.push(fields[i++]);
+    if (/^[RC]/.test(status)) paths.push(fields[i++]);
+  }
+  return paths;
+}
+
+function newRun() {
+  return {
+    mode: 'run', ok: false, exit_code: 70, record_version: 1,
+    request: { scope: 'changed', only: null, base: null },
+    selection: [], results: [], summary: { selected: 0, passed: 0, failed: 0, skipped: 0, blocked: 0, 'internal-error': 0 },
+    lanes: [], events: [], timing: { select_ms: 0 }, preparation_stamp: null,
+  };
+}
+
+function fetchIntegration(integration) {
+  return new Promise((resolveFetch, reject) => {
+    const child = spawn('git', [
+      '-c', 'credential.interactive=false', '-c', 'maintenance.auto=false',
+      'fetch', '--no-tags', '--no-recurse-submodules', '--refmap=', 'origin',
+      `+refs/heads/${integration}:refs/remotes/origin/${integration}`,
+    ], { stdio: 'ignore', detached: process.platform !== 'win32', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+    const timer = setTimeout(() => {
+      try {
+        if (process.platform === 'win32') {
+          const killed = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', timeout: 2000 });
+          if (killed.error) throw killed.error;
+          child.kill('SIGKILL');
+        } else process.kill(-child.pid, 'SIGKILL');
+      } catch (error) {
+        if (error.code !== 'ESRCH') reject(error);
+      }
+    }, 2500);
+    child.once('error', error => { clearTimeout(timer); reject(error); });
+    child.once('close', code => { clearTimeout(timer); resolveFetch(code === 0); });
+  });
+}
+
+async function collectChanges(config, facts, configHash) {
+  const remote = `refs/remotes/origin/${config.integration}`;
+  const validRef = spawnSync('git', ['check-ref-format', `refs/heads/${config.integration}`], { stdio: 'ignore' });
+  if (validRef.error) throw validRef.error;
+  if (validRef.status !== 0 || config.integration === 'HEAD') throw new RequestError(`Invalid integration branch ${JSON.stringify(config.integration)}`);
+  facts.timing.fetch_ms = 0;
+  if (!facts.request.base) {
+    const fetchStart = performance.now();
+    const fetched = await fetchIntegration(config.integration);
+    facts.timing.fetch_ms = performance.now() - fetchStart;
+    if (!fetched) facts.events.push({
+      type: 'BASE', ref: remote, fallback: true,
+      reason: `fetch failed; using local ${remote}`,
+    });
+  }
+  const start = performance.now();
+  const invalidIntegration = facts.request.base ? [] : integrationFindings(config);
+  if (invalidIntegration.length) throw new RequestError(invalidIntegration[0].message);
+  facts.identity = {
+    worktree: git('rev-parse', '--show-toplevel').trim(),
+    head: git('rev-parse', 'HEAD').trim(),
+    tree: git('rev-parse', 'HEAD^{tree}').trim(),
+    config_hash: configHash,
+    engine_hash: loadedEngineHash,
+  };
+  facts.identity.engine_version = facts.identity.engine_hash;
+  const ref = facts.request.base ?? remote;
+  let base;
+  try { base = git('merge-base', 'HEAD', ref).trim(); }
+  catch (error) {
+    if (!error.status) throw error;
+    throw new RequestError(`Cannot find merge base with ${ref}: ${error.stderr?.toString().trim()}`);
+  }
+  facts.base = { ref, commit: base };
+  const diff = (...range) => changedNames(git('diff', '--ignore-submodules=none', '--name-status', '-z', '--find-renames', ...range, '--'));
+  const committed = diff(base, 'HEAD');
+  const staged = diff('--cached');
+  const unstaged = diff();
+  const untracked = git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean);
+  facts.changed_paths = [...new Set([...committed, ...staged, ...unstaged, ...untracked])].sort();
+  facts.identity.dirty = staged.length + unstaged.length + untracked.length > 0;
+  facts.timing.select_ms += performance.now() - start;
+}
+
+function expandCommand(template, scope) {
+  if (scope.kind === 'whole') return template;
+  if (process.platform === 'win32' && /\{(?:files|tests)\}/.test(template)) {
+    throw new RequestError('Filename interpolation requires a POSIX shell host; use whole-check commands on Windows.');
+  }
+  return template.replace(/\{(files|tests)\}/g, (_, list) => scope[list].map(shellQuote).join(' '));
+}
+
+async function selectorTests(check, files, facts) {
+  const command = expandCommand(check.select, { kind: 'narrowed', files, tests: [] });
+  const start = performance.now();
+  let result;
+  try {
+    const supervised = await supervisor({
+      id: check.id, command, timeout: check.timeout_s ?? 600, retry: 0, log: null,
+    }, executionSlots(1), event => addEvent(facts, event));
+    result = supervised.attempts[0];
+  } finally {
+    facts.timing.selector_ms += performance.now() - start;
+  }
+  if (result.reason) throw new RequestError(`Selector ${check.id}: ${result.reason}`);
+  if (result.exit_code !== 0) throw new RequestError(`Selector ${check.id} failed (${result.exit_code ?? result.signal}): ${result.stderr.trim()}`);
+  let tests;
+  try { tests = JSON.parse(result.stdout); }
+  catch { throw new RequestError(`Selector ${check.id}: stdout must be a JSON array of test paths`); }
+  if (!Array.isArray(tests)) throw new RequestError(`Selector ${check.id}: expected a JSON array of test paths`);
+  const belongs = patternsMatch(check.tests);
+  for (const path of tests) {
+    if (typeof path !== 'string' || !/^(?!\/|[A-Za-z]:)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\0]+$/.test(path) || !belongs(path)) {
+      throw new RequestError(`Selector ${check.id}: invalid or unclaimed test path ${JSON.stringify(path)}`);
+    }
+    if (existsSync(path)) {
+      const destination = relative(realpathSync('.'), realpathSync(path));
+      if (isAbsolute(destination) || destination === '..' || destination.startsWith(`..${sep}`)) {
+        throw new RequestError(`Selector ${check.id}: test path escapes repository ${JSON.stringify(path)}`);
+      }
+    }
+  }
+  return [...new Set(tests)];
+}
+
+async function selectChecks(config, facts) {
+  const start = performance.now();
+  facts.timing.selector_ms = 0;
+  try {
+    const affects = patternsMatch(config.affects_all);
+    const classified = patternsMatch([
+      ...config.inert, ...config.affects_all,
+      ...config.checks.flatMap(check => [...check.inputs, ...(check.sources ?? [])]),
+    ]);
+    let widened;
+    if (facts.request.scope !== 'all') {
+      for (const path of facts.changed_paths) {
+        let reason;
+        if (affects(path)) reason = `affects_all ${path}`;
+        else if (!classified(path)) {
+          facts.events.push({ type: 'UNCLASSIFIED', path });
+          reason = `UNCLASSIFIED ${path}`;
+        }
+        if (reason) {
+          widened ??= reason;
+          facts.events.push({ type: 'WIDEN', reason, path });
+        }
+      }
+    }
+    facts.selection = [];
+    for (const check of config.checks) {
+      if (facts.request.only && !facts.request.only.includes(check.id)) continue;
+      if (facts.request.scope === 'all' || widened) {
+        facts.selection.push({ check, reason: facts.request.scope === 'all' ? '--all' : widened, scope: { kind: 'whole' } });
+        continue;
+      }
+      const match = patternsMatch(check.inputs);
+      const path = facts.changed_paths.find(match);
+      if (path) {
+        facts.selection.push({ check, reason: `inputs ${path}`, scope: { kind: 'whole' } });
+        continue;
+      }
+      const files = facts.changed_paths.filter(patternsMatch(check.sources ?? []));
+      if (!files.length) continue;
+      const tests = await selectorTests(check, files, facts);
+      if (tests.length) facts.selection.push({ check, reason: `sources ${files[0]}`, scope: { kind: 'narrowed', files, tests } });
+    }
+    facts.events.push(...facts.selection.map(({ check, reason }) => ({ type: 'SELECT', id: check.id, reason })));
+  } finally {
+    facts.timing.select_ms += performance.now() - start - facts.timing.selector_ms;
+  }
+}
+
+function runStorage(facts) {
+  const common = resolve(git('rev-parse', '--git-common-dir').trim());
+  const folder = join(common, 'repo-checks', hash(facts.identity.worktree).slice(0, 24));
+  const id = `${Date.now()}-${randomUUID()}`;
+  const logs = join(folder, 'logs', id);
+  const records = join(folder, 'records');
+  mkdirSync(logs, { recursive: true });
+  mkdirSync(records, { recursive: true });
+  facts.storage = { worktree_dir: folder, record: join(records, `${id}.json`), logs };
+  writeFileSync(join(logs, '.active.json'), JSON.stringify({ pid: process.pid, start: processStart(process.pid) }));
+}
+
+function commandExists(name) {
+  const extensions = process.platform === 'win32' ? ['', ...(process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';')] : [''];
+  for (const folder of (process.env.PATH ?? '').split(delimiter)) {
+    for (const extension of extensions) {
+      const path = join(folder, `${name}${extension}`);
+      try {
+        accessSync(path, constants.X_OK);
+        if (statSync(path).isFile()) return true;
+      } catch (error) {
+        if (!['ENOENT', 'ENOTDIR', 'EACCES'].includes(error.code)) throw error;
+      }
+    }
+  }
+  return false;
+}
+
+function needSatisfied(need) {
+  if (need === 'docker') {
+    const probe = spawnSync('docker', ['info'], { stdio: 'ignore', timeout: 2500 });
+    if (probe.error && !['ENOENT', 'ETIMEDOUT'].includes(probe.error.code)) throw probe.error;
+    return probe.status === 0;
+  }
+  const colon = need.indexOf(':');
+  const kind = need.slice(0, colon);
+  const value = need.slice(colon + 1);
+  if (kind === 'cmd') return commandExists(value);
+  if (kind === 'os') return (process.platform === 'win32' ? 'windows' : process.platform) === value;
+  if (kind === 'env') return Object.hasOwn(process.env, value);
+  if (kind === 'path') return existsSync(value);
+  throw new Error(`Unknown need ${need}`);
+}
+
+function killTree(child) {
+  if (!child.pid) return;
+  if (process.platform === 'win32') {
+    const result = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 });
+    if (result.error) throw result.error;
+  } else {
+    try { process.kill(-child.pid, 'SIGKILL'); }
+    catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
+}
+
+let activeCommand = null;
+
+async function commandProcess(command, timeout, log) {
+  const fd = log ? openSync(log, 'a') : null;
+  const start = performance.now();
+  let child;
+  try {
+    child = spawn(command, {
+      shell: true, detached: process.platform !== 'win32',
+      stdio: ['ignore', fd ?? 'pipe', fd ?? 'pipe'],
+    });
+  } finally { if (fd !== null) closeSync(fd); }
+  let reason = null;
+  let failure = null;
+  let stdout = '';
+  let stderr = '';
+  let size = 0;
+  const stop = () => {
+    try { killTree(child); }
+    catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
+  };
+  activeCommand = stop;
+  const collect = stream => bytes => {
+    size += bytes.length;
+    if (size > 16 * 1024 * 1024) { reason = 'output exceeds 16 MiB'; stop(); }
+    else if (stream === 'stdout') stdout += bytes;
+    else stderr += bytes;
+  };
+  child.stdout?.on('data', collect('stdout'));
+  child.stderr?.on('data', collect('stderr'));
+  const closed = new Promise(resolveClose => child.once('close', resolveClose));
+  const exited = new Promise(resolveExit => {
+    child.once('error', error => { failure ??= error; resolveExit({ code: null, signal: null }); });
+    child.once('exit', (code, signal) => resolveExit({ code, signal }));
+  });
+  const timer = setTimeout(() => { reason = 'timeout'; stop(); }, Math.max(1, timeout * 1000 - (performance.now() - start)));
+  const { code, signal } = await exited;
+  clearTimeout(timer);
+  await closed;
+  activeCommand = null;
+  if (failure) throw failure;
+  if (reason && log) appendFileSync(log, `${reason}\n`);
+  return { exit_code: code, signal, seconds: (performance.now() - start) / 1000, log, reason, stdout, stderr };
+}
+
+function sendWorker(message) {
+  if (process.connected) process.send(message, () => {});
+}
+
+function processStart(pid) {
+  if (process.platform === 'linux') {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
+    } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  }
+  const probe = process.platform === 'win32'
+    ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Process -Id ${Number(pid)} -ErrorAction SilentlyContinue).StartTime.ToUniversalTime().Ticks`], { encoding: 'utf8', timeout: 5000 })
+    : spawnSync('ps', ['-p', String(pid), '-o', 'lstart='], { encoding: 'utf8', timeout: 2000 });
+  if (probe.error) throw probe.error;
+  return probe.status === 0 && probe.stdout.trim() ? probe.stdout.trim() : null;
+}
+
+function liveOwner(owner) {
+  return Boolean(owner?.start && processStart(owner.pid) === owner.start);
+}
+
+function cacheLocks() {
+  const root = process.platform === 'darwin' ? join(homedir(), 'Library', 'Caches')
+    : process.platform === 'win32' ? process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')
+      : process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
+  const folder = join(root, 'repo-checks', 'locks');
+  mkdirSync(folder, { recursive: true });
+  return folder;
+}
+
+function removeToken(directory, token) {
+  try { if (token) unlinkSync(join(directory, token)); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try { rmdirSync(directory); }
+  catch (error) { if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error; }
+}
+
+const sleep = ms => new Promise(resolveSleep => setTimeout(resolveSleep, ms));
+
+async function acquireLock(name, timeout, cancelled) {
+  if (!name) return { release() {} };
+  const root = cacheLocks();
+  const canonical = join(root, hash(name));
+  const nonce = randomUUID();
+  const token = `${nonce}.json`;
+  const candidate = join(root, `.${nonce}`);
+  const owner = { pid: process.pid, start: processStart(process.pid), nonce, name };
+  mkdirSync(candidate);
+  writeFileSync(join(candidate, token), JSON.stringify(owner), { flag: 'wx' });
+  const deadline = performance.now() + timeout * 1000;
+  let waited = false;
+  try {
+    for (;;) {
+      if (cancelled()) return { release() {} };
+      try {
+        renameSync(candidate, canonical);
+        return { release: () => removeToken(canonical, token) };
+      } catch (error) {
+        if (!['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES'].includes(error.code)) throw error;
+      }
+      let observed = null;
+      try {
+        const tokens = readdirSync(canonical);
+        if (!tokens.length) { removeToken(canonical, null); continue; }
+        const observedToken = tokens[0];
+        observed = JSON.parse(readFileSync(join(canonical, observedToken), 'utf8'));
+        if (!liveOwner(observed)) { removeToken(canonical, observedToken); continue; }
+      } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+      if (!waited) { sendWorker({ type: 'event', event: { type: 'WAIT', lock: name, holder: observed } }); waited = true; }
+      if (performance.now() >= deadline) return {
+        blocked: true, holder: observed, release() {},
+        reason: `lock ${name} timed out; holder pid=${observed.pid} start=${observed.start}`,
+      };
+      await sleep(Math.min(100, Math.max(1, deadline - performance.now())));
+    }
+  } finally {
+    removeToken(candidate, token);
+  }
+}
+
+function readOptionalJson(path) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+
+function preparationHash(prepare) {
+  const parts = [prepare.run];
+  for (const pattern of prepare.stamps) {
+    const paths = globSync(pattern, { exclude: ['.git/**'] }).sort();
+    parts.push(JSON.stringify([pattern, paths]));
+    for (const path of paths) {
+      const stat = lstatSync(path);
+      parts.push(JSON.stringify([path, stat.isSymbolicLink() ? 'link' : stat.isDirectory() ? 'directory' : 'file']));
+      if (stat.isSymbolicLink()) parts.push(hash(readlinkSync(path)), hash(readFileSync(path)));
+      else if (stat.isFile()) parts.push(hash(readFileSync(path)));
+    }
+  }
+  return hash(JSON.stringify(parts));
+}
+
+async function worker(task) {
+  let started = false;
+  let cancelled = false;
+  let cancelGrant;
+  const granted = new Promise(resolveGrant => {
+    cancelGrant = resolveGrant;
+    process.once('message', () => { started = true; resolveGrant(); });
+  });
+  const abandon = () => { cancelled = true; if (activeCommand) activeCommand(); };
+  process.on('SIGINT', abandon);
+  process.on('SIGTERM', abandon);
+  process.once('disconnect', () => { if (!started) { cancelled = true; cancelGrant(); } });
+  const lease = await acquireLock(task.lock, task.timeout, () => cancelled);
+  if (cancelled) {
+    lease.release();
+    return;
+  }
+  if (lease.blocked) {
+    sendWorker({ type: 'result', result: { blocked: true, reason: lease.reason, holder: lease.holder } });
+    if (process.connected) process.disconnect();
+    return;
+  }
+  let heartbeat;
+  try {
+    let stamp;
+    if (task.prepare) {
+      stamp = preparationHash(task.prepare);
+      const previous = readOptionalJson(task.stamp_file);
+      if (previous?.hash === stamp && task.paths.every(path => existsSync(path))) {
+        sendWorker({ type: 'result', result: { stamp, prepared: false, attempts: [], seconds: 0 } });
+        return;
+      }
+    }
+    sendWorker({ type: 'ready' });
+    await granted;
+    if (cancelled) return;
+    const start = performance.now();
+    heartbeat = setInterval(() => sendWorker({
+      type: 'event', event: { type: 'RUNNING', id: task.id, seconds: (performance.now() - start) / 1000 },
+    }), 19000);
+    const attempts = [];
+    for (let i = 0; i <= task.retry && !cancelled; i++) {
+      const attempt = await commandProcess(task.command, task.timeout, task.log);
+      attempts.push(attempt);
+      if (attempt.exit_code === 0 && !attempt.reason) break;
+    }
+    if (task.prepare && attempts.at(-1).exit_code === 0 && !attempts.at(-1).reason) {
+      const temporary = `${task.stamp_file}.${randomUUID()}.tmp`;
+      writeFileSync(temporary, JSON.stringify({ hash: stamp }));
+      renameSync(temporary, task.stamp_file);
+    } else stamp = null;
+    sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare) } });
+  } finally {
+    clearInterval(heartbeat);
+    lease.release();
+    if (process.connected) process.disconnect();
+  }
+}
+
+const runningChecks = new Set();
+
+function supervisor(task, slot, event) {
+  return new Promise((resolveTask, reject) => {
+    const child = fork(fileURLToPath(import.meta.url), [], { detached: process.platform !== 'win32', stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+    runningChecks.add(child);
+    let release = null;
+    let result = null;
+    child.on('message', message => {
+      Promise.resolve().then(async () => {
+        if (message.type === 'ready') {
+          release = await slot();
+          if (child.connected) child.send({ type: 'go' });
+          else { release(); release = null; }
+        } else if (message.type === 'event') event(message.event);
+        else if (message.type === 'error') result = { error: message.message };
+        else if (message.type === 'result') result = message.result;
+      }).catch(error => { result = { error: error.message }; if (child.connected) child.disconnect(); });
+    });
+    child.once('error', error => { runningChecks.delete(child); reject(error); });
+    child.once('exit', (code, signal) => {
+      runningChecks.delete(child);
+      release?.();
+      if (!result || result.error || code !== 0) reject(new Error(result?.error ?? `Command supervisor exited without a successful result (${code ?? signal})`));
+      else resolveTask(result);
+    });
+    child.send({ type: 'task', task });
+  });
+}
+
+function executionSlots(cap) {
+  let running = 0;
+  const waiting = [];
+  const grant = resolveSlot => {
+    running++;
+    resolveSlot(() => {
+      running--;
+      if (waiting.length) grant(waiting.shift());
+    });
+  };
+  return () => new Promise(resolveSlot => {
+    if (running < cap) grant(resolveSlot);
+    else waiting.push(resolveSlot);
+  });
+}
+
+const streamed = new WeakMap();
+function streamFacts(facts) {
+  const previous = streamed.get(facts) ?? 0;
+  for (const event of facts.events.slice(previous)) {
+    if (!json) for (const line of eventLines(event)) console.log(line);
+    else if (['WAIT', 'RUNNING'].includes(event.type)) for (const line of eventLines(event)) console.error(line);
+  }
+  streamed.set(facts, facts.events.length);
+}
+function addEvent(facts, event) {
+  facts.events.push(event);
+  streamFacts(facts);
+}
+
+function currentIdentity() {
+  return {
+    head: git('rev-parse', 'HEAD').trim(),
+    tree: git('rev-parse', 'HEAD^{tree}').trim(),
+    config_hash: existsSync(configPath) ? hash(readFileSync(configPath)) : null,
+    engine_hash: hash(readFileSync(new URL(import.meta.url))),
+    dirty: git('status', '--ignore-submodules=none', '--porcelain', '-z', '--untracked-files=all').length > 0,
+  };
+}
+
+function checkIdentity(facts) {
+  const current = currentIdentity();
+  facts.identity_after = current;
+  const stable = !facts.identity.dirty && !current.dirty &&
+    ['head', 'tree', 'config_hash', 'engine_hash'].every(key => current[key] === facts.identity[key]);
+  facts.reuse_eligible = facts.reuse_eligible !== false && stable;
+  return facts.reuse_eligible;
+}
+
+function reuseKey(id, command, identity) {
+  return { id, command, tree: identity.tree, config_hash: identity.config_hash, engine_hash: identity.engine_hash };
+}
+
+function findReuse(facts, check, scope, command) {
+  if (!checkIdentity(facts)) return null;
+  const wholeCommand = check.run_all ?? check.run;
+  const records = join(facts.storage.worktree_dir, 'records');
+  for (const file of readdirSync(records).filter(name => name.endsWith('.json')).sort().reverse()) {
+    const record = readOptionalJson(join(records, file));
+    if (!record || record.record_version !== 1 || !record.reuse_eligible || record.preparation_stamp !== facts.preparation_stamp) continue;
+    for (const result of record.results) {
+      if (result.id !== check.id || result.status !== 'passed' || !result.reusable) continue;
+      const whole = result.coverage?.kind === 'whole';
+      if (scope.kind === 'whole' && !whole) continue;
+      if (!whole && JSON.stringify(scope) !== JSON.stringify(result.coverage)) continue;
+      const key = reuseKey(check.id, whole ? wholeCommand : command, facts.identity);
+      if (JSON.stringify(result.reuse_key) === JSON.stringify(key)) return { result, record: join(records, file) };
+    }
+  }
+  return null;
+}
+
+async function execute(facts) {
+  const slot = executionSlots(Math.max(1, Math.min(4, Math.floor(cpus().length / 2))));
+  const settled = await Promise.allSettled(facts.selection.map(async ({ check, scope }) => {
+    const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
+    const missing = (check.needs ?? []).filter(need => !needSatisfied(need));
+    if (missing.length) {
+      const outcome = {
+        id: check.id, status: 'skipped', reason: `needs ${missing.join(', ')}`,
+        missing_needs: missing, gate_runs_it: check.ci,
+        ci: check.ci, ci_reason: check.ci_reason ?? null,
+        command, scope, seconds: 0, log: null, tail: [], attempts: [],
+      };
+      addEvent(facts, { type: 'SKIP', ...outcome });
+      return outcome;
+    }
+    const log = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`);
+    const previous = findReuse(facts, check, scope, command);
+    if (previous && checkIdentity(facts)) {
+      const prior = previous.result;
+      let bytes;
+      try { bytes = readFileSync(prior.log); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; bytes = `${prior.tail.join('\n')}\n`; }
+      writeFileSync(log, bytes);
+      const outcome = {
+        id: check.id, status: 'passed', seconds: 0, command, scope, log, tail: prior.tail,
+        ci: check.ci, ci_reason: check.ci_reason ?? null, attempts: [], recovered: false,
+        reused: true, reusable: true, reuse_key: prior.reuse_key, coverage: prior.coverage,
+        reused_from: { record: previous.record, coverage: prior.coverage, key: prior.reuse_key },
+      };
+      addEvent(facts, { type: 'PASS', ...outcome });
+      return outcome;
+    }
+    const result = await supervisor({ id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0 }, slot, event => addEvent(facts, event));
+    if (result.blocked) {
+      const outcome = { id: check.id, status: 'blocked', reason: result.reason, holder: result.holder,
+        command, scope, seconds: 0, log: null, tail: [], attempts: [], ci: check.ci, ci_reason: check.ci_reason ?? null };
+      addEvent(facts, { type: 'BLOCKED', ...outcome });
+      return outcome;
+    }
+    const last = result.attempts.at(-1);
+    const status = last.exit_code === 0 && !last.reason ? 'passed' : 'failed';
+    let tail;
+    try { tail = readFileSync(log, 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').slice(-40); }
+    catch (error) { return internalOutcome(facts, { check, scope }, error, { log, ...result }); }
+    const outcome = {
+      id: check.id, status, seconds: result.seconds, command, scope, log, tail, reason: last.reason,
+      ci: check.ci, ci_reason: check.ci_reason ?? null,
+      attempts: result.attempts, recovered: status === 'passed' && result.attempts.length > 1,
+      reused: false, reusable: checkIdentity(facts) && status === 'passed',
+      reuse_key: reuseKey(check.id, command, facts.identity), coverage: scope,
+    };
+    addEvent(facts, { type: status === 'passed' ? 'PASS' : 'FAIL', ...outcome });
+    return outcome;
+  }));
+  facts.results = settled.map((outcome, index) => outcome.status === 'fulfilled'
+    ? outcome.value : internalOutcome(facts, facts.selection[index], outcome.reason));
+}
+
+function internalOutcome(facts, { check, scope }, error, execution = {}) {
+  const outcome = {
+    id: check.id, status: 'internal-error', reason: error.message,
+    command: expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope),
+    scope, seconds: execution.seconds ?? 0,
+    log: execution.log ?? join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`),
+    tail: [], attempts: execution.attempts ?? [], reusable: false,
+    ci: check.ci, ci_reason: check.ci_reason ?? null,
+  };
+  addEvent(facts, { type: 'ERROR', rule: 'engine', message: `${check.id}: ${error.message}`, ...outcome });
+  return outcome;
+}
+
+async function prepare(config, facts) {
+  if (!config.prepare || !facts.selection.length) return true;
+  const log = join(facts.storage.logs, 'prepare.log');
+  const result = await supervisor({
+    id: 'prepare', command: config.prepare.run, prepare: config.prepare,
+    stamp_file: join(facts.storage.worktree_dir, 'prepare.json'),
+    paths: facts.selection.flatMap(({ check }) => (check.needs ?? []).filter(need => need.startsWith('path:')).map(need => need.slice(5))),
+    lock: `prepare:${facts.identity.worktree}`, timeout: 600, retry: 0, log,
+  }, executionSlots(1), event => addEvent(facts, event));
+  facts.preparation_stamp = result.stamp ?? null;
+  facts.preparation = { ...result, log: result.prepared ? log : null };
+  if (result.stamp) return true;
+  const tail = existsSync(log) ? readFileSync(log, 'utf8').trimEnd().split('\n').slice(-40) : [];
+  facts.results = facts.selection.map(({ check, scope }) => {
+    const outcome = {
+      id: check.id, status: 'blocked', reason: result.reason ?? 'preparation failed',
+      scope, command: expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope),
+      log: existsSync(log) ? log : null, tail, attempts: [], seconds: 0,
+      ci: check.ci, ci_reason: check.ci_reason ?? null,
+    };
+    addEvent(facts, { type: 'BLOCKED', ...outcome });
+    return outcome;
+  });
+  return false;
+}
+
+function finishRun(facts) {
+  let stable = false;
+  try { stable = checkIdentity(facts); }
+  catch (error) {
+    facts.reuse_eligible = false;
+    facts.events.push({ type: 'ERROR', rule: 'engine', message: error.message });
+  }
+  if (!stable) {
+    for (const result of facts.results) result.reusable = false;
+    for (const event of facts.events) if (event.type === 'PASS') event.reusable = false;
+  }
+  facts.summary.selected = facts.selection.length;
+  for (const result of facts.results) facts.summary[result.status]++;
+  const uncovered = facts.results.some(result => result.status === 'skipped' && !result.gate_runs_it);
+  facts.exit_code = facts.summary['internal-error'] || facts.events.some(event => event.type === 'ERROR' && event.rule === 'engine')
+    ? 70 : uncovered || facts.summary.blocked ? 2 : facts.summary.failed ? 1 : 0;
+  facts.ok = facts.exit_code === 0;
+  facts.events.push(...facts.lanes.map(lane => ({ type: 'LANE', ...lane })));
+  facts.events.push({ type: 'SUMMARY', ...facts.summary });
+  const temporary = `${facts.storage.record}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(facts)}\n`);
+  renameSync(temporary, facts.storage.record);
+  writeFileSync(join(facts.storage.logs, '.completed.json'), JSON.stringify({ time: Date.now() }));
+  unlinkSync(join(facts.storage.logs, '.active.json'));
+  retainRuns(facts.storage.worktree_dir);
+}
+
+function retainRuns(folder) {
+  const records = join(folder, 'records');
+  const completed = [];
+  for (const file of readdirSync(records).filter(name => name.endsWith('.json'))) {
+    const path = join(records, file);
+    try { completed.push({ path, time: statSync(path).mtimeMs }); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  completed.sort((a, b) => b.time - a.time || b.path.localeCompare(a.path));
+  for (const { path } of completed.slice(50)) {
+    try { unlinkSync(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  const logs = join(folder, 'logs');
+  const sets = [];
+  for (const entry of readdirSync(logs)) {
+    const path = join(logs, entry);
+    try {
+      const names = readdirSync(path);
+      const active = names.filter(name => name.endsWith('.active.json')).some(name => liveOwner(readOptionalJson(join(path, name))));
+      if (!active) sets.push({ path, time: readOptionalJson(join(path, '.completed.json'))?.time ?? statSync(path).mtimeMs });
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  sets.sort((a, b) => b.time - a.time || b.path.localeCompare(a.path));
+  for (const { path } of sets.slice(20)) rmSync(path, { recursive: true, force: true });
+}
+
+async function run(schema, facts) {
+  let config;
+  let configBytes;
+  try { configBytes = readFileSync(configPath); config = JSON.parse(configBytes); }
+  catch (error) { throw new RequestError(`${configPath}: ${error.message}`); }
+  const findings = [...configFindings(config, schema)];
+  if (findings.length) throw new RequestError(findings.map(x => x.message).join('\n'));
+  findings.push(...protectedFindings(config));
+  if (findings.length) throw new RequestError(findings.map(x => x.message).join('\n'));
+  for (const id of facts.request.only ?? []) {
+    if (!config.checks.some(check => check.id === id)) throw new RequestError(`Unknown check id ${JSON.stringify(id)}`, 'usage');
+  }
+  await collectChanges(config, facts, hash(configBytes));
+  await selectChecks(config, facts);
+  facts.lanes = config.lanes;
+  runStorage(facts);
+  streamFacts(facts);
+  try {
+    if (await prepare(config, facts)) await execute(facts);
+  } catch (error) {
+    facts.results = facts.selection.map(selected => internalOutcome(facts, selected, error));
+  }
+}
+
+function eventLines(event) {
+  const { type } = event;
+  if (type === 'SELECT') return [`SELECT ${event.id} ${event.reason}`];
+  if (type === 'BASE') return [`BASE ${event.reason}`];
+  if (type === 'UNCLASSIFIED') return [`UNCLASSIFIED ${event.path}`];
+  if (type === 'WIDEN') return [`WIDEN ${event.reason}`];
+  if (type === 'SKIP') return [`SKIP ${event.id} ${event.reason}${event.gate_runs_it ? ' (gate runs it)' : ''}`];
+  if (type === 'LANE') return [`not run here ${event.id} ${event.kind}: ${event.reason}; run_by=${event.run_by}`];
+  if (type === 'PASS') return [`PASS ${event.id} ${event.seconds.toFixed(3)}s${event.reused ? ' (reused)' : event.recovered ? ' (recovered on retry)' : ''}`];
+  if (type === 'RUNNING') return [`RUNNING ${event.id} ${event.seconds.toFixed(3)}s`];
+  if (type === 'WAIT') return [`WAIT ${event.lock}`];
+  if (type === 'BLOCKED') return [`BLOCKED ${event.id} ${event.reason}${event.log ? ` log=${event.log}` : ''}`, ...event.tail];
+  if (type === 'FAIL') return [`FAIL ${event.id} ${event.seconds.toFixed(3)}s log=${event.log}`, ...event.tail];
+  if (type === 'SUMMARY') return [event.selected === 0 ? 'SUMMARY nothing selected' :
+    `SUMMARY ${event.selected} selected, ${event.passed} passed, ${event.failed} failed, ${event.skipped + event.blocked} skipped`];
+  if (type === 'ERROR') return [`${event.rule.toUpperCase()} ${event.message}`];
+  throw new Error(`Unknown event ${type}`);
+}
+
+function emit(facts, json) {
+  if (interrupted) return;
+  if (emitted) { process.exitCode = facts.exit_code; return; }
+  emitted = true;
+  if (json) console.log(JSON.stringify(facts));
+  else if (facts.mode === 'lint') {
+    if (facts.ok) console.log('LINT clean');
+    else for (const finding of facts.findings) console.log(`LINT ${finding.rule} ${finding.message}`);
+  } else {
+    streamFacts(facts);
+  }
+  process.exitCode = facts.exit_code;
+}
+
+const argv = process.argv.slice(2);
+const json = argv.includes('--json');
+const args = argv.filter(arg => arg !== '--json');
+let facts = args[0] === 'lint' ? { mode: 'lint', findings: [] } : newRun();
+let emitted = false;
+let interrupted = false;
+function unexpected(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (typeof process.send === 'function') {
+    sendWorker({ type: 'error', message });
+    process.exitCode = 70;
+    if (process.connected) process.disconnect();
+    return;
+  }
+  facts.ok = false;
+  facts.exit_code = 70;
+  if (facts.mode === 'lint') facts.findings.push({ rule: 'engine', message });
+  else facts.events.push({ type: 'ERROR', rule: 'engine', message });
+  process.exitCode = 70;
+}
+function finalOutput() {
+  process.once('beforeExit', () => {
+    try { if (facts.storage) finishRun(facts); }
+    catch (error) { unexpected(error); }
+    emit(facts, json);
+  });
+}
+function interrupt(signal) {
+  if (interrupted) return;
+  interrupted = true;
+  const code = signal === 'SIGINT' ? 130 : 143;
+  process.exitCode = code;
+  for (const child of runningChecks) child.kill(signal);
+  const deadline = Date.now() + 5000;
+  const wait = () => {
+    if (runningChecks.size && Date.now() < deadline) setTimeout(wait, 25);
+    else process.exit(code);
+  };
+  wait();
+}
+process.on('uncaughtException', unexpected);
+process.on('unhandledRejection', unexpected);
+if (typeof process.send === 'function' && args.length === 0) {
+  process.once('message', async ({ task }) => {
+    try {
+      loadedEngineHash = hash(readFileSync(new URL(import.meta.url)));
+      await worker(task);
+    } catch (error) { unexpected(error); }
+  });
+} else try {
+  process.on('SIGINT', () => interrupt('SIGINT'));
+  process.on('SIGTERM', () => interrupt('SIGTERM'));
+  loadedEngineHash = hash(readFileSync(new URL(import.meta.url)));
+  if (argv.length === 1 && argv[0] === '--help') {
+    console.log([
+      'Usage: scripts/check [--all] [--only <ids>] [--base <ref>] [--json]',
+      '       scripts/check lint [--json]',
+      '       scripts/check --help',
+      '',
+      'Default: committed changes since merge base plus staged, unstaged and untracked files.',
+      '--all         Run whole checks instead of selecting affected tests.',
+      '--only <ids>  Restrict to comma-separated ids; does not force selection without --all.',
+      '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
+      '--json        Print one JSON object: a run reports selection, results and timings, lint reports findings.',
+      '--help        Show this help.',
+      'Filename interpolation requires a POSIX shell host.',
+      '',
+      'Exit codes:',
+      '  0  Selected checks passed, gate-covered skips, or nothing selected.',
+      '  1  A check failed, or lint found invalid configuration.',
+      '  2  Invalid request/configuration, selector failure, or uncovered missing need.',
+      ' 70  Engine unavailable or unexpected internal error.',
+    ].join('\n'));
+  } else {
+    const schema = JSON.parse(readFileSync(new URL('./checks.schema.json', import.meta.url), 'utf8'));
+    if (args.length === 1 && args[0] === 'lint') facts = lint(schema);
+    else {
+      if (args[0] === 'lint') throw new RequestError('Usage: scripts/check lint [--json]. Use --help.', 'usage');
+      facts.request = parseRequest(args);
+      await run(schema, facts);
+    }
+    finalOutput();
+  }
+} catch (error) {
+  facts.ok = false;
+  facts.exit_code = error instanceof RequestError ? 2 : 70;
+  const finding = { rule: error instanceof RequestError ? error.rule : 'engine', message: error.message };
+  if (facts.mode === 'lint') facts.findings.push(finding);
+  else facts.events.push({ type: 'ERROR', ...finding });
+  finalOutput();
+}
