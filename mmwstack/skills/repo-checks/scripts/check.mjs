@@ -732,7 +732,7 @@ function selftest(facts) {
       GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL ?? join(homedir(), '.gitconfig'),
       MMW_REPO_CHECKS_ENGINE: fileURLToPath(import.meta.url), GIT_TERMINAL_PROMPT: '0',
     };
-    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP']) delete env[key];
+    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP', 'MMW_REPO_CHECKS_HOOK']) delete env[key];
     const gitFixture = (...args) => execFileSync('git', ['-c', `core.hooksPath=${hooks}`, ...args], {
       cwd: repo, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000,
     }).trim();
@@ -947,11 +947,14 @@ let activeCommand = null;
 async function commandProcess(command, timeout, log) {
   const fd = log ? openSync(log, 'a') : null;
   const start = performance.now();
+  const env = { ...process.env };
+  delete env.MMW_REPO_CHECKS_HOOK;
   let child;
   try {
     child = spawn(command, {
       shell: true, detached: process.platform !== 'win32',
       stdio: ['ignore', fd ?? 'pipe', fd ?? 'pipe'],
+      env,
     });
   } finally { if (fd !== null) closeSync(fd); }
   let reason = null;
@@ -1532,6 +1535,9 @@ function interrupt(signal) {
 }
 process.on('uncaughtException', unexpected);
 process.on('unhandledRejection', unexpected);
+for (const stream of [process.stdout, process.stderr]) stream.on('error', error => {
+  if (error.code !== 'EPIPE') unexpected(error);
+});
 if (typeof process.send === 'function' && args.length === 0) {
   process.once('message', async ({ task }) => {
     try {

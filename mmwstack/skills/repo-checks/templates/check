@@ -1,5 +1,6 @@
 #!/bin/sh
 engine=${MMW_REPO_CHECKS_ENGINE:-"$HOME/.agents/skills/repo-checks/scripts/check.mjs"}
+if ! command -v node >/dev/null 2>&1; then echo "repo-checks Node.js unavailable" >&2; [ -n "${MMW_REPO_CHECKS_HOOK:-}" ] && exit 0; exit 70; fi
 if [ -f "$engine" ] && [ -z "${MMW_REPO_CHECKS_HOOK:-}" ]; then
   exec node "$engine" "$@"
 fi
@@ -10,6 +11,9 @@ import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { constants } from "node:os";
 
+for (const stream of [process.stdout, process.stderr]) stream.on("error", error => {
+  if (error.code !== "EPIPE") throw error;
+});
 const [engine, ...args] = process.argv.slice(1);
 const hook = process.env.MMW_REPO_CHECKS_HOOK;
 const missing = !existsSync(engine);

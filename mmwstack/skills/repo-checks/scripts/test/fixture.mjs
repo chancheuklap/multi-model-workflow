@@ -44,7 +44,7 @@ export function fixture(t, nodeArgs = []) {
     PATH: `${home}:${process.env.PATH}`,
     MMW_REPO_CHECKS_ENGINE: engine,
   };
-  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR']) delete env[key];
+  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_REPO_CHECKS_HOOK']) delete env[key];
   function git(...args) {
     const result = spawnSync('git', ['-c', `core.hooksPath=${hooks}`,
       '-c', 'gc.auto=0', '-c', 'maintenance.auto=false', ...args], {
