@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, test } from "bun:test";
@@ -16,20 +16,80 @@ execFileSync("git", ["-C", repo, "symbolic-ref", "refs/remotes/origin/HEAD", "re
 const plainDirectory = join(root, "plain");
 mkdirSync(plainDirectory);
 
+const initRepo = (dir: string, remote: string) => {
+	execFileSync("git", ["init", "-q", "-b", "main", dir]);
+	execFileSync("git", ["-C", dir, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+	execFileSync("git", ["-C", dir, "remote", "add", "origin", remote]);
+};
+
+const registeredRepo = join(root, "registered");
+initRepo(registeredRepo, "https://github.com/owner/other.git");
+
+// The home repository is registered too; its entry exercises the ssh remote form.
+const homeRepo = join(root, "home");
+initRepo(homeRepo, "git@github.com:owner/home.git");
+
+// The checked-out branch carries ticket 7 and the remote is the repository the command targets.
+const ticketedRepo = join(root, "ticketed");
+initRepo(ticketedRepo, "git@github.com:owner/ticketed.git");
+execFileSync("git", ["-C", ticketedRepo, "symbolic-ref", "HEAD", "refs/heads/feat/7-x"]);
+
+// The registry writes some paths as `~/...`; the checker runs with HOME set to the fixture root so they resolve here.
+const tildeRepo = join(root, "tilde-repo");
+initRepo(tildeRepo, "https://github.com/owner/tilde.git");
+
+const registry = {
+	home: { name: "home", path: homeRepo, remote: "git@github.com:owner/home.git", integration: "main" },
+	repos: [
+		{ name: "other", path: registeredRepo, remote: "https://github.com/owner/other.git", integration: "main" },
+		{ name: "tilde", path: "~/tilde-repo", remote: "https://github.com/owner/tilde.git", integration: "main" },
+	],
+};
+const registryFile = join(root, "registry.json");
+writeFileSync(registryFile, JSON.stringify(registry));
+mkdirSync(join(root, ".agents", "repos"), { recursive: true });
+writeFileSync(join(root, ".agents", "repos", "registry.json"), JSON.stringify(registry));
+
+// A stand-in for `gh` that logs its arguments and prints the reply file of the directory FAKE_GH_DIR names,
+// after the seconds its `delay` file holds. Without a reply file it fails, as `gh` does when the PR cannot be read.
+const fakeBin = join(root, "bin");
+mkdirSync(fakeBin);
+writeFileSync(
+	join(fakeBin, "gh"),
+	'#!/bin/sh\necho "$*" >> "$FAKE_GH_DIR/calls"\n[ -f "$FAKE_GH_DIR/delay" ] && sleep "$(cat "$FAKE_GH_DIR/delay")"\n[ -f "$FAKE_GH_DIR/reply.json" ] || exit 1\ncat "$FAKE_GH_DIR/reply.json"\n',
+);
+chmodSync(join(fakeBin, "gh"), 0o755);
+
+type PullRequestReply = { body: string; baseRefName: string; headRefName: string };
+
+const fakeGh = (reply?: PullRequestReply) => {
+	const dir = mkdtempSync(join(root, "gh-"));
+	if (reply) writeFileSync(join(dir, "reply.json"), JSON.stringify(reply));
+	const calls = () => (existsSync(join(dir, "calls")) ? readFileSync(join(dir, "calls"), "utf8").trim().split("\n") : []);
+	return { dir, calls };
+};
+
 type Decision =
 	| { decision: "allow" }
 	| { decision: "deny"; reason: string; fix: string }
 	| { decision: "context"; text: string };
 
-const decide = (stdin: string): Decision => {
-	const result = spawnSync("node", [checker], { input: stdin, encoding: "utf8" });
+type Env = Record<string, string | undefined>;
+
+const decide = (stdin: string, gh = fakeGh(), env: Env = {}): Decision => {
+	const result = spawnSync("node", [checker], {
+		input: stdin,
+		encoding: "utf8",
+		env: { ...process.env, HOME: root, HOOK_REGISTRY: registryFile, PATH: `${fakeBin}:${process.env.PATH}`, FAKE_GH_DIR: gh.dir, ...env },
+	});
 	expect(result.status).toBe(0);
 	expect(result.stdout.endsWith("\n")).toBe(true);
 	expect(result.stdout.trimEnd()).not.toContain("\n");
 	return JSON.parse(result.stdout);
 };
 
-const shell = (command: string, cwd = repo) => decide(JSON.stringify({ harness: "test", kind: "shell", cwd, command }));
+const shell = (command: string, cwd = repo, phase?: "before" | "after", gh?: ReturnType<typeof fakeGh>) =>
+	decide(JSON.stringify({ harness: "test", kind: "shell", cwd, command, phase }), gh);
 
 const heredoc = (text: string) => `gh pr create --title t --body "$(cat <<'EOF'\n${text}\nEOF\n)"`;
 
@@ -106,9 +166,98 @@ test("allows when the final body is not the body argument", () => {
 	}
 });
 
-test("allows a PR that targets another repository", () => {
-	expect(shell('gh pr create -R other/repo --body "no link"').decision).toBe("allow");
-	expect(shell('gh pr create --repo other/repo --body "no link"').decision).toBe("allow");
+test("reads registry paths written with a leading ~", () => {
+	expect(shell('gh pr create --repo owner/tilde --body "no link"', plainDirectory).decision).toBe("deny");
+});
+
+test("reads ~/.agents/repos/registry.json when HOOK_REGISTRY is not set", () => {
+	const event = JSON.stringify({ harness: "test", kind: "shell", cwd: repo, command: 'gh pr create --repo owner/other --body "no link"' });
+	expect(decide(event, fakeGh(), { HOOK_REGISTRY: undefined }).decision).toBe("deny");
+});
+
+test("allows a PR that targets another repository when the registry cannot be read", () => {
+	const event = JSON.stringify({ harness: "test", kind: "shell", cwd: repo, command: 'gh pr create --repo owner/other --body "no link"' });
+	expect(decide(event, fakeGh(), { HOOK_REGISTRY: join(root, "missing.json") }).decision).toBe("allow");
+});
+
+test("allows a PR that targets a repository the registry does not list", () => {
+	for (const flag of ["-R other/repo", "-Rother/repo", "--repo other/repo", "--repo=other/repo", "--repo $REPO"]) {
+		expect(shell(`gh pr create ${flag} --body "no link"`).decision).toBe("allow");
+	}
+});
+
+test("checks a PR that targets a registered repository, however the flag is written", () => {
+	for (const flag of ["-R owner/other", "-Rowner/other", "--repo owner/other", "--repo=owner/other", "--repo Owner/Other"]) {
+		expect(shell(`gh pr create ${flag} --base main --body "no link"`, plainDirectory).decision).toBe("deny");
+		expect(shell(`gh pr create ${flag} --base main --body "Closes #1"`, plainDirectory).decision).toBe("allow");
+	}
+});
+
+test("reads the default branch of the registered repository, not of the directory the command runs in", () => {
+	expect(shell('gh pr create --repo owner/other --body "no link"', plainDirectory).decision).toBe("deny");
+});
+
+test("allows a PR into a registered repository when its base is not the default branch", () => {
+	expect(shell('gh pr create --repo owner/other --base project/x --body "no link"').decision).toBe("allow");
+	expect(shell('gh pr create --repo=owner/other --base=project/x --body "no link"').decision).toBe("allow");
+});
+
+test("reads a body file for a registered repository from the directory the command runs in", () => {
+	writeFileSync(join(repo, "other-linked.md"), "Closes #1\n");
+	writeFileSync(join(repo, "other-unlinked.md"), "no link\n");
+	expect(shell("gh pr create --repo owner/other --body-file other-linked.md").decision).toBe("allow");
+	expect(shell("gh pr create --repo owner/other --body-file other-unlinked.md").decision).toBe("deny");
+});
+
+test("takes the ticket from the head branch the command names", () => {
+	const named = (head: string, body: string) => shell(`gh pr create --repo owner/other --head ${head} --body "${body}"`);
+	expect(named("feat/7-x", "Closes #7").decision).toBe("allow");
+	expect(named("feat/7-x", "Closes #8").decision).toBe("deny");
+	expect(named("someone:feat/7-x", "Closes #8").decision).toBe("deny");
+	expect(named("project/x", "Closes #8").decision).toBe("allow");
+});
+
+test("takes the ticket from the current branch and requires that ticket to be named", () => {
+	const create = (body: string) => shell(`gh pr create --body "${body}"`, ticketedRepo);
+	expect(create("Closes #7").decision).toBe("allow");
+	expect(create("Fixes: #7 and Closes #8").decision).toBe("allow");
+	expect(create("Closes owner/ticketed#7").decision).toBe("allow");
+	expect(create("Closes #8").decision).toBe("deny");
+	expect(create("no link").decision).toBe("deny");
+	expect(create("mentions #7").decision).toBe("deny");
+});
+
+test("denies a body that closes only another ticket, and says so", () => {
+	const result = shell('gh pr create --body "Closes #8"', ticketedRepo);
+	expect(result.decision).toBe("deny");
+	if (result.decision !== "deny") return;
+	expect(result.reason).toContain("names a different ticket");
+	expect(result.reason).toContain("`main`");
+	expect(result.reason).toContain("#7");
+	expect(result.fix).toContain("`Closes #7`");
+	expect(result.fix).toContain("without asking the owner");
+	expect(result.fix).not.toContain("\n");
+});
+
+test("names the branch ticket when the body links nothing", () => {
+	const result = shell('gh pr create --body "no link"', ticketedRepo);
+	expect(result.decision).toBe("deny");
+	if (result.decision !== "deny") return;
+	expect(result.reason).toContain("`main`");
+	expect(result.reason).toContain("#7");
+	expect(result.fix).toContain("`Closes #7`");
+});
+
+test("allows a full-name reference to another registered repository for the branch ticket", () => {
+	for (const body of ["owner/other#7", "Delivers owner/other#7", "Closes owner/other#7", "Part of Owner/Home#7"]) {
+		expect(shell(`gh pr create --body "${body}"`, ticketedRepo).decision).toBe("allow");
+	}
+});
+
+test("denies a full-name reference that is not a registered repository or not the branch ticket", () => {
+	for (const body of ["nobody/else#7", "Closes nobody/else#7", "owner/other#8", "owner/ticketed#7"]) {
+		expect(shell(`gh pr create --body "${body}"`, ticketedRepo).decision).toBe("deny");
+	}
 });
 
 test("ignores the command text inside quotes and heredocs", () => {
@@ -139,4 +288,164 @@ test("allows when the default branch cannot be found", () => {
 
 test("allows a command it cannot parse", () => {
 	expect(shell('gh pr create --body "no link').decision).toBe("allow");
+});
+
+const written = (file: string, text: string) => `cat > ${file} <<'EOF'\n${text}\nEOF\ngh pr create --body-file ${file}`;
+
+test("allows before and denies after when the command writes its own body file", () => {
+	const file = join(repo, "late.md");
+	rmSync(file, { force: true });
+	const command = written("late.md", "no link");
+	const before = fakeGh({ body: "no link", baseRefName: "main", headRefName: "main" });
+	expect(shell(command, repo, "before", before).decision).toBe("allow");
+	expect(before.calls()).toEqual([]);
+	expect(shell(command, repo, "after").decision).toBe("allow");
+	writeFileSync(file, "no link\n");
+	expect(shell(command, repo, "after").decision).toBe("deny");
+	writeFileSync(file, "Closes #1\n");
+	expect(shell(command, repo, "after").decision).toBe("allow");
+});
+
+test("treats an event without a phase, or with an unknown one, as before", () => {
+	const file = join(repo, "phaseless.md");
+	rmSync(file, { force: true });
+	const event = { harness: "test", kind: "shell", cwd: repo, command: written("phaseless.md", "no link") };
+	const replying = () => fakeGh({ body: "no link", baseRefName: "main", headRefName: "main" });
+	expect(decide(JSON.stringify(event), replying()).decision).toBe("allow");
+	expect(decide(JSON.stringify({ ...event, phase: "unknown" }), replying()).decision).toBe("allow");
+	expect(decide(JSON.stringify({ ...event, phase: "after" }), replying()).decision).toBe("deny");
+});
+
+test("reads the PR after the command when the command does not carry the body", () => {
+	const unlinked = { body: "no link", baseRefName: "main", headRefName: "feat/7-x" };
+	for (const flags of ["--fill", "--web", "--editor", '--body "$(cat notes.md)"', "--body-file -"]) {
+		const gh = fakeGh(unlinked);
+		const result = shell(`gh pr create ${flags}`, ticketedRepo, "after", gh);
+		expect(result.decision).toBe("deny");
+		if (result.decision === "deny") expect(result.fix).toContain("gh pr edit feat/7-x --body-file");
+		expect(gh.calls()).toEqual(["pr view feat/7-x --json body,baseRefName,headRefName"]);
+		expect(shell(`gh pr create ${flags}`, ticketedRepo, "after", fakeGh({ ...unlinked, body: "Closes #7" })).decision).toBe("allow");
+	}
+});
+
+test("does not read the PR before the command runs", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell("gh pr create --fill", ticketedRepo, "before", gh).decision).toBe("allow");
+	expect(shell('gh pr create --body "$(cat notes.md)"', ticketedRepo, undefined, gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+});
+
+test("reads the PR of a registered repository by its head branch and slug", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell("gh pr create --repo owner/other --head feat/7-x --fill", repo, "after", gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual(["pr view feat/7-x --repo owner/other --json body,baseRefName,headRefName"]);
+});
+
+test("allows after the command when the PR cannot be read", () => {
+	expect(shell("gh pr create --fill", ticketedRepo, "after").decision).toBe("allow");
+});
+
+test("allows when gh does not answer within the time the hook can spend", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
+	writeFileSync(join(gh.dir, "delay"), "4");
+	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
+});
+
+test("allows after the command when the PR it opened does not merge into the default branch", () => {
+	const gh = fakeGh({ body: "no link", baseRefName: "feat/parent", headRefName: "feat/7-x" });
+	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
+});
+
+test("does not read the PR after the command when the command carries a readable body", () => {
+	const gh = fakeGh({ body: "Closes #7", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell('gh pr create --body "no link"', ticketedRepo, "after", gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([]);
+});
+
+const viewing = (body: string, headRefName = "feat/7-x", baseRefName = "feat/parent") => fakeGh({ body, baseRefName, headRefName });
+const VIEW = "--json body,baseRefName,headRefName";
+
+test("denies retargeting a PR onto the default branch when its current body does not close the branch ticket", () => {
+	const gh = viewing("no link");
+	const result = shell("gh pr edit 5 --base main", repo, undefined, gh);
+	expect(result.decision).toBe("deny");
+	if (result.decision !== "deny") return;
+	expect(result.reason).toContain("retargeted onto the default branch `main`");
+	expect(result.reason).toContain("#7");
+	expect(result.fix).toContain("`Closes #7`");
+	expect(result.fix).toContain("without asking the owner");
+	expect(result.fix).not.toContain("\n");
+	expect(gh.calls()).toEqual([`pr view 5 ${VIEW}`]);
+});
+
+test("allows retargeting onto the default branch when the current body closes the branch ticket", () => {
+	expect(shell("gh pr edit 5 --base main", repo, undefined, viewing("Closes #7")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 -B main", repo, undefined, viewing("Closes #7")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 --base=main", repo, undefined, viewing("owner/other#7")).decision).toBe("allow");
+});
+
+test("denies retargeting when the current body closes only another ticket", () => {
+	const result = shell("gh pr edit 5 --base main", repo, undefined, viewing("Closes #8"));
+	expect(result.decision).toBe("deny");
+	if (result.decision !== "deny") return;
+	expect(result.reason).toContain("names a different ticket");
+});
+
+test("allows retargeting onto any base that is not the default branch without reading the PR", () => {
+	for (const command of ["gh pr edit 5 --base feat/parent", "gh pr edit 5 --title t", "gh pr edit 5 --body 'no link'"]) {
+		const gh = viewing("no link");
+		expect(shell(command, repo, undefined, gh).decision).toBe("allow");
+		expect(gh.calls()).toEqual([]);
+	}
+});
+
+test("checks the body an edit sets instead of the current body, and still reads the head branch", () => {
+	const gh = viewing("Closes #7");
+	expect(shell('gh pr edit 5 --base main --body "no link"', repo, undefined, gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([`pr view 5 ${VIEW}`]);
+	expect(shell('gh pr edit 5 --base main --body "Closes #7"', repo, undefined, viewing("no link")).decision).toBe("allow");
+});
+
+test("reads the body file an edit sets from the directory the command runs in", () => {
+	writeFileSync(join(repo, "edit-linked.md"), "Closes #7\n");
+	writeFileSync(join(repo, "edit-unlinked.md"), "no link\n");
+	expect(shell("gh pr edit 5 --base main --body-file edit-linked.md", repo, undefined, viewing("no link")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 --base main -F edit-unlinked.md", repo, undefined, viewing("Closes #7")).decision).toBe("deny");
+});
+
+test("waits for the PR after the command when an edit sets a body it cannot read yet", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "before", gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", gh).decision).toBe("deny");
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", viewing("Closes #7")).decision).toBe("allow");
+});
+
+test("reads the PR of a registered repository by its slug when editing", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit 5 --repo owner/other --base main", plainDirectory, undefined, gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([`pr view 5 --repo owner/other ${VIEW}`]);
+});
+
+test("allows editing a PR of an unregistered repository without reading it", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit 5 --repo other/repo --base main", repo, undefined, gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+});
+
+test("reads the PR of the current branch when the edit names none", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit --base main", repo, undefined, gh).decision).toBe("deny");
+	expect(gh.calls()).toEqual([`pr view ${VIEW}`]);
+});
+
+test("allows an edit whose PR the shell chooses or whose PR cannot be read", () => {
+	const gh = viewing("no link");
+	expect(shell("gh pr edit $PR --base main", repo, undefined, gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([]);
+	expect(shell("gh pr edit 5 --base main").decision).toBe("allow");
+});
+
+test("allows an edit when the default branch cannot be found", () => {
+	expect(shell("gh pr edit 5 --base main", plainDirectory, undefined, viewing("no link")).decision).toBe("allow");
 });
