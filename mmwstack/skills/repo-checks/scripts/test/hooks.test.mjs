@@ -45,14 +45,27 @@ function audits(f, repo = f.repo) {
     return existsSync(path) ? readFileSync(path, 'utf8').trimEnd().split('\n').map(JSON.parse) : [];
   });
 }
-function prekConfig(f) {
+function prekConfig(f, format = 'yaml') {
+  const entry = command('const fs=require("node:fs"); for(const p of process.argv.slice(1)) if(fs.readFileSync(p,"utf8").includes("PLANTED_LINT")){console.error("planted lint error: "+p);process.exit(1)}') + ' --';
+  if (format === 'toml') {
+    f.write('prek.toml', `[[repos]]
+repo = "local"
+[[repos.hooks]]
+id = "toy-lint"
+name = "Toy planted lint"
+language = "system"
+entry = ${JSON.stringify(entry)}
+files = '\\.js$'
+`);
+    return;
+  }
   f.write('.pre-commit-config.yaml', `repos:
   - repo: local
     hooks:
       - id: toy-lint
         name: Toy planted lint
         language: system
-        entry: ${JSON.stringify(command('const fs=require("node:fs"); for(const p of process.argv.slice(1)) if(fs.readFileSync(p,"utf8").includes("PLANTED_LINT")){console.error("planted lint error: "+p);process.exit(1)}') + ' --')}
+        entry: ${JSON.stringify(entry)}
         files: '\\.js$'
 `);
 }
@@ -74,10 +87,10 @@ async function until(predicate, timeout = 5000) {
   }
 }
 
-test('a real commit uses real prek and names the failing planted lint hook', t => {
+for (const format of ['yaml', 'toml']) test(`a real commit uses real prek ${format} and names the failing planted lint hook`, t => {
   if (!requirePrek(t)) return;
   const f = fixture(t);
-  prekConfig(f);
+  prekConfig(f, format);
   f.commit('Add toy prek config');
   enableHooks(f);
   f.write('src/error.js', 'PLANTED_LINT\n');
@@ -94,7 +107,7 @@ test('a real commit uses real prek and names the failing planted lint hook', t =
   assert.equal(allowed.status, 0, output(allowed));
 });
 
-test('a missing prek refuses a real commit and names installation; no config is a no-op', t => {
+for (const format of ['yaml', 'toml']) test(`a missing prek refuses a real commit with ${format} and names installation; no config is a no-op`, t => {
   const f = fixture(t);
   assert.equal(f.cli('--staged').status, 0);
   unlinkSync(join(f.repo, '.agents/checks.json'));
@@ -105,7 +118,7 @@ test('a missing prek refuses a real commit and names installation; no config is 
   const gitPath = spawnSync('which', ['git'], { encoding: 'utf8' }).stdout.trim();
   symlinkSync(gitPath, join(bin, 'git'));
   f.env.PATH = bin;
-  prekConfig(f);
+  prekConfig(f, format);
   f.write('src/error.js', 'PLANTED_LINT\n');
   f.git('add', '--all');
   enableHooks(f);
@@ -113,6 +126,50 @@ test('a missing prek refuses a real commit and names installation; no config is 
   assert.equal(result.status, 1, output(result));
   assert.match(output(result), /Install prek: brew install prek/);
   assert.equal(f.cli('--staged').status, 2);
+  f.env.MMW_REPO_CHECKS_ENGINE = join(f.home, 'absent.mjs');
+  assert.equal(f.cli('--staged').status, 2);
+  const fallback = realGit(f, 'commit', '-m', 'Fallback missing prek');
+  assert.equal(fallback.status, 1, output(fallback));
+  assert.match(output(fallback), /Install prek: brew install prek/);
+});
+
+for (const staged of [false, true]) test(`push uses committed config while manual runs use ${staged ? 'staged' : 'unstaged'} current config`, t => {
+  const { f, c } = setup(t);
+  f.write('src/unit/a.js', 'committed\n');
+  f.commit();
+  assert.equal(f.cli().status, 0);
+  const clean = push(f);
+  assert.equal(clean.results[0].reused, true);
+  c.checks = c.checks.filter(check => check.id !== 'unit');
+  c.inert.push('src/unit/**');
+  f.config(c);
+  if (staged) f.git('add', '.agents/checks.json');
+  const manual = JSON.parse(f.cli('--json').stdout);
+  assert.deepEqual(manual.selection.map(item => item.check.id), ['build']);
+  const dirty = push(f);
+  assert.deepEqual(dirty.changed_paths, clean.changed_paths);
+  assert.deepEqual(dirty.selection.map(item => item.check.id), ['unit']);
+  assert.equal(dirty.push.dirty, true);
+  assert.equal(dirty.reuse_eligible, false);
+  assert.equal(dirty.results[0].reused, false);
+  assert.equal(dirty.results[0].reusable, false);
+  f.write('.agents/checks.json', '{"integration":');
+  const invalidLocal = push(f);
+  assert.deepEqual(invalidLocal.selection.map(item => item.check.id), ['unit']);
+});
+
+test('an actual branch push requires an available valid committed config', t => {
+  const { f } = setup(t);
+  const current = readFileSync(join(f.repo, '.agents/checks.json'));
+  for (const body of [null, '{"integration":']) {
+    if (body === null) unlinkSync(join(f.repo, '.agents/checks.json'));
+    else f.write('.agents/checks.json', body);
+    f.commit();
+    f.write('.agents/checks.json', current);
+    const result = f.invoke(['--push'], { input: line(f) });
+    assert.equal(result.status, 2, output(result));
+    assert.match(output(result), /REQUEST .*HEAD:.*checks\.json/);
+  }
 });
 
 test('push selects committed ranges only, prints DIRTY, and never looks up or writes reusable passes', t => {
@@ -207,6 +264,7 @@ test('empty, deletion and tag pushes do not fetch or run checks', t => {
   f.write('src/unit/a.js', 'selected if inspected\n');
   f.commit();
   f.git('push', 'origin', 'HEAD:refs/heads/deleted');
+  f.write('.agents/checks.json', '{"integration":');
   const marker = join(f.home, 'fetch-ran');
   const uploadpack = join(f.home, 'uploadpack');
   f.write('../home/uploadpack', `#!/bin/sh\ntouch ${quote(marker)}\nexit 1\n`);
@@ -228,6 +286,18 @@ test('empty, deletion and tag pushes do not fetch or run checks', t => {
     assert.doesNotMatch(output(result), /SELECT |BASE |DIRTY/);
   }
   assert.equal(existsSync(marker), false);
+});
+
+test('empty push stdin needs neither committed config nor engine schema', t => {
+  const f = fixture(t);
+  unlinkSync(join(f.repo, '.agents/checks.json'));
+  f.commit();
+  const engine = join(f.home, 'without-schema.mjs');
+  copyFileSync(new URL('../check.mjs', import.meta.url), engine);
+  f.env.MMW_REPO_CHECKS_ENGINE = engine;
+  const result = f.invoke(['--push'], { input: '' });
+  assert.equal(result.status, 0, output(result));
+  assert.equal(result.stdout, 'SUMMARY nothing selected\n');
 });
 
 test('MMW_CHECKS_SKIP prints the exact reason and appends one JSON line per real hook invocation', t => {
@@ -298,10 +368,10 @@ test('both canonical hooks deny only 1 and 2 and allow every other exit and kill
   assert.equal(audits(f).length, 16);
 });
 
-test('missing engine falls back to real prek for commits and reports and allows a real push', t => {
+for (const format of ['yaml', 'toml']) test(`missing engine falls back to real prek ${format} for commits and reports and allows a real push`, t => {
   if (!requirePrek(t)) return;
   const f = fixture(t);
-  prekConfig(f);
+  prekConfig(f, format);
   f.commit('Add fallback config');
   enableHooks(f);
   f.env.MMW_REPO_CHECKS_ENGINE = join(f.home, 'absent.mjs');
@@ -316,6 +386,51 @@ test('missing engine falls back to real prek for commits and reports and allows 
   assert.equal(pushed.status, 0, output(pushed));
   assert.match(output(pushed), /engine missing/);
   assert.equal(audits(f).length, 1);
+});
+
+test('missing engine honors a reasoned bypass before failing real prek on commit and push, auditing once each', t => {
+  if (!requirePrek(t)) return;
+  const f = fixture(t);
+  prekConfig(f);
+  f.commit('Configure failing real prek');
+  f.write('src/error.js', 'PLANTED_LINT\n');
+  f.git('add', '--all');
+  enableHooks(f);
+  f.env.MMW_REPO_CHECKS_ENGINE = join(f.home, 'absent.mjs');
+  const denied = realGit(f, 'commit', '-m', 'Prove fallback fails');
+  assert.equal(denied.status, 1, output(denied));
+  assert.match(output(denied), /planted lint error/);
+  f.env.MMW_CHECKS_SKIP = 'repair "missing"\nengine';
+  f.write('.agents/checks.json', 'invalid config bypassed');
+  f.git('add', '--all');
+  for (const args of [
+    ['commit', '-m', 'Bypass missing engine'],
+    ['push', 'origin', 'HEAD:refs/heads/missing-bypass'],
+  ]) {
+    const result = realGit(f, ...args);
+    assert.equal(result.status, 0, output(result));
+    assert.ok(output(result).includes(`SKIPPED BY REASON ${f.env.MMW_CHECKS_SKIP}`));
+    assert.doesNotMatch(output(result), /planted lint error|engine missing|engine failed/);
+  }
+  const records = audits(f);
+  assert.equal(records.length, 2);
+  assert.deepEqual(records.map(record => record.hook), ['pre-commit', 'pre-push']);
+  for (const record of records) {
+    assert.deepEqual(Object.keys(record).sort(), ['hook', 'reason', 'time', 'type']);
+    assert.equal(record.type, 'bypass');
+    assert.equal(record.reason, f.env.MMW_CHECKS_SKIP);
+    assert.ok(Number.isFinite(Date.parse(record.time)));
+  }
+  const manual = f.cli('--push');
+  assert.equal(manual.status, 0, output(manual));
+  assert.equal(audits(f).length, 3);
+  assert.equal(audits(f)[2].hook, 'pre-push');
+  for (const args of [['--help'], ['report'], ['selftest'], ['replay', '42']]) {
+    const result = f.cli(...args);
+    assert.equal(result.status, 70, output(result));
+    assert.doesNotMatch(output(result), /SKIPPED BY REASON/);
+  }
+  assert.equal(audits(f).length, 3);
 });
 
 test('the shim resolves its default installed engine and honors the engine override', t => {

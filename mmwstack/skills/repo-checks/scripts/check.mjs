@@ -505,10 +505,6 @@ function fetchIntegration(integration) {
 }
 
 async function collectChanges(config, facts, configHash) {
-  if (facts.mode === 'push' && facts.push.ranges.length === 0) {
-    facts.changed_paths = [];
-    return;
-  }
   const remote = `refs/remotes/origin/${config.integration}`;
   const validRef = spawnSync('git', ['check-ref-format', `refs/heads/${config.integration}`], { stdio: 'ignore' });
   if (validRef.error) throw validRef.error;
@@ -591,7 +587,7 @@ function audit(record) {
 }
 
 async function staged() {
-  if (!existsSync('.pre-commit-config.yaml')) return 0;
+  if (!existsSync('prek.toml') && !existsSync('.pre-commit-config.yaml')) return 0;
   if (!commandExists('prek')) {
     console.error('Install prek: brew install prek (or uv tool install prek).');
     return 2;
@@ -676,37 +672,40 @@ function report(facts) {
 }
 
 async function replay(schema, facts, args) {
-  let base;
-  let head;
   if (!json && args.length === 3 && args[1] === '--range') {
     const parts = args[2].split('..');
     if (parts.length !== 2 || parts.some(ref => !ref || ref.startsWith('-') || ref.startsWith('.'))) {
       throw new RequestError('Usage: scripts/check replay --range <base>..<head>.', 'usage');
     }
-    [base, head] = parts;
+    let [base, head] = parts;
+    try {
+      base = git('rev-parse', '--verify', `${base}^{commit}`).trim();
+      head = git('rev-parse', '--verify', `${head}^{commit}`).trim();
+      facts.changed_paths = [...new Set(diffNames(base, head))].sort();
+    } catch (error) { throw new RequestError(`Cannot read local replay range ${base}..${head}: ${error.message}`); }
+    facts.range = { base, head };
   } else if (!json && args.length === 2 && /^[1-9]\d*$/.test(args[1])) {
     let pr;
     try {
-      pr = JSON.parse(execFileSync('gh', ['pr', 'view', args[1], '--json', 'state,mergeCommit'], {
+      pr = JSON.parse(execFileSync('gh', ['pr', 'view', args[1], '--json', 'state'], {
         encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'],
       }));
     } catch (error) { throw new RequestError(`Cannot read merged PR ${args[1]}: ${error.message}`); }
-    if (pr.state !== 'MERGED' || !pr.mergeCommit?.oid) throw new RequestError(`PR ${args[1]} is not merged.`);
-    head = pr.mergeCommit.oid;
-    base = `${head}^1`;
+    if (pr.state !== 'MERGED') throw new RequestError(`PR ${args[1]} is not merged.`);
+    try {
+      const pages = JSON.parse(execFileSync('gh', [
+        'api', '--paginate', '--slurp', `repos/{owner}/{repo}/pulls/${args[1]}/files`,
+      ], { encoding: 'utf8', timeout: 15000, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }));
+      facts.changed_paths = [...new Set(pages.flat().flatMap(file =>
+        file.previous_filename ? [file.filename, file.previous_filename] : [file.filename]))].sort();
+    } catch (error) { throw new RequestError(`Cannot read merged PR ${args[1]} files: ${error.message}`); }
   } else throw new RequestError('Usage: scripts/check replay <pr> | replay --range <base>..<head>.', 'usage');
-  try {
-    base = git('rev-parse', '--verify', `${base}^{commit}`).trim();
-    head = git('rev-parse', '--verify', `${head}^{commit}`).trim();
-    facts.changed_paths = [...new Set(diffNames(base, head))].sort();
-  } catch (error) { throw new RequestError(`Cannot read local replay range ${base}..${head}: ${error.message}`); }
   let config;
   try { config = JSON.parse(readFileSync(configPath, 'utf8')); }
   catch (error) { throw new RequestError(`${configPath}: ${error.message}`); }
   const findings = configFindings(config, schema);
   if (!findings.length) findings.push(...protectedFindings(config));
   if (findings.length) throw new RequestError(findings.map(finding => finding.message).join('\n'));
-  facts.range = { base, head };
   await selectChecks(config, facts);
   facts.ok = true;
   facts.exit_code = 0;
@@ -1405,8 +1404,11 @@ async function run(schema, facts) {
   facts.time = new Date().toISOString();
   let config;
   let configBytes;
-  try { configBytes = readFileSync(configPath); config = JSON.parse(configBytes); }
-  catch (error) { throw new RequestError(`${configPath}: ${error.message}`); }
+  const source = facts.mode === 'push' ? `HEAD:${configPath}` : configPath;
+  try {
+    configBytes = facts.mode === 'push' ? git('show', source) : readFileSync(configPath);
+    config = JSON.parse(configBytes);
+  } catch (error) { throw new RequestError(`${source}: ${error.message}`); }
   const findings = [...configFindings(config, schema)];
   if (findings.length) throw new RequestError(findings.map(x => x.message).join('\n'));
   findings.push(...protectedFindings(config));
@@ -1417,12 +1419,6 @@ async function run(schema, facts) {
   await collectChanges(config, facts, hash(configBytes));
   await selectChecks(config, facts);
   facts.lanes = config.lanes;
-  if (facts.mode === 'push' && facts.push.ranges.length === 0) {
-    facts.ok = true;
-    facts.exit_code = 0;
-    facts.events.push({ type: 'SUMMARY', ...facts.summary });
-    return;
-  }
   runStorage(facts);
   streamFacts(facts);
   try {
@@ -1564,7 +1560,7 @@ if (typeof process.send === 'function' && args.length === 0) {
       '--json        Print facts for run, lint, ensure, report or selftest.',
       '--check       With ensure, report pending repairs and retained folders without changing anything.',
       '--help        Show this help.',
-      '--staged      Run prek on staged files when .pre-commit-config.yaml exists.',
+      '--staged      Run prek on staged files when a prek config exists.',
       '--push        Select committed pre-push stdin ranges only; DIRTY disables reuse.',
       'report        Read retained history across worktrees; never run checks or fetch.',
       'replay        Select from a merged PR or local range; never prepare or run checks.',
@@ -1589,6 +1585,18 @@ if (typeof process.send === 'function' && args.length === 0) {
     emit(facts, json);
   } else if (args.length === 1 && args[0] === '--staged') {
     process.exitCode = await staged();
+  } else if (args.length === 1 && args[0] === '--push') {
+    facts = pushRun();
+    if (facts.push.ranges.length) {
+      const schema = JSON.parse(readFileSync(new URL('./checks.schema.json', import.meta.url), 'utf8'));
+      await run(schema, facts);
+    } else {
+      facts.changed_paths = [];
+      facts.ok = true;
+      facts.exit_code = 0;
+      facts.events.push({ type: 'SUMMARY', ...facts.summary });
+    }
+    finalOutput();
   } else {
     const schema = JSON.parse(readFileSync(new URL('./checks.schema.json', import.meta.url), 'utf8'));
     if (args[0] === 'replay') await replay(schema, facts, args);
@@ -1600,8 +1608,7 @@ if (typeof process.send === 'function' && args.length === 0) {
       facts = ensure(schema, facts);
     } else {
       if (args[0] === 'lint') throw new RequestError('Usage: scripts/check lint [--json]. Use --help.', 'usage');
-      if (args.length === 1 && args[0] === '--push') facts = pushRun();
-      else facts.request = parseRequest(args);
+      facts.request = parseRequest(args);
       await run(schema, facts);
     }
     finalOutput();

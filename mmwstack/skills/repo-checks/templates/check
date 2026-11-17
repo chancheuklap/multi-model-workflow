@@ -13,27 +13,41 @@ import { constants } from "node:os";
 const [engine, ...args] = process.argv.slice(1);
 const hook = process.env.MMW_REPO_CHECKS_HOOK;
 const missing = !existsSync(engine);
+function audit(record) {
+  const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+  const common = resolve(git("rev-parse", "--git-common-dir"));
+  const key = createHash("sha256").update(git("rev-parse", "--show-toplevel")).digest("hex").slice(0, 24);
+  const folder = join(common, "repo-checks", key);
+  mkdirSync(folder, { recursive: true });
+  appendFileSync(join(folder, "audit.jsonl"), `${JSON.stringify({
+    ...record, time: new Date().toISOString(),
+  })}\n`);
+}
 function finish(code, signal = null) {
   const exit = code ?? 128 + constants.signals[signal];
   if (hook && ![0, 1, 2].includes(exit)) {
     const reason = missing ? `engine missing: ${engine}` : `engine failed (${signal ?? exit})`;
     console.error(`repo-checks ${reason}; allowing ${hook}`);
     try {
-      const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
-      const common = resolve(git("rev-parse", "--git-common-dir"));
-      const key = createHash("sha256").update(git("rev-parse", "--show-toplevel")).digest("hex").slice(0, 24);
-      const folder = join(common, "repo-checks", key);
-      mkdirSync(folder, { recursive: true });
-      appendFileSync(join(folder, "audit.jsonl"), `${JSON.stringify({
-        type: "engine-failure", time: new Date().toISOString(), reason, hook, exit_code: exit,
-      })}\n`);
+      audit({ type: "engine-failure", reason, hook, exit_code: exit });
     } catch (error) { console.error(`repo-checks cannot record engine failure: ${error.message}`); }
   }
   process.exitCode = hook ? ([1, 2].includes(exit) ? exit : 0) : exit;
 }
+const request = args.filter(arg => arg !== "--json");
+const diagnostic = ["report", "selftest", "replay"].includes(request[0])
+  || (args.length === 1 && args[0] === "--help");
+if (missing && process.env.MMW_CHECKS_SKIP?.trim() && !diagnostic) {
+  const reason = process.env.MMW_CHECKS_SKIP;
+  const bypassHook = hook ?? (request[0] === "--staged" ? "pre-commit" : request[0] === "--push" ? "pre-push" : "manual");
+  audit({ type: "bypass", reason, hook: bypassHook });
+  if (args.includes("--json")) console.log(JSON.stringify({ mode: "bypass", ok: true, exit_code: 0, reason, hook: bypassHook }));
+  else console.log(`SKIPPED BY REASON ${reason}`);
+  process.exit(0);
+}
 if (missing) console.error(`repo-checks engine missing: ${engine}`);
 if (missing && args[0] !== "--staged") finish(70);
-else if (missing && !existsSync(".pre-commit-config.yaml")) finish(0);
+else if (missing && !existsSync("prek.toml") && !existsSync(".pre-commit-config.yaml")) finish(0);
 else {
   const child = missing ? spawn("prek", ["run"], { stdio: "inherit" })
     : spawn(process.execPath, [engine, ...args], { stdio: "inherit" });

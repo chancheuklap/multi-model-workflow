@@ -271,29 +271,60 @@ test('range replay runs source selection but not the selected test command', t =
   assert.equal(existsSync(join(f.repo, '.git/repo-checks')), false);
 });
 
-for (const kind of ['squash', 'merge']) test(`PR replay selects the ${kind} merged range, not the advanced integration tip`, t => {
+for (const kind of ['squash', 'merge', 'rebase']) test(`PR replay selects the full ${kind} PR files, not the advanced integration tip`, t => {
   const { f } = setup(t);
+  f.write('src/unit/old.js', 'rename contents\n');
+  f.commit();
+  f.git('push', 'origin', 'main');
   f.git('switch', '-c', 'topic');
   f.write('src/unit/pr.js', 'PR input\n');
-  f.commit();
+  f.commit('First PR commit');
+  mkdirSync(join(f.repo, 'src/build'), { recursive: true });
+  f.git('mv', 'src/unit/old.js', 'src/build/renamed.js');
+  f.commit('Last PR commit');
   f.git('switch', 'main');
   if (kind === 'squash') {
     f.git('merge', '--squash', 'topic');
     f.git('commit', '-m', 'Squash topic');
-  } else f.git('merge', '--no-ff', 'topic', '-m', 'Merge topic');
-  const merged = f.git('rev-parse', 'HEAD');
-  f.write('src/build/later.js', 'later integration change\n');
+  } else if (kind === 'merge') f.git('merge', '--no-ff', 'topic', '-m', 'Merge topic');
+  else {
+    f.write('README.md', 'advance before rebase\n');
+    f.commit();
+    f.git('switch', 'topic');
+    f.git('rebase', 'main');
+    f.git('switch', 'main');
+    f.git('merge', '--ff-only', 'topic');
+  }
+  f.write('integration-only.txt', 'later integration change must not widen\n');
   f.commit();
   f.git('push', 'origin', 'main');
   const gh = join(f.home, 'gh');
-  writeFileSync(gh, `#!/bin/sh\nprintf '%s\\n' "$*" > "$HOME/gh-args"\nprintf '%s\\n' '${JSON.stringify({ state: 'MERGED', mergeCommit: { oid: merged } })}'\n`);
+  const pages = [
+    [{ filename: 'src/unit/pr.js', status: 'added' }],
+    [{ filename: 'src/build/renamed.js', previous_filename: 'src/unit/old.js', status: 'renamed' }],
+  ];
+  writeFileSync(gh, `#!/bin/sh
+printf '%s\\n' "$*" >> "$HOME/gh-args"
+case "$*" in
+  'pr view 42 --json state') printf '%s\\n' '{"state":"MERGED"}' ;;
+  'api --paginate --slurp repos/{owner}/{repo}/pulls/42/files') printf '%s\\n' '${JSON.stringify(pages)}' ;;
+  *) echo "Unexpected gh command: $*" >&2; exit 99 ;;
+esac
+`);
   chmodSync(gh, 0o755);
   const result = f.cli('replay', '42');
   assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.equal(readFileSync(join(f.home, 'gh-args'), 'utf8'), 'pr view 42 --json state,mergeCommit\n');
-  assert.equal(result.stdout, 'SELECT unit inputs src/unit/pr.js\nSUMMARY 1 selected (replay; no checks run)\n');
-  assert.equal(existsSync(join(f.repo, 'CHECK_RAN')), false);
-  assert.equal(existsSync(join(f.repo, '.git/repo-checks')), false);
+  assert.equal(readFileSync(join(f.home, 'gh-args'), 'utf8'),
+    'pr view 42 --json state\napi --paginate --slurp repos/{owner}/{repo}/pulls/42/files\n');
+  assert.equal(result.stdout, 'SELECT unit inputs src/unit/old.js\nSELECT build inputs src/build/renamed.js\nSUMMARY 2 selected (replay; no checks run)\n');
+  for (const path of ['CHECK_RAN', 'PREPARE_RAN', '.git/repo-checks']) {
+    assert.equal(existsSync(join(f.repo, path)), false);
+  }
+  const c = cleanConfig();
+  c.inert.push('src/unit/old.js', 'src/build/renamed.js');
+  c.checks[0].inputs = ['src/unit/pr.js'];
+  f.config(c);
+  assert.match(f.cli('replay', '42').stdout, /^SELECT unit inputs src\/unit\/pr.js$/m);
 });
 
 test('replay rejects invalid ranges, unmerged PRs and invalid current config with request exit 2', t => {
