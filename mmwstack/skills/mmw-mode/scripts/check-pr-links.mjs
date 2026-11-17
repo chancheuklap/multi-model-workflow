@@ -6,7 +6,9 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 
 const ALLOW = { decision: "allow" };
-const KEYWORD = /\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\b:?\s+([\w.-]+\/[\w.-]+)?#\d+/i;
+const REFERENCE = /(?:\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+)?(?:([\w.-]+\/[\w.-]+))?#(\d+)/gi;
+const BRANCH_TICKET = /^(?:feat|fix|docs|chore|refactor|test|ci|perf|revert)\/(\d+)-/;
+const REMOTE_SLUG = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/;
 const CREATE_COMMANDS = [
 	["gh", "pr", "create"],
 	["origin", "pr", "create"],
@@ -19,6 +21,10 @@ const VALUE_FLAGS = new Map([
 	["-b", "body"],
 	["--body-file", "bodyFile"],
 	["-F", "bodyFile"],
+	["--head", "head"],
+	["-H", "head"],
+	["--repo", "repo"],
+	["-R", "repo"],
 ]);
 
 const UNKNOWN = null;
@@ -183,18 +189,55 @@ function parse(src, start, nested) {
 	return { commands, end: i };
 }
 
-function defaultBranch(dir) {
+const expandHome = (file) => (file === "~" || file.startsWith("~/") ? path.join(os.homedir(), file.slice(1)) : file);
+
+function git(dir, args) {
 	if (dir === null) return null;
 	try {
-		const ref = execFileSync("git", ["-C", dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
+		return execFileSync("git", ["-C", dir, ...args], {
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "ignore"],
 			timeout: 5000,
 		}).trim();
-		return ref.startsWith("origin/") ? ref.slice("origin/".length) : null;
 	} catch {
 		return null;
 	}
+}
+
+function defaultBranch(dir) {
+	const ref = git(dir, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+	return ref?.startsWith("origin/") ? ref.slice("origin/".length) : null;
+}
+
+const currentBranch = (dir) => git(dir, ["branch", "--show-current"]) || null;
+
+const slugOf = (remote) => (typeof remote === "string" ? (REMOTE_SLUG.exec(remote)?.[1].toLowerCase() ?? null) : null);
+
+// A registry that cannot be read registers nothing, so every `--repo` command is then allowed.
+function loadRegistry() {
+	const file = process.env.HOOK_REGISTRY || path.join(os.homedir(), ".agents", "repos", "registry.json");
+	try {
+		const { home, repos } = JSON.parse(fs.readFileSync(file, "utf8"));
+		return [home, ...repos].flatMap((entry) => {
+			const slug = slugOf(entry?.remote);
+			return slug && typeof entry.path === "string" ? [{ name: entry.name, path: expandHome(entry.path), slug }] : [];
+		});
+	} catch {
+		return [];
+	}
+}
+
+let registered;
+const registry = () => (registered ??= loadRegistry());
+const isRegistered = (slug) => registry().some((entry) => entry.slug === slug);
+
+// The repository a command acts on: the registered one a `--repo` flag names, else the one in `dir`.
+// `repoDir` is where its default branch is read. Null when the flag names an unregistered or unknown repository.
+function resolveTarget(repo, dir) {
+	if (repo === undefined) return { slug: slugOf(git(dir, ["remote", "get-url", "origin"])), repoDir: dir };
+	const slug = typeof repo === "string" ? repo.toLowerCase() : null;
+	const entry = registry().find((candidate) => candidate.slug === slug);
+	return entry ? { slug, repoDir: entry.path } : null;
 }
 
 function readBodyFile(file, dir) {
@@ -208,15 +251,10 @@ function readBodyFile(file, dir) {
 
 function cdTarget(dir, args) {
 	if (dir === null || args.length !== 2 || args[1] === UNKNOWN) return null;
-	if (args[1] === "~" || args[1].startsWith("~/")) return path.join(os.homedir(), args[1].slice(1));
-	return path.resolve(dir, args[1]);
+	return path.resolve(dir, expandHome(args[1]));
 }
 
-function checkCreate(args, dir) {
-	const flags = args.filter((arg) => typeof arg === "string");
-	if (flags.some((arg) => arg.startsWith("-R") || arg === "--repo" || arg.startsWith("--repo="))) return ALLOW;
-	if (flags.some((arg) => FLAGS_WITHOUT_FINAL_BODY.has(arg))) return ALLOW;
-
+function readFlags(args) {
 	const given = {};
 	for (let k = 0; k < args.length; k++) {
 		const arg = args[k];
@@ -224,19 +262,73 @@ function checkCreate(args, dir) {
 		const eq = arg.startsWith("--") ? arg.indexOf("=") : -1;
 		const key = VALUE_FLAGS.get(eq === -1 ? arg : arg.slice(0, eq));
 		if (key) given[key] = (eq === -1 ? args[++k] : arg.slice(eq + 1)) ?? null;
+		else if (arg.startsWith("-R") && arg.length > 2) given.repo = arg.slice(2);
+		else if (FLAGS_WITHOUT_FINAL_BODY.has(arg)) given.fill = true;
 	}
+	return given;
+}
 
-	const body = given.body !== undefined ? given.body : readBodyFile(given.bodyFile, dir);
-	if (body === null || KEYWORD.test(body)) return ALLOW;
+// The ticket number a branch named `<type>/<issue>-<slug>` carries, else null.
+function branchTicket(head) {
+	const match = head === null ? null : BRANCH_TICKET.exec(head);
+	return match ? Number(match[1]) : null;
+}
 
-	const branch = defaultBranch(dir);
-	const base = given.base === undefined ? branch : given.base;
-	if (branch === null || base !== branch) return ALLOW;
+// "linked" when the body completes the ticket, "different" when it closes only other tickets, else "missing".
+// Without a ticket number, any closing keyword counts as linked.
+function judgeBody(body, ticket, target) {
+	const references = [...body.matchAll(REFERENCE)].map(([, keyword, slug, number]) => ({
+		closing: keyword !== undefined,
+		slug: slug?.toLowerCase(),
+		number: Number(number),
+	}));
+	const closesTicket = (ref) => {
+		if (ticket === null) return ref.closing;
+		if (ref.number !== ticket) return false;
+		if (ref.slug === undefined || ref.slug === target.slug) return ref.closing;
+		// GitHub closes only same-repository issues, so a link to another registered repository is the cross-repository form.
+		return isRegistered(ref.slug);
+	};
+	if (references.some(closesTicket)) return "linked";
+	return references.some((ref) => ref.closing) ? "different" : "missing";
+}
+
+function denial(judgment, branch, ticket, head) {
+	const merge = `This PR merges into the default branch \`${branch}\``;
+	if (ticket === null) {
+		return {
+			decision: "deny",
+			reason: `${merge}, where GitHub closes issues from closing keywords, and the body has none.`,
+			fix: "Add a line `Closes #<issue>` to the body for each issue this PR completes, then run the same command again; handle this yourself without asking the owner.",
+		};
+	}
+	const reason =
+		judgment === "different"
+			? `${merge}, and its body names a different ticket than #${ticket}, which branch \`${head}\` carries.`
+			: `${merge}, where GitHub closes issues from closing keywords, and the body does not close ticket #${ticket}, which branch \`${head}\` carries.`;
 	return {
 		decision: "deny",
-		reason: `This PR merges into the default branch \`${branch}\`, where GitHub closes issues from closing keywords, and the body has none.`,
-		fix: "Add a line `Closes #<issue>` to the body for each issue this PR completes, then run the same command again. Handle this yourself; do not ask the owner.",
+		reason,
+		fix: `Add a line \`Closes #${ticket}\` to the body, or \`owner/repo#${ticket}\` naming its repository when that ticket lives in another registered repository, then run the same command again; handle this yourself without asking the owner.`,
 	};
+}
+
+function checkCreate(args, dir) {
+	const given = readFlags(args);
+	const target = resolveTarget(given.repo, dir);
+	if (target === null || given.fill) return ALLOW;
+
+	const branch = defaultBranch(target.repoDir);
+	const base = given.base === undefined ? branch : given.base;
+	if (branch === null || base !== branch) return ALLOW;
+
+	const body = given.body !== undefined ? given.body : readBodyFile(given.bodyFile, dir);
+	if (body === null) return ALLOW;
+
+	const head = given.head === undefined ? currentBranch(dir) : (given.head?.split(":").pop() ?? null);
+	const ticket = branchTicket(head);
+	const judgment = judgeBody(body, ticket, target);
+	return judgment === "linked" ? ALLOW : denial(judgment, branch, ticket, head);
 }
 
 function decide(event) {
