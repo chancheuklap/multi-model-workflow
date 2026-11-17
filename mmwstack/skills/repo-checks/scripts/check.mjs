@@ -297,7 +297,7 @@ function markerFindings(path) {
 }
 
 function repositoryFindings(config) {
-  const findings = [...integrationFindings(config), ...ciFindings(config), ...protectedFindings(config)];
+  const findings = [...integrationFindings(config), ...ciFindings(config), ...protectedFindings(config), ...templateFindings()];
   const classified = patternsMatch([
     ...config.inert, ...config.affects_all,
     ...config.checks.flatMap(check => [...check.inputs, ...(check.sources ?? [])]),
@@ -323,6 +323,16 @@ function repositoryFindings(config) {
     if (!exempt(path)) findings.push(...markerFindings(path));
   }
   return findings;
+}
+
+function templateFindings() {
+  return [['scripts/check', 'check'], ['.githooks/pre-commit', 'pre-commit'], ['.githooks/pre-push', 'pre-push']].flatMap(([path, template]) => {
+    const expected = readFileSync(new URL(`../templates/${template}`, import.meta.url));
+    try {
+      if (readFileSync(path).equals(expected)) return [];
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    return [{ rule: 'template', path, message: `${path}: differs from canonical ${template} template` }];
+  });
 }
 
 function lint(schema) {
@@ -416,6 +426,10 @@ function fetchIntegration(integration) {
 }
 
 async function collectChanges(config, facts, configHash) {
+  if (facts.mode === 'push' && facts.push.ranges.length === 0) {
+    facts.changed_paths = [];
+    return;
+  }
   const remote = `refs/remotes/origin/${config.integration}`;
   const validRef = spawnSync('git', ['check-ref-format', `refs/heads/${config.integration}`], { stdio: 'ignore' });
   if (validRef.error) throw validRef.error;
@@ -441,6 +455,22 @@ async function collectChanges(config, facts, configHash) {
     engine_hash: loadedEngineHash,
   };
   facts.identity.engine_version = facts.identity.engine_hash;
+  if (facts.mode === 'push') {
+    const paths = [];
+    for (const range of facts.push.ranges) {
+      range.base = git('merge-base', range.head, remote).trim();
+      paths.push(...changedNames(git('diff', '--ignore-submodules=none', '--name-status', '-z', '--find-renames', range.base, range.head, '--')));
+    }
+    facts.changed_paths = [...new Set(paths)].sort();
+    facts.identity.dirty = git('status', '--ignore-submodules=none', '--porcelain', '-z', '--untracked-files=all').length > 0;
+    facts.push.dirty = facts.identity.dirty || facts.push.ranges.some(range => range.head !== facts.identity.head);
+    if (facts.push.dirty) {
+      facts.reuse_eligible = false;
+      facts.events.push({ type: 'DIRTY' });
+    }
+    facts.timing.select_ms += performance.now() - start;
+    return;
+  }
   const ref = facts.request.base ?? remote;
   let base;
   try { base = git('merge-base', 'HEAD', ref).trim(); }
@@ -457,6 +487,44 @@ async function collectChanges(config, facts, configHash) {
   facts.changed_paths = [...new Set([...committed, ...staged, ...unstaged, ...untracked])].sort();
   facts.identity.dirty = staged.length + unstaged.length + untracked.length > 0;
   facts.timing.select_ms += performance.now() - start;
+}
+
+function pushRun() {
+  const facts = newRun();
+  facts.mode = 'push';
+  facts.push = {
+    ranges: readFileSync(0, 'utf8').split('\n').filter(line => line.trim()).flatMap(line => {
+      const [ref, head, remote_ref, remote_head] = line.trim().split(/\s+/);
+      if (/^0+$/.test(head)) return [];
+      if (!/^[a-f0-9]{40,64}$/.test(head) || !remote_ref || !remote_head) throw new RequestError('Invalid pre-push input');
+      if (!remote_ref.startsWith('refs/heads/')) return [];
+      return [{ ref, head, remote_ref, remote_head, base: null }];
+    }),
+    dirty: false,
+  };
+  return facts;
+}
+
+function audit(record) {
+  const common = resolve(git('rev-parse', '--git-common-dir').trim());
+  const folder = join(common, 'repo-checks', hash(git('rev-parse', '--show-toplevel').trim()).slice(0, 24));
+  mkdirSync(folder, { recursive: true });
+  appendFileSync(join(folder, 'audit.jsonl'), `${JSON.stringify({ ...record, time: new Date().toISOString() })}\n`);
+}
+
+async function staged() {
+  if (!existsSync('.pre-commit-config.yaml')) return 0;
+  if (!commandExists('prek')) {
+    console.error('Install prek: brew install prek (or uv tool install prek).');
+    return 2;
+  }
+  const result = await supervisor({
+    id: 'prek', command: 'prek run', timeout: 600, retry: 0, log: null,
+  }, executionSlots(1), () => {});
+  const attempt = result.attempts[0];
+  process.stdout.write(attempt.stdout);
+  process.stderr.write(attempt.stderr);
+  return attempt.exit_code === 0 && !attempt.reason ? 0 : 1;
 }
 
 function expandCommand(template, scope) {
@@ -1061,6 +1129,7 @@ function retainRuns(folder) {
 }
 
 async function run(schema, facts) {
+  facts.time = new Date().toISOString();
   let config;
   let configBytes;
   try { configBytes = readFileSync(configPath); config = JSON.parse(configBytes); }
@@ -1075,6 +1144,12 @@ async function run(schema, facts) {
   await collectChanges(config, facts, hash(configBytes));
   await selectChecks(config, facts);
   facts.lanes = config.lanes;
+  if (facts.mode === 'push' && facts.push.ranges.length === 0) {
+    facts.ok = true;
+    facts.exit_code = 0;
+    facts.events.push({ type: 'SUMMARY', ...facts.summary });
+    return;
+  }
   runStorage(facts);
   streamFacts(facts);
   try {
@@ -1086,6 +1161,7 @@ async function run(schema, facts) {
 
 function eventLines(event) {
   const { type } = event;
+  if (type === 'DIRTY') return ['DIRTY'];
   if (type === 'SELECT') return [`SELECT ${event.id} ${event.reason}`];
   if (type === 'BASE') return [`BASE ${event.reason}`];
   if (type === 'UNCLASSIFIED') return [`UNCLASSIFIED ${event.path}`];
@@ -1111,6 +1187,8 @@ function emit(facts, json) {
   else if (facts.mode === 'lint') {
     if (facts.ok) console.log('LINT clean');
     else for (const finding of facts.findings) console.log(`LINT ${finding.rule} ${finding.message}`);
+  } else if (facts.mode === 'bypass') {
+    console.log(`SKIPPED BY REASON ${facts.reason}`);
   } else {
     streamFacts(facts);
   }
@@ -1174,6 +1252,7 @@ if (typeof process.send === 'function' && args.length === 0) {
     console.log([
       'Usage: scripts/check [--all] [--only <ids>] [--base <ref>] [--json]',
       '       scripts/check lint [--json]',
+      '       scripts/check --staged | --push [--json]',
       '       scripts/check --help',
       '',
       'Default: committed changes since merge base plus staged, unstaged and untracked files.',
@@ -1182,6 +1261,8 @@ if (typeof process.send === 'function' && args.length === 0) {
       '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
       '--json        Print one JSON object: a run reports selection, results and timings, lint reports findings.',
       '--help        Show this help.',
+      '--staged      Run prek on staged files when .pre-commit-config.yaml exists.',
+      '--push        Select committed pre-push stdin ranges only; DIRTY disables reuse.',
       'Filename interpolation requires a POSIX shell host.',
       '',
       'Exit codes:',
@@ -1190,12 +1271,21 @@ if (typeof process.send === 'function' && args.length === 0) {
       '  2  Invalid request/configuration, selector failure, or uncovered missing need.',
       ' 70  Engine unavailable or unexpected internal error.',
     ].join('\n'));
+  } else if (process.env.MMW_CHECKS_SKIP?.trim()) {
+    const reason = process.env.MMW_CHECKS_SKIP;
+    const hook = process.env.MMW_REPO_CHECKS_HOOK ?? (args[0] === '--staged' ? 'pre-commit' : args[0] === '--push' ? 'pre-push' : 'manual');
+    audit({ type: 'bypass', reason, hook });
+    facts = { mode: 'bypass', ok: true, exit_code: 0, reason, hook };
+    emit(facts, json);
+  } else if (args.length === 1 && args[0] === '--staged') {
+    process.exitCode = await staged();
   } else {
     const schema = JSON.parse(readFileSync(new URL('./checks.schema.json', import.meta.url), 'utf8'));
     if (args.length === 1 && args[0] === 'lint') facts = lint(schema);
     else {
       if (args[0] === 'lint') throw new RequestError('Usage: scripts/check lint [--json]. Use --help.', 'usage');
-      facts.request = parseRequest(args);
+      if (args.length === 1 && args[0] === '--push') facts = pushRun();
+      else facts.request = parseRequest(args);
       await run(schema, facts);
     }
     finalOutput();

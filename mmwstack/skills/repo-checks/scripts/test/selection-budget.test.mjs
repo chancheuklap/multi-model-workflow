@@ -20,7 +20,7 @@ test('selection meets 2000ms in three fresh JSON runs over exactly 8475 tracked 
     ci: false, ci_reason: 'Local tools.',
   }];
   f.config(c);
-  for (let i = 0; i < 8472; i++) {
+  for (let i = 0; i < 8470; i++) {
     const name = String(i).padStart(5, '0');
     const path = [`src/module-${name}.js`, `test/unit-${name}.test.mjs`,
       `docs/document-${name}.md`, `assets/data-${name}.json`][i % 4];

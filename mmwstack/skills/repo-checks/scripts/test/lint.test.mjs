@@ -299,10 +299,10 @@ test('the CLI advertises implemented modes and refuses unsupported requests', t 
   assert.equal(help.status, 0);
   assert.match(help.stdout, /lint.*--json/);
   assert.ok(help.stdout.split('\n').length <= 40);
-  for (const flag of ['--all', '--only', '--base', '--json', '--help']) assert.ok(help.stdout.includes(flag));
+  for (const flag of ['--all', '--only', '--base', '--json', '--help', '--push', '--staged']) assert.ok(help.stdout.includes(flag));
   for (const code of [0, 1, 2, 70]) assert.match(help.stdout, new RegExp(`\\b${code}\\b`));
-  assert.doesNotMatch(help.stdout, /--push|--staged|ensure|selftest|replay/);
-  for (const args of [['ensure'], ['--push'], ['lint', '--typo'], ['lint', 'extra']]) {
+  assert.doesNotMatch(help.stdout, /ensure|selftest|replay/);
+  for (const args of [['ensure'], ['--push', '--all'], ['lint', '--typo'], ['lint', 'extra']]) {
     const facts = JSON.parse(f.cli(...args, '--json').stdout);
     assert.equal(facts.exit_code, 2);
     assert.equal(facts.ok, false);
@@ -344,7 +344,7 @@ test('lint identifies invalid glob syntax as a config finding rather than an eng
   f.config(c);
   const facts = lintJson(f, 1);
   assert.equal(facts.findings[0].rule, 'schema');
-  assert.equal(facts.findings[0].field, 'inert[2]');
+  assert.equal(facts.findings[0].field, 'inert[3]');
 });
 
 test('lint scans current link text without following targets and still classifies missing and binary files', t => {

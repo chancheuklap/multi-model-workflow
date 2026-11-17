@@ -1,0 +1,52 @@
+#!/bin/sh
+engine=${MMW_REPO_CHECKS_ENGINE:-"$HOME/.agents/skills/repo-checks/scripts/check.mjs"}
+if [ -f "$engine" ] && [ -z "${MMW_REPO_CHECKS_HOOK:-}" ]; then
+  exec node "$engine" "$@"
+fi
+exec node --input-type=module -e '
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { join, resolve } from "node:path";
+import { constants } from "node:os";
+
+const [engine, ...args] = process.argv.slice(1);
+const hook = process.env.MMW_REPO_CHECKS_HOOK;
+const missing = !existsSync(engine);
+function finish(code, signal = null) {
+  const exit = code ?? 128 + constants.signals[signal];
+  if (hook && ![0, 1, 2].includes(exit)) {
+    const reason = missing ? `engine missing: ${engine}` : `engine failed (${signal ?? exit})`;
+    console.error(`repo-checks ${reason}; allowing ${hook}`);
+    try {
+      const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+      const common = resolve(git("rev-parse", "--git-common-dir"));
+      const key = createHash("sha256").update(git("rev-parse", "--show-toplevel")).digest("hex").slice(0, 24);
+      const folder = join(common, "repo-checks", key);
+      mkdirSync(folder, { recursive: true });
+      appendFileSync(join(folder, "audit.jsonl"), `${JSON.stringify({
+        type: "engine-failure", time: new Date().toISOString(), reason, hook, exit_code: exit,
+      })}\n`);
+    } catch (error) { console.error(`repo-checks cannot record engine failure: ${error.message}`); }
+  }
+  process.exitCode = hook ? ([1, 2].includes(exit) ? exit : 0) : exit;
+}
+if (missing) console.error(`repo-checks engine missing: ${engine}`);
+if (missing && args[0] !== "--staged") finish(70);
+else if (missing && !existsSync(".pre-commit-config.yaml")) finish(0);
+else {
+  const child = missing ? spawn("prek", ["run"], { stdio: "inherit" })
+    : spawn(process.execPath, [engine, ...args], { stdio: "inherit" });
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
+  child.once("error", error => {
+    if (missing && error.code === "ENOENT") {
+      console.error("Install prek: brew install prek (or uv tool install prek).");
+      finish(2);
+    } else {
+      console.error(`repo-checks ${error.message}`);
+      finish(70);
+    }
+  });
+  child.once("exit", (code, signal) => finish(missing && code !== null ? (code === 0 ? 0 : 1) : code, signal));
+}
+' "$engine" "$@"
