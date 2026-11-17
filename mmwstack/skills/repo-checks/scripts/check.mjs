@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { accessSync, appendFileSync, chmodSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { accessSync, appendFileSync, chmodSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFileSync, fork, spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { cpus, homedir } from 'node:os';
+import { cpus, homedir, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const configPath = '.agents/checks.json';
@@ -468,6 +468,10 @@ function changedNames(output) {
   return paths;
 }
 
+function diffNames(...range) {
+  return changedNames(git('diff', '--ignore-submodules=none', '--name-status', '-z', '--find-renames', ...range, '--'));
+}
+
 function newRun() {
   return {
     mode: 'run', ok: false, exit_code: 70, record_version: 1,
@@ -534,7 +538,7 @@ async function collectChanges(config, facts, configHash) {
     const paths = [];
     for (const range of facts.push.ranges) {
       range.base = git('merge-base', range.head, remote).trim();
-      paths.push(...changedNames(git('diff', '--ignore-submodules=none', '--name-status', '-z', '--find-renames', range.base, range.head, '--')));
+      paths.push(...diffNames(range.base, range.head));
     }
     facts.changed_paths = [...new Set(paths)].sort();
     facts.identity.dirty = git('status', '--ignore-submodules=none', '--porcelain', '-z', '--untracked-files=all').length > 0;
@@ -554,10 +558,9 @@ async function collectChanges(config, facts, configHash) {
     throw new RequestError(`Cannot find merge base with ${ref}: ${error.stderr?.toString().trim()}`);
   }
   facts.base = { ref, commit: base };
-  const diff = (...range) => changedNames(git('diff', '--ignore-submodules=none', '--name-status', '-z', '--find-renames', ...range, '--'));
-  const committed = diff(base, 'HEAD');
-  const staged = diff('--cached');
-  const unstaged = diff();
+  const committed = diffNames(base, 'HEAD');
+  const staged = diffNames('--cached');
+  const unstaged = diffNames();
   const untracked = git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean);
   facts.changed_paths = [...new Set([...committed, ...staged, ...unstaged, ...untracked])].sort();
   facts.identity.dirty = staged.length + unstaged.length + untracked.length > 0;
@@ -600,6 +603,200 @@ async function staged() {
   process.stdout.write(attempt.stdout);
   process.stderr.write(attempt.stderr);
   return attempt.exit_code === 0 && !attempt.reason ? 0 : 1;
+}
+
+function newReport() {
+  return {
+    mode: 'report', ok: true, exit_code: 0,
+    runs: { total: 0, passed: 0, failed: 0, blocked: 0, internal_error: 0 },
+    bypasses: { count: 0, latest_reason: null, records: [] },
+    engine_failures: { count: 0, records: [] },
+    retry_recoveries: 0, slow: [], flaky: [], passed_push_commits: [], findings: [],
+  };
+}
+
+function report(facts) {
+  const root = resolve(git('rev-parse', '--git-common-dir').trim(), 'repo-checks');
+  if (!existsSync(root)) return facts;
+  const runs = [];
+  const audits = [];
+  for (const folder of readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory())) {
+    const records = join(root, folder.name, 'records');
+    if (existsSync(records)) for (const file of readdirSync(records).filter(name => name.endsWith('.json'))) {
+      const path = join(records, file);
+      const record = JSON.parse(readFileSync(path, 'utf8'));
+      runs.push({ record, time: record.time ? Date.parse(record.time) : statSync(path).mtimeMs, path });
+    }
+    const auditPath = join(root, folder.name, 'audit.jsonl');
+    if (existsSync(auditPath)) audits.push(...readFileSync(auditPath, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)));
+  }
+  runs.sort((a, b) => a.time - b.time || a.path.localeCompare(b.path));
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const recent = audits.filter(record => Date.parse(record.time) >= cutoff).sort((a, b) => a.time.localeCompare(b.time));
+  facts.bypasses.records = recent.filter(record => record.type === 'bypass');
+  facts.bypasses.count = facts.bypasses.records.length;
+  facts.bypasses.latest_reason = facts.bypasses.records.at(-1)?.reason ?? null;
+  facts.engine_failures.records = recent.filter(record => record.type === 'engine-failure');
+  facts.engine_failures.count = facts.engine_failures.records.length;
+  const samples = new Map();
+  const recoveries = new Map();
+  const commits = new Set();
+  for (const { record, time } of runs) {
+    facts.runs.total++;
+    const category = { 0: 'passed', 1: 'failed', 2: 'blocked', 70: 'internal_error' }[record.exit_code];
+    if (category) facts.runs[category]++;
+    for (const result of record.results) {
+      if (result.reused || !result.attempts.length) continue;
+      if (!samples.has(result.id)) samples.set(result.id, []);
+      samples.get(result.id).push({ seconds: result.seconds, timeout_s: result.timeout_s ?? 600 });
+      if (time >= cutoff && result.recovered) {
+        facts.retry_recoveries++;
+        recoveries.set(result.id, (recoveries.get(result.id) ?? 0) + 1);
+      }
+    }
+    if (record.mode === 'push' && record.ok && record.exit_code === 0 && !record.push.dirty &&
+        record.identity && !record.identity.dirty &&
+        (!record.identity_after || (!record.identity_after.dirty && record.identity_after.head === record.identity.head)) &&
+        record.push.ranges.every(range => range.head === record.identity.head)) {
+      for (const range of record.push.ranges) commits.add(range.head);
+    }
+  }
+  for (const [id, history] of samples) {
+    const last = history.slice(-20);
+    const seconds = last.map(sample => sample.seconds).sort((a, b) => a - b);
+    const p90_s = seconds[Math.ceil(seconds.length * 0.9) - 1];
+    const timeout_s = last.at(-1).timeout_s;
+    if (p90_s > timeout_s / 2) facts.slow.push({ id, samples: last.length, p90_s, timeout_s });
+  }
+  facts.slow.sort((a, b) => a.id.localeCompare(b.id));
+  facts.flaky = [...recoveries].filter(([, count]) => count >= 2)
+    .map(([id, count]) => ({ id, recoveries: count })).sort((a, b) => a.id.localeCompare(b.id));
+  facts.passed_push_commits = [...commits].sort();
+  return facts;
+}
+
+async function replay(schema, facts, args) {
+  let base;
+  let head;
+  if (!json && args.length === 3 && args[1] === '--range') {
+    const parts = args[2].split('..');
+    if (parts.length !== 2 || parts.some(ref => !ref || ref.startsWith('-') || ref.startsWith('.'))) {
+      throw new RequestError('Usage: scripts/check replay --range <base>..<head>.', 'usage');
+    }
+    [base, head] = parts;
+  } else if (!json && args.length === 2 && /^[1-9]\d*$/.test(args[1])) {
+    let pr;
+    try {
+      pr = JSON.parse(execFileSync('gh', ['pr', 'view', args[1], '--json', 'state,mergeCommit'], {
+        encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'],
+      }));
+    } catch (error) { throw new RequestError(`Cannot read merged PR ${args[1]}: ${error.message}`); }
+    if (pr.state !== 'MERGED' || !pr.mergeCommit?.oid) throw new RequestError(`PR ${args[1]} is not merged.`);
+    head = pr.mergeCommit.oid;
+    base = `${head}^1`;
+  } else throw new RequestError('Usage: scripts/check replay <pr> | replay --range <base>..<head>.', 'usage');
+  try {
+    base = git('rev-parse', '--verify', `${base}^{commit}`).trim();
+    head = git('rev-parse', '--verify', `${head}^{commit}`).trim();
+    facts.changed_paths = [...new Set(diffNames(base, head))].sort();
+  } catch (error) { throw new RequestError(`Cannot read local replay range ${base}..${head}: ${error.message}`); }
+  let config;
+  try { config = JSON.parse(readFileSync(configPath, 'utf8')); }
+  catch (error) { throw new RequestError(`${configPath}: ${error.message}`); }
+  const findings = configFindings(config, schema);
+  if (!findings.length) findings.push(...protectedFindings(config));
+  if (findings.length) throw new RequestError(findings.map(finding => finding.message).join('\n'));
+  facts.range = { base, head };
+  await selectChecks(config, facts);
+  facts.ok = true;
+  facts.exit_code = 0;
+}
+
+function newSelftest() {
+  return { mode: 'selftest', ok: false, exit_code: 1, assertions: [], findings: [] };
+}
+
+function selftest(facts) {
+  const root = mkdtempSync(join(tmpdir(), 'repo-checks-selftest-'));
+  let name = 'fixture';
+  const assert = (label, ok, message) => {
+    name = label;
+    facts.assertions.push({ name: label, ok, ...(!ok ? { message } : {}) });
+  };
+  try {
+    const repo = join(root, 'repo');
+    const home = join(root, 'home');
+    const hooks = join(root, 'hooks');
+    for (const dir of [repo, home, hooks]) mkdirSync(dir);
+    const env = {
+      ...process.env, HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'),
+      GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL ?? join(homedir(), '.gitconfig'),
+      MMW_REPO_CHECKS_ENGINE: fileURLToPath(import.meta.url), GIT_TERMINAL_PROMPT: '0',
+    };
+    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP']) delete env[key];
+    const gitFixture = (...args) => execFileSync('git', ['-c', `core.hooksPath=${hooks}`, ...args], {
+      cwd: repo, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000,
+    }).trim();
+    try {
+      gitFixture('config', '--get', 'user.name');
+      gitFixture('config', '--get', 'user.email');
+    } catch {
+      throw new Error('Selftest requires configured Git user.name and user.email; no author identity was changed.');
+    }
+    gitFixture('var', 'GIT_AUTHOR_IDENT');
+    gitFixture('var', 'GIT_COMMITTER_IDENT');
+    const remote = join(root, 'origin.git');
+    gitFixture('init', '--bare', '--template=', remote);
+    gitFixture('--git-dir', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    gitFixture('init', '--template=', '-b', 'main');
+    gitFixture('remote', 'add', 'origin', remote);
+    mkdirSync(join(repo, '.agents'));
+    mkdirSync(join(repo, 'scripts'));
+    mkdirSync(join(repo, 'src'));
+    const checks = ['unit', 'unaffected'].map(id => ({
+      id, run: `${shellQuote(process.execPath)} -e ${shellQuote(`console.log("${id} selftest output")`)}`,
+      inputs: [`src/${id}.js`], tests: [], ci: false, ci_reason: 'Built-in local selftest.',
+    }));
+    writeFileSync(join(repo, configPath), JSON.stringify({
+      integration: 'main', ci_workflow: null, test_files: [], inert: ['scripts/check'],
+      affects_all: [configPath], checks, lanes: [], excluded: [],
+    }));
+    const entry = join(repo, 'scripts/check');
+    writeFileSync(entry, readFileSync(new URL('../templates/check', import.meta.url)));
+    chmodSync(entry, 0o755);
+    gitFixture('add', '--all');
+    gitFixture('commit', '-m', 'Selftest baseline');
+    gitFixture('push', 'origin', 'main');
+    writeFileSync(join(repo, 'src/unit.js'), 'selftest change\n');
+    gitFixture('add', '--all');
+    gitFixture('commit', '-m', 'Selftest input');
+    assert('fixture', true);
+    name = 'engine-run';
+    const run = spawnSync(entry, ['--base', 'refs/remotes/origin/main', '--json'], {
+      cwd: repo, env, encoding: 'utf8', timeout: 15000,
+    });
+    assert('engine-run', run.status === 0, run.error?.message ?? run.stderr + run.stdout);
+    name = 'selection';
+    const result = JSON.parse(run.stdout);
+    assert('selection', result.selection.length === 1 && result.selection[0].check.id === 'unit',
+      `Expected only unit; selected ${result.selection.map(item => item.check.id).join(', ')}`);
+    assert('check-pass', result.results.length === 1 && result.results[0].id === 'unit' &&
+      result.results[0].status === 'passed' && !result.results[0].reused && result.summary.passed === 1,
+    'Expected one executed, passing unit check.');
+    name = 'check-log';
+    const log = result.results.find(item => item.id === 'unit')?.log;
+    assert('check-log', Boolean(log) && readFileSync(log, 'utf8') === 'unit selftest output\n',
+      'Expected unit selftest output in the check log.');
+  } catch (error) {
+    if (!facts.assertions.some(assertion => assertion.name === name && !assertion.ok)) {
+      facts.assertions.push({ name, ok: false, message: error.message });
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  facts.ok = facts.assertions.every(assertion => assertion.ok);
+  facts.exit_code = facts.ok ? 0 : 1;
+  return facts;
 }
 
 function expandCommand(template, scope) {
@@ -1099,6 +1296,7 @@ async function execute(facts) {
     catch (error) { return internalOutcome(facts, { check, scope }, error, { log, ...result }); }
     const outcome = {
       id: check.id, status, seconds: result.seconds, command, scope, log, tail, reason: last.reason,
+      timeout_s: check.timeout_s ?? 600,
       ci: check.ci, ci_reason: check.ci_reason ?? null,
       attempts: result.attempts, recovered: status === 'passed' && result.attempts.length > 1,
       reused: false, reusable: checkIdentity(facts) && status === 'passed',
@@ -1269,6 +1467,24 @@ function emit(facts, json) {
     for (const finding of facts.findings) console.log(`ENSURE ${finding.rule} ${finding.message}`);
   } else if (facts.mode === 'bypass') {
     console.log(`SKIPPED BY REASON ${facts.reason}`);
+  } else if (facts.mode === 'report') {
+    console.log(`RUNS ${facts.runs.total} total, ${facts.runs.passed} passed, ${facts.runs.failed} failed, ${facts.runs.blocked} blocked, ${facts.runs.internal_error} internal errors`);
+    console.log(`BYPASSES ${facts.bypasses.count} in 14 days; latest reason: ${facts.bypasses.latest_reason ?? 'none'}`);
+    for (const record of facts.bypasses.records) console.log(`BYPASS ${record.time} ${record.hook}: ${record.reason}`);
+    console.log(`ENGINE_FAILURES ${facts.engine_failures.count} in 14 days`);
+    console.log(`RETRY_RECOVERIES ${facts.retry_recoveries} in 14 days`);
+    console.log('SLOW_THRESHOLD nearest-rank p90 of last 20 executions > half effective timeout (default 600s)');
+    console.log('FLAKY_THRESHOLD at least 2 retry recoveries in 14 days');
+    for (const check of facts.slow) console.log(`SLOW ${check.id} p90=${check.p90_s}s over last ${check.samples} executions > half timeout ${check.timeout_s}s`);
+    for (const check of facts.flaky) console.log(`FLAKY ${check.id} ${check.recoveries} recoveries in 14 days (threshold 2)`);
+    for (const commit of facts.passed_push_commits) console.log(`PASSED_PUSH ${commit}`);
+    for (const finding of facts.findings) console.log(`REPORT ${finding.rule} ${finding.message}`);
+  } else if (facts.mode === 'selftest') {
+    for (const assertion of facts.assertions) console.log(`SELFTEST ${assertion.ok ? 'PASS' : 'FAIL'} ${assertion.name}${assertion.message ? `: ${assertion.message}` : ''}`);
+    for (const finding of facts.findings) console.log(`SELFTEST ${finding.rule} ${finding.message}`);
+  } else if (facts.mode === 'replay') {
+    streamFacts(facts);
+    if (facts.ok) console.log(facts.selection.length ? `SUMMARY ${facts.selection.length} selected (replay; no checks run)` : 'SUMMARY nothing selected');
   } else {
     streamFacts(facts);
   }
@@ -1279,7 +1495,9 @@ const argv = process.argv.slice(2);
 const json = argv.includes('--json');
 const args = argv.filter(arg => arg !== '--json');
 let facts = args[0] === 'lint' ? { mode: 'lint', findings: [] } :
-  args[0] === 'ensure' ? newEnsure(args.includes('--check')) : newRun();
+  args[0] === 'ensure' ? newEnsure(args.includes('--check')) :
+    args[0] === 'report' ? newReport() : args[0] === 'selftest' ? newSelftest() : newRun();
+if (args[0] === 'replay') facts.mode = 'replay';
 let emitted = false;
 let interrupted = false;
 function unexpected(error) {
@@ -1291,10 +1509,10 @@ function unexpected(error) {
     return;
   }
   facts.ok = false;
-  facts.exit_code = 70;
-  if (facts.mode === 'lint' || facts.mode === 'ensure') facts.findings.push({ rule: 'engine', message });
+  facts.exit_code = facts.mode === 'selftest' ? 1 : 70;
+  if (facts.findings) facts.findings.push({ rule: 'engine', message });
   else facts.events.push({ type: 'ERROR', rule: 'engine', message });
-  process.exitCode = 70;
+  process.exitCode = facts.exit_code;
 }
 function finalOutput() {
   process.once('beforeExit', () => {
@@ -1334,6 +1552,8 @@ if (typeof process.send === 'function' && args.length === 0) {
       'Usage: scripts/check [--all] [--only <ids>] [--base <ref>] [--json]',
       '       scripts/check lint [--json]',
       '       scripts/check ensure [--check] [--json]',
+      '       scripts/check report | selftest [--json]',
+      '       scripts/check replay <pr> | replay --range <base>..<head>',
       '       scripts/check --staged | --push [--json]',
       '       scripts/check --help',
       '',
@@ -1341,20 +1561,27 @@ if (typeof process.send === 'function' && args.length === 0) {
       '--all         Run whole checks instead of selecting affected tests.',
       '--only <ids>  Restrict to comma-separated ids; does not force selection without --all.',
       '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
-      '--json        Print one JSON object: run results, lint findings, or ensure repairs.',
+      '--json        Print facts for run, lint, ensure, report or selftest.',
       '--check       With ensure, report pending repairs and retained folders without changing anything.',
       '--help        Show this help.',
       '--staged      Run prek on staged files when .pre-commit-config.yaml exists.',
       '--push        Select committed pre-push stdin ranges only; DIRTY disables reuse.',
+      'report        Read retained history across worktrees; never run checks or fetch.',
+      'replay        Select from a merged PR or local range; never prepare or run checks.',
+      'selftest      Prove this engine with a temporary fixture; requires configured Git identity.',
       'Filename interpolation requires a POSIX shell host.',
       '',
       'Exit codes:',
       '  0  Checks passed, gate-covered skips, nothing selected, or ensure done.',
-      '  1  A check failed, lint found invalid configuration, or ensure --check has pending repairs.',
+      '  1  A check/selftest failed, lint found invalid configuration, or ensure --check has pending repairs.',
       '  2  Invalid request/configuration, selector failure, uncovered missing need, or ensure cannot repair.',
       ' 70  Engine unavailable or unexpected internal error.',
     ].join('\n'));
-  } else if (process.env.MMW_CHECKS_SKIP?.trim()) {
+  } else if (args[0] === 'report' || args[0] === 'selftest') {
+    if (args.length !== 1) throw new RequestError(`Usage: scripts/check ${args[0]} [--json]. Use --help.`, 'usage');
+    facts = args[0] === 'report' ? report(facts) : selftest(facts);
+    finalOutput();
+  } else if (process.env.MMW_CHECKS_SKIP?.trim() && args[0] !== 'replay') {
     const reason = process.env.MMW_CHECKS_SKIP;
     const hook = process.env.MMW_REPO_CHECKS_HOOK ?? (args[0] === '--staged' ? 'pre-commit' : args[0] === '--push' ? 'pre-push' : 'manual');
     audit({ type: 'bypass', reason, hook });
@@ -1364,7 +1591,8 @@ if (typeof process.send === 'function' && args.length === 0) {
     process.exitCode = await staged();
   } else {
     const schema = JSON.parse(readFileSync(new URL('./checks.schema.json', import.meta.url), 'utf8'));
-    if (args.length === 1 && args[0] === 'lint') facts = lint(schema);
+    if (args[0] === 'replay') await replay(schema, facts, args);
+    else if (args.length === 1 && args[0] === 'lint') facts = lint(schema);
     else if (args[0] === 'ensure') {
       if (!(args.length === 1 || (args.length === 2 && args[1] === '--check'))) {
         throw new RequestError('Usage: scripts/check ensure [--check] [--json]. Use --help.', 'usage');
@@ -1380,9 +1608,9 @@ if (typeof process.send === 'function' && args.length === 0) {
   }
 } catch (error) {
   facts.ok = false;
-  facts.exit_code = error instanceof RequestError ? 2 : 70;
+  facts.exit_code = error instanceof RequestError ? 2 : facts.mode === 'selftest' ? 1 : 70;
   const finding = { rule: error instanceof RequestError ? error.rule : 'engine', message: error.message };
-  if (facts.mode === 'lint' || facts.mode === 'ensure') facts.findings.push(finding);
+  if (facts.findings) facts.findings.push(finding);
   else facts.events.push({ type: 'ERROR', ...finding });
   finalOutput();
 }

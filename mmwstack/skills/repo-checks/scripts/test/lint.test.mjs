@@ -302,12 +302,12 @@ test('the CLI advertises implemented modes and refuses unsupported requests', t 
   for (const flag of ['--all', '--only', '--base', '--json', '--help', '--push', '--staged']) assert.ok(help.stdout.includes(flag));
   for (const code of [0, 1, 2, 70]) assert.match(help.stdout, new RegExp(`\\b${code}\\b`));
   assert.match(help.stdout, /ensure.*--check.*--json/);
-  assert.doesNotMatch(help.stdout, /scripts\/check (?:report|selftest|replay)\b/);
-  for (const args of [['report'], ['selftest'], ['replay'], ['--push', '--all'], ['lint', '--typo'], ['lint', 'extra']]) {
+  for (const mode of ['report', 'selftest', 'replay']) assert.ok(help.stdout.includes(mode));
+  for (const args of [['report', 'extra'], ['selftest', '--all'], ['replay'], ['--push', '--all'], ['lint', '--typo'], ['lint', 'extra']]) {
     const facts = JSON.parse(f.cli(...args, '--json').stdout);
     assert.equal(facts.exit_code, 2);
     assert.equal(facts.ok, false);
-    const error = facts.mode === 'lint' ? facts.findings[0] : facts.events.find(x => x.type === 'ERROR');
+    const error = facts.findings ? facts.findings[0] : facts.events.find(x => x.type === 'ERROR');
     assert.equal(error.rule, 'usage');
   }
 });
