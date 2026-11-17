@@ -36,7 +36,7 @@
   },
   "$defs": {
     "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
-    "id": { "type": "string", "pattern": "^\\S+$" },
+    "id": { "type": "string", "pattern": "^(?!-)[^\\s,\\u0000]+$" },
     "relative": {
       "type": "string",
       "minLength": 1,

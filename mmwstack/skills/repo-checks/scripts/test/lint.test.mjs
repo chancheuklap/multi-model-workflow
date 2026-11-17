@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { unlinkSync } from 'node:fs';
+import { chmodSync, mkdirSync, symlinkSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanConfig, fixture, lintJson } from './fixture.mjs';
 
@@ -345,4 +345,67 @@ test('lint identifies invalid glob syntax as a config finding rather than an eng
   const facts = lintJson(f, 1);
   assert.equal(facts.findings[0].rule, 'schema');
   assert.equal(facts.findings[0].field, 'inert[2]');
+});
+
+test('lint scans current link text without following targets and still classifies missing and binary files', t => {
+  const f = fixture(t);
+  const c = cleanConfig();
+  c.inert.push('docs/**');
+  c.marker_exempt = ['retired/**'];
+  f.config(c);
+  for (const path of ['docs/changed.md', 'docs/external.md', 'docs/deleted.md', 'docs/directory.md']) {
+    f.write(path, 'Ordinary tracked text.\n');
+  }
+  f.write('docs/binary.md', Buffer.from('MMW_BASE_REF\0scripts/check --step unit\n'));
+  f.write('retired/orphan.test.js', 'MMW_BASE_REF\n');
+  f.commit();
+  f.git('update-index', '--assume-unchanged', 'docs/changed.md');
+  f.git('update-index', '--skip-worktree', 'docs/external.md');
+  f.write('docs/changed.md', 'MMW_BASE_REF\n');
+  f.write('../outside.md', 'MMW_BASE_REF\n');
+  unlinkSync(join(f.repo, 'docs/external.md'));
+  symlinkSync('../../outside.md', join(f.repo, 'docs/external.md'));
+  unlinkSync(join(f.repo, 'docs/deleted.md'));
+  unlinkSync(join(f.repo, 'docs/directory.md'));
+  mkdirSync(join(f.repo, 'docs/directory.md'));
+  const expected = [
+    ['legacy-marker', 'docs/changed.md', 'MMW_BASE_REF'],
+    ['unclassified', 'retired/orphan.test.js', undefined],
+    ['unclaimed-test', 'retired/orphan.test.js', undefined],
+  ];
+  assert.deepEqual(lintJson(f, 1).findings.map(x => [x.rule, x.path, x.marker]), expected);
+  unlinkSync(join(f.repo, 'docs/changed.md'));
+  symlinkSync('MMW_BASE_REF', join(f.repo, 'docs/changed.md'));
+  assert.deepEqual(lintJson(f, 1).findings.map(x => [x.rule, x.path, x.marker]), expected);
+});
+
+test('lint preserves multiline and case-sensitive marker semantics after context-free filtering', t => {
+  const f = fixture(t);
+  const c = cleanConfig();
+  c.inert.push('docs/**');
+  f.config(c);
+  f.write('docs/markers.md', [
+    'mmw_base_ref is not the case-sensitive marker.',
+    'dispatch.sh routes messages.',
+    ...Array(8).fill('Ordinary content.'),
+    'Run scripts/check through dispatch.sh.',
+    'RUN\u00a0BY\nMMW\nBEFORE\nEVERY\nTICKET\nLANDS.',
+    'scripts/check\u00a0\n--step unit.',
+  ].join('\n'));
+  f.commit();
+  assert.deepEqual(lintJson(f, 1).findings.map(x => x.marker), [
+    'run by MMW before every ticket lands', 'scripts/check --step', 'dispatch.sh',
+  ]);
+});
+
+test('lint reports unreadable tracked content instead of silently treating it as marker-free', t => {
+  const f = fixture(t);
+  f.write('src/unreadable.js', 'MMW_BASE_REF\n');
+  f.commit();
+  const path = join(f.repo, 'src/unreadable.js');
+  chmodSync(path, 0);
+  try {
+    const facts = lintJson(f, 1);
+    assert.deepEqual(facts.findings.map(x => [x.rule, x.path]), [['tracked-read', 'src/unreadable.js']]);
+  } finally { chmodSync(path, 0o644); }
 });

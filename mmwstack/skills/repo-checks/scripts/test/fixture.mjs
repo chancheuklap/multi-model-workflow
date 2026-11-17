@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -73,13 +73,41 @@ export function fixture(t, nodeArgs = []) {
     assert.ifError(result.error);
     return { ...result, elapsed_ms: performance.now() - start };
   }
+  function start(args = [], options = {}) {
+    const child = spawn(join(options.repo ?? repo, 'scripts/check'), args, {
+      cwd: options.repo ?? repo, env: options.env ?? env, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    const lines = [];
+    child.stdout.on('data', bytes => { stdout += bytes; lines.push({ stream: 'stdout', time: Date.now(), text: String(bytes) }); });
+    child.stderr.on('data', bytes => { stderr += bytes; lines.push({ stream: 'stderr', time: Date.now(), text: String(bytes) }); });
+    const timer = setTimeout(() => child.kill('SIGKILL'), options.timeout ?? 45_000);
+    const done = new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', (status, signal) => {
+        clearTimeout(timer);
+        resolve({ status, signal, stdout, stderr, lines });
+      });
+    });
+    async function until(pattern, timeout = 5000) {
+      const deadline = Date.now() + timeout;
+      while (!pattern.test(stdout + stderr)) {
+        if (child.exitCode !== null || Date.now() > deadline) {
+          throw new Error(`Waiting for ${pattern}\n${stdout}\n${stderr}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    }
+    return { child, done, until, lines };
+  }
   config(cleanConfig());
   write('README.md', 'Fixture repository.\n');
   write('scripts/check', `#!/bin/sh\nexec ${[process.execPath, ...nodeArgs, engine].map(quote).join(' ')} "$@"\n`);
   chmodSync(join(repo, 'scripts/check'), 0o755);
   commit('Initial fixture');
   git('push', '-u', 'origin', 'main');
-  return { root, repo, home, env, git, write, config, commit, cli,
+  return { root, repo, home, env, git, write, config, commit, cli, start,
     cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 

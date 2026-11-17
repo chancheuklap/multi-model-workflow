@@ -49,7 +49,7 @@ test('default run selects inputs from committed, staged, unstaged and untracked 
   assert.deepEqual(facts.changed_paths, ['README.md', 'src/build/untracked.js', 'src/unit/committed.js', 'src/unit/staged.js', 'src/unit/unstaged.js']);
   assert.deepEqual(facts.selection.map(x => [x.check.id, x.scope.kind]), [['unit', 'whole'], ['build', 'whole']]);
   assert.deepEqual(facts.results.map(x => [x.id, x.status]), [['unit', 'passed'], ['build', 'passed']]);
-  assert.deepEqual(facts.summary, { selected: 2, passed: 2, failed: 0, skipped: 0, blocked: 0 });
+  assert.deepEqual(facts.summary, { selected: 2, passed: 2, failed: 0, skipped: 0, blocked: 0, 'internal-error': 0 });
   const text = f.cli();
   assert.equal(text.status, 0, text.stdout + text.stderr);
   assert.deepEqual(text.stdout.match(/^SELECT \S+/gm), ['SELECT unit', 'SELECT build']);
@@ -355,7 +355,9 @@ test('failure output includes the saved log and exactly its last 40 lines while 
   const at = lines.findIndex(x => /^FAIL unit [\d.]+s log=/.test(x));
   assert.ok(at >= 0, text.stdout);
   assert.deepEqual(lines.slice(at + 1, at + 41), failure.tail);
-  assert.match(lines[at + 41], /^PASS build /);
+  const build = lines.findIndex(x => /^PASS build /.test(x));
+  assert.ok(build >= 0 && (build < at || build > at + 40), text.stdout);
+  assert.equal(lines.filter(x => /^PASS build /.test(x)).length, 1);
   assert.equal(lines.at(-1), 'SUMMARY 2 selected, 1 passed, 1 failed, 0 skipped');
 });
 

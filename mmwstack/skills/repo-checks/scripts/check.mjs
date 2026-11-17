@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-import { accessSync, closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { accessSync, appendFileSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync, fork, spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { cpus, homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 const configPath = '.agents/checks.json';
 
@@ -174,7 +176,7 @@ function protectedFindings(config) {
   const protectedLanes = config.lanes.filter(lane => lane.kind === 'owner-only' || lane.kind === 'device');
   const findings = [];
   config.checks.forEach((check, index) => {
-    for (const commandField of ['run', 'run_all']) {
+    for (const commandField of ['run', 'run_all', 'select']) {
       if (!check[commandField]) continue;
       for (const lane of protectedLanes) {
         if (check[commandField] !== lane.command) continue;
@@ -219,6 +221,8 @@ const legacyMarkers = [
   { marker: 'verify-erp ticket CHECK', pattern: /\bCHECK\b/g, context: 'ticket-check' },
 ];
 
+const anyLegacyMarker = new RegExp(legacyMarkers.map(({ pattern }) => `(?:${pattern.source})`).join('|'), 'i');
+
 function workflowFilterAt(text, index) {
   let offset = 0;
   let filterIndent = null;
@@ -251,7 +255,9 @@ function markerContext(kind, path, text, index) {
     const tomlSection = before.match(/^\s*\[([^\]]+)\]/gm)?.at(-1) ?? '';
     const testOrLintSection = /(?:^|\/)pyproject\.toml$/.test(path) &&
       /\[tool\.(?:pytest|ruff|black|isort|coverage|pylint|flake8|mypy)(?:[.\]]|$)/.test(tomlSection);
-    return testOrLintSection || /(?:^|\/)\.(?:gitignore|dockerignore|ignore|eslintignore|prettierignore)$|(?:eslint|oxlint|vitest|jest|pytest|ruff)[^/]*(?:config|\.ini|\.json|\.toml)/.test(path) ||
+    const pytestSection = /(?:^|\/)(?:setup\.cfg|tox\.ini)$/.test(path) &&
+      /^\s*\[(?:tool:pytest|pytest)\]\s*$/.test(tomlSection);
+    return testOrLintSection || pytestSection || /(?:^|\/)\.(?:gitignore|dockerignore|ignore|eslintignore|prettierignore)$|(?:eslint|oxlint|vitest|jest|pytest|ruff)[^/]*(?:config|\.ini|\.json|\.toml)/.test(path) ||
       /\b(?:ignore[sd]?|exclud\w*|omit)\b|排除|忽略/i.test(context);
   }
   if (kind === 'ticket-check') return /(?:^|\/)verify-erp(?:\/|$)/.test(path) && /\bticket\b|工单|票据/i.test(context);
@@ -260,17 +266,22 @@ function markerContext(kind, path, text, index) {
 }
 
 function markerFindings(path) {
-  let bytes;
+  let text;
   try {
-    const stat = lstatSync(path);
-    if (stat.isDirectory()) return [];
-    bytes = stat.isSymbolicLink() ? Buffer.from(readlinkSync(path)) : readFileSync(path);
+    const stat = constants.O_NOFOLLOW === undefined ? lstatSync(path) : null;
+    if (stat?.isDirectory()) return [];
+    try {
+      text = stat?.isSymbolicLink() ? readlinkSync(path) :
+        readFileSync(path, { encoding: 'utf8', flag: constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) });
+    } catch (error) {
+      if (error.code !== 'ELOOP') throw error;
+      text = readlinkSync(path);
+    }
   } catch (error) {
-    if (error.code === 'ENOENT') return [];
+    if (error.code === 'ENOENT' || error.code === 'EISDIR') return [];
     return [{ rule: 'tracked-read', path, message: `${JSON.stringify(path)}: cannot scan tracked file: ${error.message}` }];
   }
-  if (bytes.includes(0)) return [];
-  const text = bytes.toString('utf8');
+  if (text.includes('\0') || !anyLegacyMarker.test(text)) return [];
   const findings = [];
   for (const { marker, pattern, context } of legacyMarkers) {
     for (const match of text.matchAll(pattern)) {
@@ -329,6 +340,7 @@ function lint(schema) {
 }
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+let loadedEngineHash;
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
 
 class RequestError extends Error {
@@ -375,7 +387,7 @@ function newRun() {
   return {
     mode: 'run', ok: false, exit_code: 70, record_version: 1,
     request: { scope: 'changed', only: null, base: null },
-    selection: [], results: [], summary: { selected: 0, passed: 0, failed: 0, skipped: 0, blocked: 0 },
+    selection: [], results: [], summary: { selected: 0, passed: 0, failed: 0, skipped: 0, blocked: 0, 'internal-error': 0 },
     lanes: [], events: [], timing: { select_ms: 0 }, preparation_stamp: null,
   };
 }
@@ -403,7 +415,7 @@ function fetchIntegration(integration) {
   });
 }
 
-async function collectChanges(config, facts) {
+async function collectChanges(config, facts, configHash) {
   const remote = `refs/remotes/origin/${config.integration}`;
   const validRef = spawnSync('git', ['check-ref-format', `refs/heads/${config.integration}`], { stdio: 'ignore' });
   if (validRef.error) throw validRef.error;
@@ -425,8 +437,8 @@ async function collectChanges(config, facts) {
     worktree: git('rev-parse', '--show-toplevel').trim(),
     head: git('rev-parse', 'HEAD').trim(),
     tree: git('rev-parse', 'HEAD^{tree}').trim(),
-    config_hash: hash(readFileSync(configPath)),
-    engine_hash: hash(readFileSync(new URL(import.meta.url))),
+    config_hash: configHash,
+    engine_hash: loadedEngineHash,
   };
   facts.identity.engine_version = facts.identity.engine_hash;
   const ref = facts.request.base ?? remote;
@@ -437,7 +449,7 @@ async function collectChanges(config, facts) {
     throw new RequestError(`Cannot find merge base with ${ref}: ${error.stderr?.toString().trim()}`);
   }
   facts.base = { ref, commit: base };
-  const diff = (...range) => changedNames(git('diff', '--name-status', '-z', '--find-renames', ...range, '--'));
+  const diff = (...range) => changedNames(git('diff', '--ignore-submodules=none', '--name-status', '-z', '--find-renames', ...range, '--'));
   const committed = diff(base, 'HEAD');
   const staged = diff('--cached');
   const unstaged = diff();
@@ -449,23 +461,26 @@ async function collectChanges(config, facts) {
 
 function expandCommand(template, scope) {
   if (scope.kind === 'whole') return template;
+  if (process.platform === 'win32' && /\{(?:files|tests)\}/.test(template)) {
+    throw new RequestError('Filename interpolation requires a POSIX shell host; use whole-check commands on Windows.');
+  }
   return template.replace(/\{(files|tests)\}/g, (_, list) => scope[list].map(shellQuote).join(' '));
 }
 
-function selectorTests(check, files, facts) {
+async function selectorTests(check, files, facts) {
   const command = expandCommand(check.select, { kind: 'narrowed', files, tests: [] });
   const start = performance.now();
   let result;
   try {
-    result = spawnSync(command, { shell: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    const supervised = await supervisor({
+      id: check.id, command, timeout: check.timeout_s ?? 600, retry: 0, log: null,
+    }, executionSlots(1), event => addEvent(facts, event));
+    result = supervised.attempts[0];
   } finally {
     facts.timing.selector_ms += performance.now() - start;
   }
-  if (result.error) {
-    if (result.error.code !== 'ENOBUFS') throw result.error;
-    throw new RequestError(`Selector ${check.id}: output exceeds 16 MiB`);
-  }
-  if (result.status !== 0) throw new RequestError(`Selector ${check.id} failed (${result.status ?? result.signal}): ${result.stderr.trim()}`);
+  if (result.reason) throw new RequestError(`Selector ${check.id}: ${result.reason}`);
+  if (result.exit_code !== 0) throw new RequestError(`Selector ${check.id} failed (${result.exit_code ?? result.signal}): ${result.stderr.trim()}`);
   let tests;
   try { tests = JSON.parse(result.stdout); }
   catch { throw new RequestError(`Selector ${check.id}: stdout must be a JSON array of test paths`); }
@@ -485,7 +500,7 @@ function selectorTests(check, files, facts) {
   return [...new Set(tests)];
 }
 
-function selectChecks(config, facts) {
+async function selectChecks(config, facts) {
   const start = performance.now();
   facts.timing.selector_ms = 0;
   try {
@@ -509,19 +524,24 @@ function selectChecks(config, facts) {
         }
       }
     }
-    facts.selection = config.checks.flatMap(check => {
-      if (facts.request.only && !facts.request.only.includes(check.id)) return [];
-      if (facts.request.scope === 'all' || widened) return [{
-        check, reason: facts.request.scope === 'all' ? '--all' : widened, scope: { kind: 'whole' },
-      }];
+    facts.selection = [];
+    for (const check of config.checks) {
+      if (facts.request.only && !facts.request.only.includes(check.id)) continue;
+      if (facts.request.scope === 'all' || widened) {
+        facts.selection.push({ check, reason: facts.request.scope === 'all' ? '--all' : widened, scope: { kind: 'whole' } });
+        continue;
+      }
       const match = patternsMatch(check.inputs);
       const path = facts.changed_paths.find(match);
-      if (path) return [{ check, reason: `inputs ${path}`, scope: { kind: 'whole' } }];
+      if (path) {
+        facts.selection.push({ check, reason: `inputs ${path}`, scope: { kind: 'whole' } });
+        continue;
+      }
       const files = facts.changed_paths.filter(patternsMatch(check.sources ?? []));
-      if (!files.length) return [];
-      const tests = selectorTests(check, files, facts);
-      return tests.length ? [{ check, reason: `sources ${files[0]}`, scope: { kind: 'narrowed', files, tests } }] : [];
-    });
+      if (!files.length) continue;
+      const tests = await selectorTests(check, files, facts);
+      if (tests.length) facts.selection.push({ check, reason: `sources ${files[0]}`, scope: { kind: 'narrowed', files, tests } });
+    }
     facts.events.push(...facts.selection.map(({ check, reason }) => ({ type: 'SELECT', id: check.id, reason })));
   } finally {
     facts.timing.select_ms += performance.now() - start - facts.timing.selector_ms;
@@ -537,6 +557,7 @@ function runStorage(facts) {
   mkdirSync(logs, { recursive: true });
   mkdirSync(records, { recursive: true });
   facts.storage = { worktree_dir: folder, record: join(records, `${id}.json`), logs };
+  writeFileSync(join(logs, '.active.json'), JSON.stringify({ pid: process.pid, start: processStart(process.pid) }));
 }
 
 function commandExists(name) {
@@ -571,8 +592,489 @@ function needSatisfied(need) {
   throw new Error(`Unknown need ${need}`);
 }
 
-function executeSerial(facts) {
-  for (const { check, scope } of facts.selection) {
+function killTree(child) {
+  if (!child.pid) return;
+  if (process.platform === 'win32') {
+    const result = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 });
+    if (result.error) throw result.error;
+  } else {
+    try { process.kill(-child.pid, 'SIGKILL'); }
+    catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
+}
+
+const workloadVariable = 'MMW_CHECK_WORKLOAD';
+const lifetimeSupport = process.platform === 'win32'
+  ? { method: 'process-tree', limitation: 'Windows process-tree cleanup is unverified. A process reparented between snapshots may escape observation.' }
+  : { method: 'inherited-token-and-process-tree', limitation: 'A descendant that clears its inherited environment and reparents between process snapshots may escape observation. This is not an OS sandbox.' };
+
+function processTable() {
+  const env = { ...process.env };
+  delete env[workloadVariable];
+  if (process.platform === 'win32') {
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,@{Name="Start";Expression={$_.CreationDate.ToUniversalTime().Ticks.ToString()}} | ConvertTo-Json -Compress'],
+    { encoding: 'utf8', env, timeout: 5000, maxBuffer: 32 * 1024 * 1024 });
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(`Cannot inspect workload processes: ${result.stderr.trim()}`);
+    const rows = JSON.parse(result.stdout);
+    return (Array.isArray(rows) ? rows : [rows]).map(row => ({
+      pid: row.ProcessId, parent: row.ParentProcessId, start: row.Start, environment: '', state: '',
+    }));
+  }
+  const result = spawnSync('ps', ['eww', '-axo', 'pid=,ppid=,stat=,lstart=,command='], {
+    encoding: 'utf8', env, timeout: 2000, maxBuffer: 32 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Cannot inspect workload processes: ${result.stderr.trim()}`);
+  return result.stdout.split('\n').flatMap(line => {
+    const match = line.match(/^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\w+\s+\w+\s+\d+\s+[\d:]+\s+\d+)\s+(.*)$/);
+    if (!match) return [];
+    const pid = Number(match[1]);
+    return [{ pid, parent: Number(match[2]), state: match[3],
+      start: process.platform === 'linux' ? processStart(pid) : match[4], environment: match[5] }];
+  });
+}
+
+function ownedProcesses(workload, known = new Map()) {
+  const table = processTable().filter(row => row.start && !row.state.startsWith('Z'));
+  const token = `${workloadVariable}=${workload.token}`;
+  const owned = new Set(table.filter(row =>
+    (row.pid === workload.pid && row.start === workload.start) ||
+    known.get(row.pid) === row.start ||
+    row.environment.split(/\s+/).includes(token)).map(row => row.pid));
+  let size;
+  do {
+    size = owned.size;
+    for (const row of table) if (owned.has(row.parent)) owned.add(row.pid);
+  } while (owned.size !== size);
+  const rows = table.filter(row => owned.has(row.pid));
+  for (const row of rows) known.set(row.pid, row.start);
+  return rows;
+}
+
+async function terminateWorkload(workload, known = new Map()) {
+  const deadline = performance.now() + 5000;
+  for (;;) {
+    const owned = ownedProcesses(workload, known).filter(row => row.pid !== process.pid);
+    if (!owned.length) return;
+    for (const row of owned.reverse()) {
+      if (processStart(row.pid) !== row.start) continue;
+      if (process.platform === 'win32') {
+        const killed = spawnSync('taskkill', ['/PID', String(row.pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 });
+        if (killed.error) throw killed.error;
+      } else {
+        try { process.kill(row.pid, 'SIGKILL'); }
+        catch (error) { if (error.code !== 'ESRCH') throw error; }
+      }
+    }
+    if (performance.now() >= deadline) throw new Error('Owned workload did not terminate; resource lease retained');
+    await sleep(25);
+  }
+}
+
+async function settleWorkload(workload, timeout) {
+  if (!workload) return;
+  const deadline = performance.now() + timeout * 1000 + 5000;
+  const known = new Map();
+  while (ownedProcesses(workload, known).length) {
+    if (performance.now() >= deadline) {
+      await terminateWorkload(workload, known);
+      return;
+    }
+    await sleep(50);
+  }
+}
+
+async function commandProcess(command, timeout, log, token) {
+  const fd = log ? openSync(log, 'a') : null;
+  const start = performance.now();
+  let child;
+  try {
+    child = spawn(command, {
+      shell: true, detached: process.platform !== 'win32',
+      env: { ...process.env, [workloadVariable]: token },
+      stdio: ['ignore', fd ?? 'pipe', fd ?? 'pipe'],
+    });
+  } finally { if (fd !== null) closeSync(fd); }
+  const workload = { token, pid: child.pid, start: child.pid ? processStart(child.pid) : null };
+  const known = new Map();
+  let reason = null;
+  let failure = null;
+  let stdout = '';
+  let stderr = '';
+  let size = 0;
+  const stop = () => {
+    try {
+      for (const row of ownedProcesses(workload, known).reverse()) {
+        if (row.pid === process.pid || processStart(row.pid) !== row.start) continue;
+        if (process.platform === 'win32') killTree({ pid: row.pid });
+        else process.kill(row.pid, 'SIGKILL');
+      }
+    } catch (error) {
+      if (error.code !== 'ESRCH') failure ??= error;
+      child.kill('SIGKILL');
+    }
+  };
+  const collect = stream => bytes => {
+    size += bytes.length;
+    if (size > 16 * 1024 * 1024) { reason = 'output exceeds 16 MiB'; stop(); }
+    else if (stream === 'stdout') stdout += bytes;
+    else stderr += bytes;
+  };
+  child.stdout?.on('data', collect('stdout'));
+  child.stderr?.on('data', collect('stderr'));
+  const closed = new Promise(resolveClose => child.once('close', resolveClose));
+  const exited = new Promise(resolveExit => {
+    child.once('error', error => { failure ??= error; resolveExit({ code: null, signal: null }); });
+    child.once('exit', (code, signal) => resolveExit({ code, signal }));
+  });
+  const timer = setTimeout(() => { reason = 'timeout'; stop(); }, Math.max(1, timeout * 1000 - (performance.now() - start)));
+  const tracking = setInterval(() => {
+    try { ownedProcesses(workload, known); }
+    catch (error) { failure ??= error; stop(); }
+  }, 50);
+  const { code, signal } = await exited;
+  clearTimeout(timer);
+  clearInterval(tracking);
+  await terminateWorkload(workload, known);
+  await closed;
+  if (failure) throw failure;
+  if (reason && log) appendFileSync(log, `${reason}\n`);
+  return { exit_code: code, signal, seconds: (performance.now() - start) / 1000, log, reason, stdout, stderr, lifetime: lifetimeSupport };
+}
+
+function ownedCommand(task, lease, marker) {
+  return new Promise((resolveCommand, reject) => {
+    const child = fork(fileURLToPath(import.meta.url), [], {
+      detached: process.platform !== 'win32', stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    });
+    const workload = { token: randomUUID(), pid: child.pid, start: processStart(child.pid) };
+    let result;
+    let failure;
+    child.on('message', message => {
+      try {
+        if (message.type === 'ready') {
+          lease.publish(workload);
+          if (marker) writeFileSync(marker, JSON.stringify({ pid: process.pid, start: processStart(process.pid), workload }));
+          sendWorker({ type: 'ownership', workload });
+          child.send({ type: 'go' });
+        } else if (message.type === 'result') result = message.result;
+        else if (message.type === 'error') failure = new Error(message.message);
+      } catch (error) { failure = error; child.disconnect(); }
+    });
+    child.once('error', error => { failure = error; });
+    child.once('exit', (code, signal) => {
+      settleWorkload(workload, task.timeout).then(() => {
+        if (failure || !result || code !== 0) reject(failure ?? new Error(`Owned workload exited without a successful result (${code ?? signal})`));
+        else resolveCommand(result);
+      }, reject);
+    });
+    child.send({ type: 'workload', task, token: workload.token });
+  });
+}
+
+function sendWorker(message) {
+  if (process.connected) process.send(message, () => {});
+}
+
+function processStart(pid) {
+  if (process.platform === 'linux') {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      return stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
+    } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  }
+  const probe = process.platform === 'win32'
+    ? spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Process -Id ${Number(pid)} -ErrorAction SilentlyContinue).StartTime.ToUniversalTime().Ticks`], { encoding: 'utf8', timeout: 5000 })
+    : spawnSync('ps', ['-p', String(pid), '-o', 'lstart='], { encoding: 'utf8', timeout: 2000 });
+  if (probe.error) throw probe.error;
+  return probe.status === 0 && probe.stdout.trim() ? probe.stdout.trim() : null;
+}
+
+function liveOwner(owner) {
+  return Boolean(owner && ((owner.start && processStart(owner.pid) === owner.start) ||
+    (owner.workload && ownedProcesses(owner.workload).length)));
+}
+
+function cacheLocks() {
+  const root = process.platform === 'darwin' ? join(homedir(), 'Library', 'Caches')
+    : process.platform === 'win32' ? process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')
+      : process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache');
+  const folder = join(root, 'repo-checks', 'locks');
+  mkdirSync(folder, { recursive: true });
+  return folder;
+}
+
+function removeToken(directory, token) {
+  try { if (token) unlinkSync(join(directory, token)); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try { rmdirSync(directory); }
+  catch (error) { if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error; }
+}
+
+const sleep = ms => new Promise(resolveSleep => setTimeout(resolveSleep, ms));
+
+class ResourceLease {
+  constructor(owner = null, directory = null, token = null) {
+    this.owner = owner;
+    this.directory = directory;
+    this.token = token;
+  }
+
+  publish(workload) {
+    this.owner.workload = workload;
+    if (!this.directory) return;
+    const nonce = randomUUID();
+    const nextToken = `${nonce}.json`;
+    const temporary = join(dirname(this.directory), `.${nonce}.tmp`);
+    try {
+      writeFileSync(temporary, JSON.stringify(this.owner), { flag: 'wx' });
+      renameSync(temporary, join(this.directory, nextToken));
+      const previousToken = this.token;
+      this.token = nextToken;
+      removeToken(this.directory, previousToken);
+    } finally {
+      try { unlinkSync(temporary); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
+
+  release() {
+    if (!this.owner) return true;
+    if (this.owner.workload && ownedProcesses(this.owner.workload).length) return false;
+    if (this.directory) removeToken(this.directory, this.token);
+    return true;
+  }
+}
+
+async function acquireLock(name, timeout, cancelled) {
+  if (!name) return new ResourceLease({ pid: process.pid, start: processStart(process.pid) });
+  const root = cacheLocks();
+  const canonical = join(root, hash(name));
+  const nonce = randomUUID();
+  const token = `${nonce}.json`;
+  const candidate = join(root, `.${nonce}`);
+  const owner = { pid: process.pid, start: processStart(process.pid), nonce, name };
+  mkdirSync(candidate);
+  writeFileSync(join(candidate, token), JSON.stringify(owner), { flag: 'wx' });
+  const deadline = performance.now() + timeout * 1000;
+  let waited = false;
+  try {
+    for (;;) {
+      if (cancelled()) return new ResourceLease();
+      try {
+        renameSync(candidate, canonical);
+        return new ResourceLease(owner, canonical, token);
+      } catch (error) {
+        if (!['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES'].includes(error.code)) throw error;
+      }
+      let observed = null;
+      try {
+        const tokens = readdirSync(canonical);
+        if (!tokens.length) { removeToken(canonical, null); continue; }
+        const observedToken = tokens[0];
+        observed = JSON.parse(readFileSync(join(canonical, observedToken), 'utf8'));
+        if (!liveOwner(observed)) { removeToken(canonical, observedToken); continue; }
+      } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+      if (!waited) { sendWorker({ type: 'event', event: { type: 'WAIT', lock: name, holder: observed } }); waited = true; }
+      if (performance.now() >= deadline) return {
+        blocked: true, holder: observed, release() {},
+        reason: `lock ${name} timed out; holder pid=${observed.pid} start=${observed.start}`,
+      };
+      await sleep(Math.min(100, Math.max(1, deadline - performance.now())));
+    }
+  } finally {
+    removeToken(candidate, token);
+  }
+}
+
+function readOptionalJson(path) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+
+function preparationHash(prepare) {
+  const parts = [prepare.run];
+  for (const pattern of prepare.stamps) {
+    const paths = globSync(pattern, { exclude: ['.git/**'] }).sort();
+    parts.push(JSON.stringify([pattern, paths]));
+    for (const path of paths) {
+      const stat = lstatSync(path);
+      parts.push(JSON.stringify([path, stat.isSymbolicLink() ? 'link' : stat.isDirectory() ? 'directory' : 'file']));
+      if (stat.isSymbolicLink()) parts.push(hash(readlinkSync(path)), hash(readFileSync(path)));
+      else if (stat.isFile()) parts.push(hash(readFileSync(path)));
+    }
+  }
+  return hash(JSON.stringify(parts));
+}
+
+async function worker(task) {
+  const marker = task.log ? join(dirname(task.log), `.${randomUUID()}.active.json`) : null;
+  if (marker) writeFileSync(marker, JSON.stringify({ pid: process.pid, start: processStart(process.pid) }));
+  let started = false;
+  let cancelled = false;
+  let cancelGrant;
+  const granted = new Promise(resolveGrant => {
+    cancelGrant = resolveGrant;
+    process.once('message', () => { started = true; resolveGrant(); });
+  });
+  let lease;
+  process.once('disconnect', () => { if (!started) { cancelled = true; cancelGrant(); } });
+  lease = await acquireLock(task.lock, task.timeout, () => cancelled);
+  if (cancelled) {
+    lease.release();
+    if (marker) unlinkSync(marker);
+    return;
+  }
+  if (lease.blocked) {
+    sendWorker({ type: 'result', result: { blocked: true, reason: lease.reason, holder: lease.holder } });
+    if (process.connected) process.disconnect();
+    if (marker) unlinkSync(marker);
+    return;
+  }
+  let heartbeat;
+  try {
+    let stamp;
+    if (task.prepare) {
+      stamp = preparationHash(task.prepare);
+      const previous = readOptionalJson(task.stamp_file);
+      if (previous?.hash === stamp && task.paths.every(path => existsSync(path))) {
+        sendWorker({ type: 'result', result: { stamp, prepared: false, attempts: [], seconds: 0 } });
+        return;
+      }
+    }
+    sendWorker({ type: 'ready' });
+    await granted;
+    if (cancelled) return;
+    const start = performance.now();
+    heartbeat = setInterval(() => sendWorker({
+      type: 'event', event: { type: 'RUNNING', id: task.id, seconds: (performance.now() - start) / 1000 },
+    }), 19000);
+    const attempts = [];
+    for (let i = 0; i <= task.retry; i++) {
+      const attempt = await ownedCommand(task, lease, marker);
+      attempts.push(attempt);
+      if (attempt.exit_code === 0 && !attempt.reason) break;
+    }
+    if (task.prepare && attempts.at(-1).exit_code === 0 && !attempts.at(-1).reason) {
+      const temporary = `${task.stamp_file}.${randomUUID()}.tmp`;
+      writeFileSync(temporary, JSON.stringify({ hash: stamp }));
+      renameSync(temporary, task.stamp_file);
+    } else stamp = null;
+    sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare) } });
+  } finally {
+    clearInterval(heartbeat);
+    const released = lease.release();
+    if (marker && released) unlinkSync(marker);
+    if (process.connected) process.disconnect();
+  }
+}
+
+function supervisor(task, slot, event) {
+  return new Promise((resolveTask, reject) => {
+    const child = fork(fileURLToPath(import.meta.url), [], { detached: process.platform !== 'win32', stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+    let release = null;
+    let result = null;
+    let workload = null;
+    child.on('message', message => {
+      Promise.resolve().then(async () => {
+        if (message.type === 'ready') {
+          release = await slot();
+          if (child.connected) child.send({ type: 'go' });
+          else { release(); release = null; }
+        } else if (message.type === 'ownership') workload = message.workload;
+        else if (message.type === 'event') event(message.event);
+        else if (message.type === 'error') result = { error: message.message };
+        else if (message.type === 'result') result = message.result;
+      }).catch(error => { result = { error: error.message }; if (child.connected) child.disconnect(); });
+    });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      settleWorkload(workload, task.timeout).then(() => {
+        release?.();
+        if (!result || result.error || code !== 0) reject(new Error(result?.error ?? `Command supervisor exited without a successful result (${code ?? signal})`));
+        else resolveTask(result);
+      }, error => { release?.(); reject(error); });
+    });
+    child.send({ type: 'task', task });
+  });
+}
+
+function executionSlots(cap) {
+  let running = 0;
+  const waiting = [];
+  const grant = resolveSlot => {
+    running++;
+    resolveSlot(() => {
+      running--;
+      if (waiting.length) grant(waiting.shift());
+    });
+  };
+  return () => new Promise(resolveSlot => {
+    if (running < cap) grant(resolveSlot);
+    else waiting.push(resolveSlot);
+  });
+}
+
+const streamed = new WeakMap();
+function streamFacts(facts) {
+  const previous = streamed.get(facts) ?? 0;
+  for (const event of facts.events.slice(previous)) {
+    if (!json) for (const line of eventLines(event)) console.log(line);
+    else if (['WAIT', 'RUNNING'].includes(event.type)) for (const line of eventLines(event)) console.error(line);
+  }
+  streamed.set(facts, facts.events.length);
+}
+function addEvent(facts, event) {
+  facts.events.push(event);
+  streamFacts(facts);
+}
+
+function currentIdentity() {
+  return {
+    head: git('rev-parse', 'HEAD').trim(),
+    tree: git('rev-parse', 'HEAD^{tree}').trim(),
+    config_hash: existsSync(configPath) ? hash(readFileSync(configPath)) : null,
+    engine_hash: hash(readFileSync(new URL(import.meta.url))),
+    dirty: git('status', '--ignore-submodules=none', '--porcelain', '-z', '--untracked-files=all').length > 0,
+  };
+}
+
+function checkIdentity(facts) {
+  const current = currentIdentity();
+  facts.identity_after = current;
+  const stable = !facts.identity.dirty && !current.dirty &&
+    ['head', 'tree', 'config_hash', 'engine_hash'].every(key => current[key] === facts.identity[key]);
+  facts.reuse_eligible = facts.reuse_eligible !== false && stable;
+  return facts.reuse_eligible;
+}
+
+function reuseKey(id, command, identity) {
+  return { id, command, tree: identity.tree, config_hash: identity.config_hash, engine_hash: identity.engine_hash };
+}
+
+function findReuse(facts, check, scope, command) {
+  if (!checkIdentity(facts)) return null;
+  const wholeCommand = check.run_all ?? check.run;
+  const records = join(facts.storage.worktree_dir, 'records');
+  for (const file of readdirSync(records).filter(name => name.endsWith('.json')).sort().reverse()) {
+    const record = readOptionalJson(join(records, file));
+    if (!record || record.record_version !== 1 || !record.reuse_eligible || record.preparation_stamp !== facts.preparation_stamp) continue;
+    for (const result of record.results) {
+      if (result.id !== check.id || result.status !== 'passed' || !result.reusable) continue;
+      const whole = result.coverage?.kind === 'whole';
+      if (scope.kind === 'whole' && !whole) continue;
+      if (!whole && JSON.stringify(scope) !== JSON.stringify(result.coverage)) continue;
+      const key = reuseKey(check.id, whole ? wholeCommand : command, facts.identity);
+      if (JSON.stringify(result.reuse_key) === JSON.stringify(key)) return { result, record: join(records, file) };
+    }
+  }
+  return null;
+}
+
+async function execute(facts) {
+  const slot = executionSlots(Math.max(1, Math.min(4, Math.floor(cpus().length / 2))));
+  const settled = await Promise.allSettled(facts.selection.map(async ({ check, scope }) => {
     const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
     const missing = (check.needs ?? []).filter(need => !needSatisfied(need));
     if (missing.length) {
@@ -582,46 +1084,148 @@ function executeSerial(facts) {
         ci: check.ci, ci_reason: check.ci_reason ?? null,
         command, scope, seconds: 0, log: null, tail: [], attempts: [],
       };
-      facts.results.push(outcome);
-      facts.events.push({ type: 'SKIP', ...outcome });
-      continue;
+      addEvent(facts, { type: 'SKIP', ...outcome });
+      return outcome;
     }
     const log = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`);
-    const fd = openSync(log, 'w');
-    const start = performance.now();
-    let result;
-    try { result = spawnSync(command, { shell: true, stdio: ['ignore', fd, fd] }); }
-    finally { closeSync(fd); }
-    if (result.error) throw result.error;
-    const seconds = (performance.now() - start) / 1000;
-    const status = result.status === 0 ? 'passed' : 'failed';
-    const tail = readFileSync(log, 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').slice(-40);
+    const previous = findReuse(facts, check, scope, command);
+    if (previous && checkIdentity(facts)) {
+      const prior = previous.result;
+      let bytes;
+      try { bytes = readFileSync(prior.log); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; bytes = `${prior.tail.join('\n')}\n`; }
+      writeFileSync(log, bytes);
+      const outcome = {
+        id: check.id, status: 'passed', seconds: 0, command, scope, log, tail: prior.tail,
+        ci: check.ci, ci_reason: check.ci_reason ?? null, attempts: [], recovered: false,
+        reused: true, reusable: true, reuse_key: prior.reuse_key, coverage: prior.coverage,
+        reused_from: { record: previous.record, coverage: prior.coverage, key: prior.reuse_key },
+      };
+      addEvent(facts, { type: 'PASS', ...outcome });
+      return outcome;
+    }
+    const result = await supervisor({ id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0 }, slot, event => addEvent(facts, event));
+    if (result.blocked) {
+      const outcome = { id: check.id, status: 'blocked', reason: result.reason, holder: result.holder,
+        command, scope, seconds: 0, log: null, tail: [], attempts: [], ci: check.ci, ci_reason: check.ci_reason ?? null };
+      addEvent(facts, { type: 'BLOCKED', ...outcome });
+      return outcome;
+    }
+    const last = result.attempts.at(-1);
+    const status = last.exit_code === 0 && !last.reason ? 'passed' : 'failed';
+    let tail;
+    try { tail = readFileSync(log, 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').slice(-40); }
+    catch (error) { return internalOutcome(facts, { check, scope }, error, { log, ...result }); }
     const outcome = {
-      id: check.id, status, seconds, command, scope, log, tail,
+      id: check.id, status, seconds: result.seconds, command, scope, log, tail, reason: last.reason,
       ci: check.ci, ci_reason: check.ci_reason ?? null,
-      attempts: [{ exit_code: result.status, signal: result.signal, seconds, log }],
+      attempts: result.attempts, recovered: status === 'passed' && result.attempts.length > 1,
+      reused: false, reusable: checkIdentity(facts) && status === 'passed',
+      reuse_key: reuseKey(check.id, command, facts.identity), coverage: scope,
     };
-    facts.results.push(outcome);
-    facts.events.push({ type: status === 'passed' ? 'PASS' : 'FAIL', ...outcome });
-  }
+    addEvent(facts, { type: status === 'passed' ? 'PASS' : 'FAIL', ...outcome });
+    return outcome;
+  }));
+  facts.results = settled.map((outcome, index) => outcome.status === 'fulfilled'
+    ? outcome.value : internalOutcome(facts, facts.selection[index], outcome.reason));
+}
+
+function internalOutcome(facts, { check, scope }, error, execution = {}) {
+  const outcome = {
+    id: check.id, status: 'internal-error', reason: error.message,
+    command: expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope),
+    scope, seconds: execution.seconds ?? 0,
+    log: execution.log ?? join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`),
+    tail: [], attempts: execution.attempts ?? [], reusable: false,
+    ci: check.ci, ci_reason: check.ci_reason ?? null,
+  };
+  addEvent(facts, { type: 'ERROR', rule: 'engine', message: `${check.id}: ${error.message}`, ...outcome });
+  return outcome;
+}
+
+async function prepare(config, facts) {
+  if (!config.prepare || !facts.selection.length) return true;
+  const log = join(facts.storage.logs, 'prepare.log');
+  const result = await supervisor({
+    id: 'prepare', command: config.prepare.run, prepare: config.prepare,
+    stamp_file: join(facts.storage.worktree_dir, 'prepare.json'),
+    paths: facts.selection.flatMap(({ check }) => (check.needs ?? []).filter(need => need.startsWith('path:')).map(need => need.slice(5))),
+    lock: `prepare:${facts.identity.worktree}`, timeout: 600, retry: 0, log,
+  }, executionSlots(1), event => addEvent(facts, event));
+  facts.preparation_stamp = result.stamp ?? null;
+  facts.preparation = { ...result, log: result.prepared ? log : null };
+  if (result.stamp) return true;
+  const tail = existsSync(log) ? readFileSync(log, 'utf8').trimEnd().split('\n').slice(-40) : [];
+  facts.results = facts.selection.map(({ check, scope }) => {
+    const outcome = {
+      id: check.id, status: 'blocked', reason: result.reason ?? 'preparation failed',
+      scope, command: expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope),
+      log: existsSync(log) ? log : null, tail, attempts: [], seconds: 0,
+      ci: check.ci, ci_reason: check.ci_reason ?? null,
+    };
+    addEvent(facts, { type: 'BLOCKED', ...outcome });
+    return outcome;
+  });
+  return false;
 }
 
 function finishRun(facts) {
+  let stable = false;
+  try { stable = checkIdentity(facts); }
+  catch (error) {
+    facts.reuse_eligible = false;
+    facts.events.push({ type: 'ERROR', rule: 'engine', message: error.message });
+  }
+  if (!stable) {
+    for (const result of facts.results) result.reusable = false;
+    for (const event of facts.events) if (event.type === 'PASS') event.reusable = false;
+  }
   facts.summary.selected = facts.selection.length;
   for (const result of facts.results) facts.summary[result.status]++;
   const uncovered = facts.results.some(result => result.status === 'skipped' && !result.gate_runs_it);
-  facts.exit_code = uncovered || facts.summary.blocked ? 2 : facts.summary.failed ? 1 : 0;
+  facts.exit_code = facts.summary['internal-error'] || facts.events.some(event => event.type === 'ERROR' && event.rule === 'engine')
+    ? 70 : uncovered || facts.summary.blocked ? 2 : facts.summary.failed ? 1 : 0;
   facts.ok = facts.exit_code === 0;
   facts.events.push(...facts.lanes.map(lane => ({ type: 'LANE', ...lane })));
   facts.events.push({ type: 'SUMMARY', ...facts.summary });
   const temporary = `${facts.storage.record}.tmp`;
   writeFileSync(temporary, `${JSON.stringify(facts)}\n`);
   renameSync(temporary, facts.storage.record);
+  writeFileSync(join(facts.storage.logs, '.completed.json'), JSON.stringify({ time: Date.now() }));
+  unlinkSync(join(facts.storage.logs, '.active.json'));
+  retainRuns(facts.storage.worktree_dir);
+}
+
+function retainRuns(folder) {
+  const records = join(folder, 'records');
+  const completed = [];
+  for (const file of readdirSync(records).filter(name => name.endsWith('.json'))) {
+    const path = join(records, file);
+    try { completed.push({ path, time: statSync(path).mtimeMs }); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  completed.sort((a, b) => b.time - a.time || b.path.localeCompare(a.path));
+  for (const { path } of completed.slice(50)) {
+    try { unlinkSync(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  const logs = join(folder, 'logs');
+  const sets = [];
+  for (const entry of readdirSync(logs)) {
+    const path = join(logs, entry);
+    try {
+      const names = readdirSync(path);
+      const active = names.filter(name => name.endsWith('.active.json')).some(name => liveOwner(readOptionalJson(join(path, name))));
+      if (!active) sets.push({ path, time: readOptionalJson(join(path, '.completed.json'))?.time ?? statSync(path).mtimeMs });
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  sets.sort((a, b) => b.time - a.time || b.path.localeCompare(a.path));
+  for (const { path } of sets.slice(20)) rmSync(path, { recursive: true, force: true });
 }
 
 async function run(schema, facts) {
   let config;
-  try { config = JSON.parse(readFileSync(configPath, 'utf8')); }
+  let configBytes;
+  try { configBytes = readFileSync(configPath); config = JSON.parse(configBytes); }
   catch (error) { throw new RequestError(`${configPath}: ${error.message}`); }
   const findings = [...configFindings(config, schema)];
   if (findings.length) throw new RequestError(findings.map(x => x.message).join('\n'));
@@ -630,12 +1234,16 @@ async function run(schema, facts) {
   for (const id of facts.request.only ?? []) {
     if (!config.checks.some(check => check.id === id)) throw new RequestError(`Unknown check id ${JSON.stringify(id)}`, 'usage');
   }
-  await collectChanges(config, facts);
-  selectChecks(config, facts);
+  await collectChanges(config, facts, hash(configBytes));
+  await selectChecks(config, facts);
   facts.lanes = config.lanes;
   runStorage(facts);
-  executeSerial(facts);
-  finishRun(facts);
+  streamFacts(facts);
+  try {
+    if (await prepare(config, facts)) await execute(facts);
+  } catch (error) {
+    facts.results = facts.selection.map(selected => internalOutcome(facts, selected, error));
+  }
 }
 
 function eventLines(event) {
@@ -646,7 +1254,10 @@ function eventLines(event) {
   if (type === 'WIDEN') return [`WIDEN ${event.reason}`];
   if (type === 'SKIP') return [`SKIP ${event.id} ${event.reason}${event.gate_runs_it ? ' (gate runs it)' : ''}`];
   if (type === 'LANE') return [`not run here ${event.id} ${event.kind}: ${event.reason}; run_by=${event.run_by}`];
-  if (type === 'PASS') return [`PASS ${event.id} ${event.seconds.toFixed(3)}s`];
+  if (type === 'PASS') return [`PASS ${event.id} ${event.seconds.toFixed(3)}s${event.reused ? ' (reused)' : event.recovered ? ' (recovered on retry)' : ''}`];
+  if (type === 'RUNNING') return [`RUNNING ${event.id} ${event.seconds.toFixed(3)}s`];
+  if (type === 'WAIT') return [`WAIT ${event.lock}`];
+  if (type === 'BLOCKED') return [`BLOCKED ${event.id} ${event.reason}${event.log ? ` log=${event.log}` : ''}`, ...event.tail];
   if (type === 'FAIL') return [`FAIL ${event.id} ${event.seconds.toFixed(3)}s log=${event.log}`, ...event.tail];
   if (type === 'SUMMARY') return [event.selected === 0 ? 'SUMMARY nothing selected' :
     `SUMMARY ${event.selected} selected, ${event.passed} passed, ${event.failed} failed, ${event.skipped} skipped`];
@@ -655,12 +1266,14 @@ function eventLines(event) {
 }
 
 function emit(facts, json) {
+  if (emitted) { process.exitCode = facts.exit_code; return; }
+  emitted = true;
   if (json) console.log(JSON.stringify(facts));
   else if (facts.mode === 'lint') {
     if (facts.ok) console.log('LINT clean');
     else for (const finding of facts.findings) console.log(`LINT ${finding.rule} ${finding.message}`);
   } else {
-    for (const event of facts.events) for (const line of eventLines(event)) console.log(line);
+    streamFacts(facts);
   }
   process.exitCode = facts.exit_code;
 }
@@ -669,7 +1282,49 @@ const argv = process.argv.slice(2);
 const json = argv.includes('--json');
 const args = argv.filter(arg => arg !== '--json');
 let facts = args[0] === 'lint' ? { mode: 'lint', findings: [] } : newRun();
-try {
+let emitted = false;
+function unexpected(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (typeof process.send === 'function') {
+    sendWorker({ type: 'error', message });
+    process.exitCode = 70;
+    if (process.connected) process.disconnect();
+    return;
+  }
+  facts.ok = false;
+  facts.exit_code = 70;
+  if (facts.mode === 'lint') facts.findings.push({ rule: 'engine', message });
+  else facts.events.push({ type: 'ERROR', rule: 'engine', message });
+  process.exitCode = 70;
+}
+function finalOutput() {
+  process.once('beforeExit', () => {
+    try { if (facts.storage) finishRun(facts); }
+    catch (error) { unexpected(error); }
+    emit(facts, json);
+  });
+}
+process.on('uncaughtException', unexpected);
+process.on('unhandledRejection', unexpected);
+if (typeof process.send === 'function' && args.length === 0) {
+  process.once('message', async ({ type, task, token }) => {
+    try {
+      loadedEngineHash = hash(readFileSync(new URL(import.meta.url)));
+      if (type === 'workload') {
+        const granted = await new Promise(resolveGrant => {
+          process.once('message', () => resolveGrant(true));
+          process.once('disconnect', () => resolveGrant(false));
+          sendWorker({ type: 'ready' });
+        });
+        if (!granted) return;
+        const result = await commandProcess(task.command, task.timeout, task.log, token);
+        sendWorker({ type: 'result', result });
+        if (process.connected) process.disconnect();
+      } else await worker(task);
+    } catch (error) { unexpected(error); }
+  });
+} else try {
+  loadedEngineHash = hash(readFileSync(new URL(import.meta.url)));
   if (argv.length === 1 && argv[0] === '--help') {
     console.log([
       'Usage: scripts/check [--all] [--only <ids>] [--base <ref>] [--json]',
@@ -682,6 +1337,7 @@ try {
       '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
       '--json        Print exactly one JSON object with selection, results and timings.',
       '--help        Show this help.',
+      'Filename interpolation requires a POSIX shell host.',
       '',
       'Exit codes:',
       '  0  Selected checks passed, gate-covered skips, or nothing selected.',
@@ -697,7 +1353,7 @@ try {
       facts.request = parseRequest(args);
       await run(schema, facts);
     }
-    emit(facts, json);
+    finalOutput();
   }
 } catch (error) {
   facts.ok = false;
@@ -705,5 +1361,5 @@ try {
   const finding = { rule: error instanceof RequestError ? error.rule : 'engine', message: error.message };
   if (facts.mode === 'lint') facts.findings.push(finding);
   else facts.events.push({ type: 'ERROR', ...finding });
-  emit(facts, json);
+  finalOutput();
 }
