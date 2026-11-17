@@ -222,6 +222,7 @@ test("takes the ticket from the current branch and requires that ticket to be na
 	expect(create("Closes #7").decision).toBe("allow");
 	expect(create("Fixes: #7 and Closes #8").decision).toBe("allow");
 	expect(create("Closes owner/ticketed#7").decision).toBe("allow");
+	expect(create("Closes #8").decision).toBe("deny");
 	expect(create("no link").decision).toBe("deny");
 	expect(create("mentions #7").decision).toBe("deny");
 });
