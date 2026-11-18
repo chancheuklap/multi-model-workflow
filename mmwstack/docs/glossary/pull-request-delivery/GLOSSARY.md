@@ -10,7 +10,7 @@ The assignee receives a ticket describing the result to deliver. Its PR gives re
 The request to merge the code change for one [execution ticket](../planning-and-tickets/GLOSSARY.md). Its `Why` section links the ticket. The main chat records the returned PR URL on the ticket so an owner or verifier can find the same change from either record.
 
 **PR owner**:
-The agent role responsible for a code ticket's PR and the sole writer of its branch in Autopilot and Orchestrate. It receives the ticket URL and any existing PR URL. A replacement agent can take over the role. The execution playbook determines whether the owner merges the verified change or hands it to the operator.
+The agent role responsible for a code ticket's PR and the sole writer of its branch in Autopilot. It receives the ticket URL and any existing PR URL. A replacement agent can take over the role. The execution playbook determines whether the owner merges the verified change or hands it to the operator.
 _Avoid_: owner alone when the operator or the author of an individual finding could be meant.
 
 **Forge**:
@@ -54,7 +54,7 @@ The lowest unmerged PR in a stack. It is the first candidate for landing and the
 _Avoid_: frontier alone when a [ticket frontier](../planning-and-tickets/GLOSSARY.md) could also be meant.
 
 **Owning PR**:
-The lowest PR in the stack that owns the code requiring a fix. A fix discovered on an upper PR can belong to a lower one. Once the owning PR has merged, Babysit can open a **follow-up PR** for a new ticket on top of the remaining stack.
+The lowest PR in the stack that owns the code requiring a fix. A fix discovered on an upper PR can belong to a lower one. Once the owning PR has merged, a new fix gets its own execution ticket and **follow-up PR**.
 
 **Verified run**:
 The contiguous group starting at the lowest unmerged PR for which every PR has a current passing Shipping verdict. The first gap ends the run, even if a higher PR has passed.
@@ -88,7 +88,7 @@ The root's Autopilot judgment after the required live verification and receipt c
 ### Babysitting and review
 
 **Babysit mode**:
-The scope of a status request. `drive` continues to merge-ready. `background` triages alongside ongoing work. `threads-only` addresses review comments. `check` makes one status pass. Authorization to merge comes from the operator.
+The scope of a status request. `drive` continues to merge-ready. `threads-only` addresses review comments. `check` makes one status pass. Authorization to merge comes from the operator.
 
 **Push wave**:
 A batch of verified fixes published together so one round of checks covers them. Babysit gives conflicts priority over review threads and CI. A rebase belongs to the branch owner. A **drift sweep** checks for callers added on trunk that the stack's change now affects.
@@ -108,7 +108,7 @@ A documented low-risk case with conditions, exceptions, an example, and a source
 ### Forge status and watcher results
 
 **GitHub watcher mode**:
-The scope inspected by the PR watcher. `single` observes one PR. `stack` can report readiness across the connected PRs. `queued-stack` follows a frozen bottom-to-top list and tracks the lowest unmerged PR as the merge frontier. The sanctioned follow-up for an already merged owning PR is the exception that can change this frozen list.
+The scope inspected by the PR watcher. `single` observes one PR. `stack` can report readiness across the connected PRs. `queued-stack` follows a frozen bottom-to-top list and tracks the lowest unmerged PR as the merge frontier. Shipping reuses the same list each time the watcher restarts.
 
 **GitHub watcher verdict**:
 A report about the PR state observed on GitHub. The same word *verdict* in Shipping names a verifier's judgment on the code.
@@ -149,6 +149,6 @@ Tracked, uncommitted edits, reported as `wip:N`. Removing the worktree would los
 
 ## Sources
 
-PR ownership, reporting, and the two authorization models come from [Opening a PR](../../../skills/mmw-mode/playbooks/opening-a-pr.md), [Autopilot-full](../../../skills/mmw-mode/playbooks/autopilot-full.md), [Autopilot-stack](../../../skills/mmw-mode/playbooks/autopilot-stack.md), and [Orchestrate](../../../skills/mmw-mode/playbooks/orchestrate.md).
+PR ownership, reporting, and the two authorization models come from [Opening a PR](../../../skills/mmw-mode/playbooks/opening-a-pr.md), [Autopilot-full](../../../skills/mmw-mode/playbooks/autopilot-full.md), and [Autopilot-stack](../../../skills/mmw-mode/playbooks/autopilot-stack.md).
 
 Stack and review semantics come from [Babysit](../../../skills/mmw-mode/playbooks/babysit.md), [Bugbot triage](../../../skills/mmw-mode/references/bugbot-triage.md), and [Shipping](../../../skills/mmw-mode/playbooks/shipping.md). GitHub's [watcher policy](../../../skills/mmw-mode/scripts/watch-pr/policy.ts), [verdict types](../../../skills/mmw-mode/scripts/watch-pr/types.ts), and [readiness cases](../../../skills/mmw-mode/scripts/watch-pr/policy.test.ts) define the status meanings. Cleanup recommendations follow the [worktree audit](../../../skills/mmw-mode/scripts/worktree-audit.sh) and [cleanup playbook](../../../skills/mmw-mode/playbooks/worktree-cleanup.md).

@@ -101,37 +101,20 @@ The single tag attached to each line of work in a recall brief. The tags are `[m
 ### Reviewing a session
 
 **Durable learning**:
-A finding from a particular session that would change a future agent's decision and would still apply after paths, versions, or code details change. The reviewer ties it to a specific moment in the active transcript and proposes a destination for it.
-
-**Judgment reviewer**:
-The reviewer who examines decisions, corrections, preferences, and friction for a principle that applies to future work.
-
-**Tooling reviewer**:
-The reviewer who identifies durable facts about a tool or workflow, including occasions when the operator had to supply context the agent could have fetched.
-
-**Divergent reviewer**:
-The reviewer who examines missed checks, second-order effects, and alternative explanations for a successful or failed decision.
-
-[reflect](../../../skills/reflect/SKILL.md) · [Review criteria](../../../skills/reflect/references/synthesizer.md) · [Judgment reviewer brief](../../../skills/reflect/references/judgment-reviewer.md) · [Tooling reviewer brief](../../../skills/reflect/references/tooling-reviewer.md) · [Divergent reviewer brief](../../../skills/reflect/references/divergent-reviewer.md)
+A finding from a particular session that would change a future agent's decision and would still apply after paths, versions, or code details change. The agent running [reflect](../../../skills/reflect/SKILL.md) ties it to a specific moment in the active transcript and proposes a destination for it.
 
 ### Disposition of session findings
-
-**Reflect synthesizer**:
-The delegate who combines the three reviewers' findings, checks the evidence and the target skill, and assigns each finding to Accepted, Rejected, or Backlog.
-
-**Convergence**:
-Agreement between at least two session reviewers on a finding. It raises confidence in that finding. A finding from a single reviewer needs stronger support from the other criteria, such as whether it changes a future decision.
 
 **Missed trigger**:
 A skill was available and suited to the task but did not run. Its finding routes to the skill description. A body edit concerns a skill the transcript shows the agent used, for example by reading its instructions, naming it in a delegation brief, or running its documented commands.
 
 **Accepted finding**:
-A proposal for a specific edit, with its problem, proposed change, and destination. The operator chooses which accepted proposals to apply. A new skill is an eligible destination for a recurring pattern only when no existing skill fits.
+A proposal for a specific edit, with its problem, proposed change, and destination. The operator chooses which accepted proposals to apply.
 
 **Rejected finding**:
-A proposal the synthesizer drops with a reason. For example, `already-covered` means clear guidance already exists in the right place. `skill-not-used` means the proposed destination was neither used nor a missed trigger.
+A proposal the agent drops with a reason, such as guidance the target skill already gives or a one-off that would not change a future decision.
 
 **Backlog finding**:
-A lesson better enforced by a mechanism such as a lint rule, script, metadata flag, or runtime check. The tracker item records the pattern and the proposed mechanism. The parent files it directly.
+A lesson better enforced by a mechanism such as a lint rule, script, metadata flag, or runtime check. The agent presents it under Backlog.
 
-[Review criteria](../../../skills/reflect/references/synthesizer.md) · [Reviewer scope](../../../skills/reflect/references/judgment-reviewer.md) · [reflect](../../../skills/reflect/SKILL.md)
+[reflect](../../../skills/reflect/SKILL.md)

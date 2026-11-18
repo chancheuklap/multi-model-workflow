@@ -24,9 +24,6 @@ The checkable predicate that defines completion before an autonomous run starts,
 **Watcher**:
 A subagent that wakes the coordinator when a named event occurs, such as a PR merge. A **heartbeat** is the timed check that backs up a watcher or supplies the next check when there is no event to watch. Continued work after disconnection requires a wake-up that survives it. [Autonomous run playbook](../../../skills/mmw-mode/playbooks/autonomous-run.md)
 
-**Orchestrate**:
-The playbook for a standing project that spans many assignments and outlasts one agent's session. One coordinator assigns the work and checks the results. An independent verifier from a different model vendor in the operator's cross-judge pool checks each PR at its current head. [Orchestrate playbook](../../../skills/mmw-mode/playbooks/orchestrate.md)
-
 **Autopilot-full**:
 The playbook for a queue of independent PRs built from trunk. The root coordinator owns the independent verification. Within the operator's grant, each PR owner carries its change through merge once the required verdict and checks hold. [Autopilot-full playbook](../../../skills/mmw-mode/playbooks/autopilot-full.md)
 
@@ -45,13 +42,10 @@ The operator's permission to make decisions and carry out the agreed work withou
 A decision or action the operator reserves, such as landing a particular PR. The operator's **go** authorizes execution of the stated program. Under Never Block on the Human, independent, reversible work continues while a required decision waits. [principle-never-block-on-the-human](../../../skills/principle-never-block-on-the-human/SKILL.md)
 
 **Root coordinator**:
-The chat responsible for the whole program. In Orchestrate it assigns work and checks what landed. In Autopilot it owns the verification verdicts and supervises the queue. Each PR owner writes its branch. [Pull request delivery](../pull-request-delivery/GLOSSARY.md)
-
-**Sub-coordinator**:
-An optional Orchestrate role between the root coordinator and the workers in an area with many parallel assignments. It owns those assignments and sends the root one **rollup**, a consolidated report.
+The chat responsible for the whole program. In Autopilot it owns the verification verdicts and supervises the queue. Each PR owner writes its branch. [Pull request delivery](../pull-request-delivery/GLOSSARY.md)
 
 **Kickoff**:
-The assignment that gives an Orchestrate worker its goal, write boundaries, prohibited actions, and the evidence that proves completion. It includes the upstream reports that the worker needs, even when those reports came from sibling agents.
+The assignment that gives a worker its goal, write boundaries, prohibited actions, and the evidence that proves completion. It includes the upstream reports that the worker needs, even when those reports came from sibling agents.
 
 **Shared artifact store**:
 The coordinator's location for records and outputs that other agents can read. An Autopilot kickoff identifies where the owner's decision trail lives so a replacement can recover it after a worker environment disappears.
@@ -68,7 +62,7 @@ The root coordinator's fresh approval of a proposed relaxation of a check, after
 **Hold**:
 The operator's zero-writes order to every Autopilot owner. Owners report their state and retain their briefs until release. A stop also cancels pending audits.
 
-[mmw-mode](../../../skills/mmw-mode/SKILL.md) · [Autopilot-full playbook](../../../skills/mmw-mode/playbooks/autopilot-full.md) · [Multi-phase plan playbook](../../../skills/mmw-mode/playbooks/multi-phase-plan.md) · [Orchestrate playbook](../../../skills/mmw-mode/playbooks/orchestrate.md)
+[mmw-mode](../../../skills/mmw-mode/SKILL.md) · [Autopilot-full playbook](../../../skills/mmw-mode/playbooks/autopilot-full.md) · [Multi-phase plan playbook](../../../skills/mmw-mode/playbooks/multi-phase-plan.md)
 
 ### The decision trail
 

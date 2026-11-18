@@ -12,15 +12,9 @@ The two most common design mistakes are taking the agent's first design and poli
 /architect design the import pipeline before writing any code. i care most about how callers use it.
 ```
 
-[architect](../../skills/architect/SKILL.md) grounds itself first, tracing the code the design touches and running [why](../../skills/why/SKILL.md) when it moves ownership or layers. Then it runs [arena](../../skills/arena/SKILL.md) to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
+[architect](../../skills/architect/SKILL.md) starts with the caller's evidence and traces any gaps that could change the interface. Then it sketches two different shapes, each with types, signatures, and module boundaries, and picks the one where each piece of state has one owner, each task has one way to do it, and callers need to know least. For a large or contested design, it runs [arena](../../skills/arena/SKILL.md) instead of sketching alone. If you want to see the design before any code, say so in the prompt. When a playbook hands the code to another agent, architect returns the design instead.
 
-By default it proceeds straight from the synthesized design into implementation. When a playbook hands the code to another agent, architect returns the design instead. If you want to see the design first, say so:
-
-```text
-/architect with checkpoint. stop and show me before implementing.
-```
-
-The design isn't sacred once code starts. If implementation shows the same workaround in unrelated places, or types that only compile with `any` or forced casts, [architect](../../skills/architect/SKILL.md) treats that as proof the design is wrong. It scraps the sketch and starts over instead of patching around it.
+The design isn't sacred once code starts. If the same workaround keeps coming back, [architect](../../skills/architect/SKILL.md) redesigns instead of patching around it.
 
 To find modules worth deepening, ask for [Improve codebase architecture](../../skills/mmw-mode/playbooks/improve-codebase-architecture.md). It shows you the deepening opportunities in an HTML report. Once you pick one and want to compare interfaces, it calls [architect](../../skills/architect/SKILL.md), which gives each parallel runner a different interface direction. You see the competing designs and the recommendation before deciding what to build.
 
@@ -123,7 +117,7 @@ For a migration, state the bar in the prompt:
 You might be wondering whether every change needs this. No. Most changes need none of it. A rough ladder:
 
 - A small, finished change you're unsure about needs [blast-radius](../../skills/blast-radius/SKILL.md) to verify what it could break outside itself.
-- A change that crosses function boundaries or moves ownership earns [architect](../../skills/architect/SKILL.md), which brings [arena](../../skills/arena/SKILL.md) with it.
+- A change that crosses function boundaries or moves ownership earns [architect](../../skills/architect/SKILL.md), which brings [arena](../../skills/arena/SKILL.md) with it when the design is large or contested.
 - A standalone decision where independent attempts would help, like naming, formats, or an algorithm, is [arena](../../skills/arena/SKILL.md) directly.
 - A coverage matrix, set of parallel checks, or race with declared arms is [swarm](../../skills/swarm/SKILL.md).
 - An open question you could answer by running something, like a layout, a timing, or an approach, gets a prototype, not a debate.

@@ -56,7 +56,7 @@ In context, that's enough. [write-tests](../../skills/write-tests/SKILL.md) writ
 
 ## Clean before you commit
 
-The [Opening a PR playbook](../../skills/mmw-mode/playbooks/opening-a-pr.md) runs [deslop](../../skills/deslop/SKILL.md) on the diff before each commit and applies [unslop](../../skills/unslop/SKILL.md) to the PR description and commit bodies. The [deslop](../../skills/deslop/SKILL.md) removes narrating comments, unsupported guards, dead compatibility paths, and unrelated edits.
+The [Opening a PR playbook](../../skills/mmw-mode/playbooks/opening-a-pr.md) runs [deslop](../../skills/deslop/SKILL.md) on the diff before each commit, and [mmw-mode](../../skills/mmw-mode/SKILL.md) applies [unslop](../../skills/unslop/SKILL.md) to the PR description and commit bodies. The [deslop](../../skills/deslop/SKILL.md) removes narrating comments, unsupported guards, dead compatibility paths, and unrelated edits.
 
 For prose, [unslop](../../skills/unslop/SKILL.md) takes a target and any extra rules you have:
 

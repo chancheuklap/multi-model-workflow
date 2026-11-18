@@ -17,7 +17,7 @@ Identify the current host as in Model rule. List the models, reasoning levels, a
 
 ### 2. Load current state
 
-Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names, such as `how critics`, `how explainer`, `why investigators`, `why synthesizer` and `interrogate reviewers`.
+Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
 
 ### 3. Budget, map, and confirm
 
@@ -49,12 +49,9 @@ bug-fix: <model and settings>
 perf-issue: <model and settings>
 hillclimb: <model and settings>
 judgment and prose: <model and settings>
-hardest tasks: <model and settings>
 advisor: <model and settings>
 reader: <model and settings>
 code review: <model and settings>
-reflect tooling: <model and settings>
-reflect judgment, divergent, synthesizer: <model and settings>
 arena runners: <one model and its settings per seat, comma-separated>
 arena cross-judge pool: <judge models in preference order>
 swarm workers: <model and settings>
