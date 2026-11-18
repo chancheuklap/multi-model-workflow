@@ -107,6 +107,27 @@ for (const format of ['yaml', 'toml']) test(`a real commit uses real prek ${form
   assert.equal(allowed.status, 0, output(allowed));
 });
 
+for (const linked of [false, true]) for (const args of [['-a'], ['src/input.js']]) {
+  test(`a real ${linked ? 'linked' : 'main'}-worktree commit ${args.join(' ')} preserves the index for real prek`, t => {
+    if (!requirePrek(t)) return;
+    const f = fixture(t);
+    prekConfig(f);
+    f.write('src/input.js', 'original\n');
+    f.commit('Add tracked input and prek config');
+    const repo = linked ? join(f.root, 'linked') : f.repo;
+    if (linked) f.git('worktree', 'add', '-b', 'linked', repo);
+    enableHooks(f);
+    const before = f.git('-C', repo, 'rev-parse', 'HEAD');
+    f.write(linked ? '../linked/src/input.js' : 'src/input.js', 'clean change\n');
+    const result = realGit({ ...f, repo }, 'commit', ...args, '-m', 'Commit clean tracked change');
+    t.diagnostic(output(result).trim());
+    assert.equal(result.status, 0, output(result));
+    assert.match(output(result), /Toy planted lint.*Passed/);
+    assert.notEqual(f.git('-C', repo, 'rev-parse', 'HEAD'), before);
+    assert.equal(f.git('-C', repo, 'show', 'HEAD:src/input.js'), 'clean change');
+  });
+}
+
 for (const format of ['yaml', 'toml']) test(`a missing prek refuses a real commit with ${format} and names installation; no config is a no-op`, t => {
   const f = fixture(t);
   assert.equal(f.cli('--staged').status, 0);

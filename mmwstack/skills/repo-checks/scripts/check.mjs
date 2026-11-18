@@ -593,7 +593,7 @@ async function staged() {
     return 2;
   }
   const result = await supervisor({
-    id: 'prek', command: 'prek run', timeout: 600, retry: 0, log: null,
+    id: 'prek', command: 'prek run', timeout: 600, retry: 0, log: null, git_index: true,
   }, executionSlots(1), () => {});
   const attempt = result.attempts[0];
   process.stdout.write(attempt.stdout);
@@ -944,14 +944,14 @@ function killTree(child) {
 
 let activeCommand = null;
 
-async function commandProcess(command, timeout, log) {
+async function commandProcess(command, timeout, log, gitIndex) {
   const fd = log ? openSync(log, 'a') : null;
   const start = performance.now();
   const env = { ...process.env };
   delete env.MMW_REPO_CHECKS_HOOK;
   delete env.GIT_DIR;
   delete env.GIT_WORK_TREE;
-  delete env.GIT_INDEX_FILE;
+  if (!gitIndex) delete env.GIT_INDEX_FILE;
   delete env.GIT_COMMON_DIR;
   let child;
   try {
@@ -1137,7 +1137,7 @@ async function worker(task) {
     }), 19000);
     const attempts = [];
     for (let i = 0; i <= task.retry && !cancelled; i++) {
-      const attempt = await commandProcess(task.command, task.timeout, task.log);
+      const attempt = await commandProcess(task.command, task.timeout, task.log, task.git_index);
       attempts.push(attempt);
       if (attempt.exit_code === 0 && !attempt.reason) break;
     }
