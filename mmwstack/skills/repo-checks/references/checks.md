@@ -95,7 +95,7 @@ The asserted finding keys are `findings[].rule`, `findings[].message`, `findings
 | `check` | True for read-only `--check`. |
 | `pending` | Repairs not applied, each with `kind`, `path`, and `message`. |
 | `changed` | Applied repairs, each with `kind`, `path`, and `message`. Empty with `--check`. |
-| `retained` | Folders or entries left in place, each with `path` and `reason`. |
+| `retained` | Empty array. |
 
 The full field set is `mode`, `ok`, `exit_code`, `check`, `pending`, `changed`, `retained`, and `findings`. Exit 0 means healthy or repaired, 1 means pending repairs under `--check`, and 2 means unable to repair. `ensure` also accepts `--json` without `--check`.
 

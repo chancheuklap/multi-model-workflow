@@ -428,23 +428,6 @@ function ensure(schema, facts) {
         plan('prek-hook', path, 'remove prek-generated default hook', () => unlinkSync(path));
       }
     }
-    const scratch = '.scratch/check';
-    if (existsSync(scratch)) plan('old-folder', scratch, 'remove old check folder',
-      () => rmSync(scratch, { recursive: true, force: true }));
-    if (existsSync('.worktrees')) {
-      const listed = new Set(git('worktree', 'list', '--porcelain', '-z').split('\0')
-        .filter(field => field.startsWith('worktree ')).map(field => field.slice('worktree '.length)));
-      for (const entry of readdirSync('.worktrees', { withFileTypes: true })) {
-        const path = join('.worktrees', entry.name);
-        let reason;
-        if (!entry.isDirectory()) reason = 'not a directory';
-        else if (listed.has(realpathSync(path))) reason = 'listed by git as a worktree';
-        else if (existsSync(join(path, '.git'))) reason = 'has a .git entry';
-        if (reason) facts.retained.push({ path, reason });
-        else plan('old-folder', path, 'remove unlisted folder without a .git entry',
-          () => rmSync(path, { recursive: true, force: true }));
-      }
-    }
     if (!facts.check) for (const { item, apply } of actions) {
       apply();
       facts.pending.shift();
@@ -1502,7 +1485,6 @@ function emit(facts, json) {
   } else if (facts.mode === 'ensure') {
     for (const item of facts.pending) console.log(`PENDING ${item.path}: ${item.message}`);
     for (const item of facts.changed) console.log(`CHANGED ${item.path}: ${item.message}`);
-    if (facts.check) for (const item of facts.retained) console.log(`RETAIN ${item.path}: ${item.reason}`);
     for (const finding of facts.findings) console.log(`ENSURE ${finding.rule} ${finding.message}`);
   } else if (facts.mode === 'bypass') {
     console.log(`SKIPPED BY REASON ${facts.reason}`);
@@ -1604,7 +1586,7 @@ if (typeof process.send === 'function' && args.length === 0) {
       '--only <ids>  Restrict to comma-separated ids; does not force selection without --all.',
       '--base <ref>  Override origin/<integration> for the merge base; no fetch.',
       '--json        Print facts for run, lint, ensure, report or selftest.',
-      '--check       With ensure, report pending repairs and retained folders without changing anything.',
+      '--check       With ensure, report pending repairs without changing anything.',
       '--help        Show this help.',
       '--staged      Run prek on staged files when a prek config exists.',
       '--push        Select committed pre-push stdin ranges only; DIRTY disables reuse.',

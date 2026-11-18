@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -104,8 +104,6 @@ test('ensure --check lists every pending repair including real prek hooks and wr
   const f = fixture(t);
   if (!installPrek(f, t)) return;
   for (const name of ['pre-commit', 'pre-push']) chmodSync(join(f.repo, '.githooks', name), 0o644);
-  f.write('.scratch/check/log.txt', 'old log\n');
-  f.write('.worktrees/orphan/old.txt', 'old checkout\n');
   const before = snapshot(f.repo);
   const pending = facts(f.cli('ensure', '--check', '--json'), 1, true);
   assert.deepEqual(pending.pending.map(item => [item.kind, item.path]), [
@@ -114,8 +112,6 @@ test('ensure --check lists every pending repair including real prek hooks and wr
     ['hook-executable', '.githooks/pre-push'],
     ['prek-hook', '.git/hooks/pre-commit'],
     ['prek-hook', '.git/hooks/pre-push'],
-    ['old-folder', '.scratch/check'],
-    ['old-folder', '.worktrees/orphan'],
   ]);
   assert.deepEqual(pending.changed, []);
   assert.deepEqual(pending.findings, []);
@@ -126,7 +122,7 @@ test('ensure --check lists every pending repair including real prek hooks and wr
   const fixed = facts(f.cli('ensure', '--json'), 0);
   assert.deepEqual(fixed.changed, pending.pending);
   assert.deepEqual(fixed.pending, []);
-  for (const path of ['.git/hooks/pre-commit', '.git/hooks/pre-push', '.scratch/check', '.worktrees/orphan']) {
+  for (const path of ['.git/hooks/pre-commit', '.git/hooks/pre-push']) {
     assert.equal(existsSync(join(f.repo, path)), false, path);
   }
   assert.equal(realGit(f, f.repo, 'config', 'core.hooksPath').stdout.trim(), '.githooks');
@@ -134,46 +130,12 @@ test('ensure --check lists every pending repair including real prek hooks and wr
   assert.equal(output(f.cli('ensure')), '');
 });
 
-test('cleanup removes scratch and only the unlisted child without .git, reporting both retained children when healthy', t => {
-  const f = fixture(t);
-  const listed = join(f.repo, '.worktrees/listed');
-  f.git('worktree', 'add', '-b', 'listed', listed);
-  f.write('.worktrees/has-git/.git', 'gitdir: elsewhere\n');
-  f.write('.worktrees/has-git/keep.txt', 'keep\n');
-  f.write('.worktrees/orphan/remove.txt', 'remove\n');
-  f.write('.scratch/check/log.txt', 'remove\n');
-  const kept = [snapshot(listed), snapshot(join(f.repo, '.worktrees/has-git'))];
-  const expected = [
-    { path: '.worktrees/has-git', reason: 'has a .git entry' },
-    { path: '.worktrees/listed', reason: 'listed by git as a worktree' },
-  ];
-  const pending = facts(f.cli('ensure', '--check', '--json'), 1, true);
-  assert.deepEqual(pending.retained, expected);
-  assert.deepEqual(pending.pending.filter(item => item.kind === 'old-folder').map(item => item.path),
-    ['.scratch/check', '.worktrees/orphan']);
-  assert.deepEqual(facts(f.cli('ensure', '--json'), 0).retained, expected);
-  assert.equal(existsSync(join(f.repo, '.scratch/check')), false);
-  assert.equal(existsSync(join(f.repo, '.worktrees/orphan')), false);
-  assert.deepEqual(snapshot(listed), kept[0]);
-  assert.deepEqual(snapshot(join(f.repo, '.worktrees/has-git')), kept[1]);
-  const healthy = facts(f.cli('ensure', '--check', '--json'), 0, true);
-  assert.deepEqual(healthy.pending, []);
-  assert.deepEqual(healthy.retained, expected);
-  const text = f.cli('ensure', '--check');
-  assert.equal(text.status, 0, output(text));
-  for (const item of expected) assert.ok(text.stdout.includes(`RETAIN ${item.path}: ${item.reason}`));
-  assert.equal(output(f.cli('ensure')), '', 'Retained children do not make a no-change ensure noisy');
-});
-
-test('a linked worktree repairs common default hooks and configuration but cleans only the current checkout', t => {
+test('a linked worktree repairs common default hooks and configuration', t => {
   const f = fixture(t);
   if (!installPrek(f, t)) return;
   const linked = join(f.root, 'linked');
   f.git('worktree', 'add', '-b', 'linked', linked);
   for (const name of ['pre-commit', 'pre-push']) chmodSync(join(linked, '.githooks', name), 0o644);
-  f.write('.scratch/check/main.txt', 'keep in other checkout\n');
-  mkdirSync(join(linked, '.scratch/check'), { recursive: true });
-  writeFileSync(join(linked, '.scratch/check/linked.txt'), 'remove here\n');
   const before = snapshot(f.root);
   const pending = facts(f.invoke(['ensure', '--check', '--json'], { cwd: linked }), 1, true);
   assert.deepEqual(pending.pending.filter(item => item.kind === 'prek-hook').map(item => item.path),
@@ -187,24 +149,21 @@ test('a linked worktree repairs common default hooks and configuration but clean
     assert.equal(statSync(join(linked, '.githooks', name)).mode & 0o111, 0o111);
     assert.equal(existsSync(join(f.repo, '.git/hooks', name)), false);
   }
-  assert.equal(existsSync(join(linked, '.scratch/check')), false);
-  assert.equal(readFileSync(join(f.repo, '.scratch/check/main.txt'), 'utf8'), 'keep in other checkout\n');
   assert.equal(output(f.invoke(['ensure'], { cwd: linked })), '');
   facts(f.invoke(['ensure', '--check', '--json'], { cwd: linked }), 0, true);
 });
 
-test('ensure preserves repository-owned hooks, non-prek default hooks and non-directory worktrees entries', t => {
+test('ensure preserves repository-owned hooks and non-prek default hooks', t => {
   const f = fixture(t);
   f.write('.githooks/post-checkout', '#!/bin/sh\nprintf repository-owned\n');
   chmodSync(join(f.repo, '.githooks/post-checkout'), 0o644);
   f.write('.git/hooks/custom', '#!/bin/sh\n# This is mine.\n# File generated by prek: https://github.com/j178/prek\n');
   f.write('.git/hooks/pre-commit', '#!/bin/sh\n# File generated by pre-commit: https://pre-commit.com\n');
-  f.write('.worktrees/notes.txt', 'not a folder\n');
-  const paths = ['.githooks/post-checkout', '.git/hooks/custom', '.git/hooks/pre-commit', '.worktrees/notes.txt'];
+  const paths = ['.githooks/post-checkout', '.git/hooks/custom', '.git/hooks/pre-commit'];
   const before = paths.map(path => snapshot(join(f.repo, path)));
   const fixed = facts(f.cli('ensure', '--json'), 0);
   assert.deepEqual(fixed.changed.map(item => item.kind), ['hooks-path']);
-  assert.deepEqual(fixed.retained, [{ path: '.worktrees/notes.txt', reason: 'not a directory' }]);
+  assert.deepEqual(fixed.retained, []);
   assert.deepEqual(paths.map(path => snapshot(join(f.repo, path))), before);
 });
 
@@ -220,7 +179,6 @@ for (const [name, breakConfig, pattern] of [
   }, /equals protected owner-only lane/],
 ]) test(`ensure refuses ${name} Check Config before any mutation`, t => {
   const f = fixture(t);
-  f.write('.scratch/check/log.txt', 'must stay\n');
   chmodSync(join(f.repo, '.githooks/pre-commit'), 0o644);
   breakConfig(f);
   const before = snapshot(f.repo);
@@ -241,7 +199,6 @@ for (const path of ['scripts/check', '.githooks/pre-commit', '.githooks/pre-push
     const f = fixture(t);
     if (state === 'absent') unlinkSync(join(f.repo, path));
     else f.write(path, '#!/bin/sh\n# repository edit\n');
-    f.write('.scratch/check/log.txt', 'must stay\n');
     const before = snapshot(f.repo);
     for (const check of [false, true]) {
       const result = spawnSync(process.execPath, [engine, 'ensure', ...(check ? ['--check'] : []), '--json'], {
