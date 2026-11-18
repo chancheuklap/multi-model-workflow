@@ -1,6 +1,6 @@
 ---
 name: advisor
-description: Stronger-model advisor, consulted by the main chat or an owner session at a major decision, when stuck, or when the operator asks. Read-only. Returns a verdict and concrete guidance, not edits.
+description: Stronger-model advisor, consulted by the agent handling the decision at a major decision, when stuck, or when the operator asks. Read-only. Returns a verdict and concrete guidance, not edits.
 readonly: true
 ---
 

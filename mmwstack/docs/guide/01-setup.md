@@ -20,7 +20,7 @@ The `large` budget requests `xhigh` reasoning. `unlimited` lifts each model to i
 
 Choose a model for each role. Rerun [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) to change individual assignments or the reasoning budget.
 
-On Droid, setup also writes one custom droid for each role line in your rule, and one for each seat of a panel role or the judge pool, named `mmwstack-` plus the role, such as `mmwstack-bug-fix` or `mmwstack-arena-runners-1`. It adds `mmwstack-comment-sicko` and removes any `mmwstack-*` droid the rule no longer uses. It writes a droid only for a level the model supports, because Droid quietly runs the model on its own default when asked for one it lacks. [Agent definitions](../../skills/setup-mmwstack/references/agent-definitions.md) has the template.
+Setup updates the section for the current host. The same role can use a different model in another host.
 
 You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Setup also configures `swarm workers`, the model for [swarm](../../skills/swarm/SKILL.md) workers. For a model race, choose a configured model for each arm.
 

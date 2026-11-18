@@ -111,7 +111,7 @@ A long chat accumulates context from the last task. When you change subjects, sa
 
 ## Give parallel work its own machine
 
-If you run several agents against one repository on one computer, they will fight over the working tree, the ports, and the build output. Give each parallel worker its own remote machine and branch so it can install dependencies, run the app, and record video independently. That worker is an owner session and can start helpers of its own. A helper cannot. When a helper needs a step that starts agents, it replies `needs:` with the step and its inputs, and the agent that started it runs the step and sends the findings back.
+If you run several agents against one repository on one computer, they will fight over the working tree, the ports, and the build output. Give each parallel worker its own remote machine and branch so it can install dependencies, run the app, and record video independently. That worker is an owner session and can start helpers of its own. When a helper cannot run a required step or its fallback, it replies `needs:` with the step and its inputs, and the agent that started it runs the step and sends the findings back.
 
 When the work has to stay local, ask for a worktree up front:
 

@@ -10,7 +10,7 @@ The assignee receives a ticket describing the result to deliver. Its PR gives re
 The request to merge the code change for one [execution ticket](../planning-and-tickets/GLOSSARY.md). Its `Why` section links the ticket. The main chat records the returned PR URL on the ticket so an owner or verifier can find the same change from either record.
 
 **PR owner**:
-The agent role responsible for a code ticket's PR and the sole writer of its branch in Autopilot and Orchestrate. It receives the ticket URL and any existing PR URL. A replacement agent can take over the role. It runs as an [owner session](../routing-and-delegation/GLOSSARY.md#people-and-instructions), so it can start delegates. The execution playbook determines whether the owner merges the verified change or hands it to the operator.
+The agent role responsible for a code ticket's PR and the sole writer of its branch in Autopilot and Orchestrate. It receives the ticket URL and any existing PR URL. A replacement agent can take over the role. The execution playbook determines whether the owner merges the verified change or hands it to the operator.
 _Avoid_: owner alone when the operator or the author of an individual finding could be meant.
 
 **Forge**:
