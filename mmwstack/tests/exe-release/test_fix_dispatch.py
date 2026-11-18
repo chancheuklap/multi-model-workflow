@@ -32,7 +32,7 @@ def _repo(tmp_path: Path) -> Path:
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(
-        ["git", "-C", str(repo), "config", "core.hooksPath", str(repo / ".git/no-hooks")],
+        ["git", "-C", str(repo), "config", "core.hooksPath", ".githooks"],
         check=True,
     )
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@t"], check=True)
