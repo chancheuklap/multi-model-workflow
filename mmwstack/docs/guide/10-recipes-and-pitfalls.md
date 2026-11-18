@@ -68,13 +68,13 @@ One stronger model reads the agent's brief and the repository, then returns a ve
 
 Each worker owns one package. The parent waits for every slice and returns one `PASS`, `ISSUES`, or `BLOCKED` report instead of raw worker dumps.
 
-## Review a branch skeptically
+## Review a finished project branch
 
 ```text
-/interrogate the whole branch, but skeptically. don't change anything yet. no nitpicks unless it's an actual bug or regression in behavior.
+/mmw-mode code review project/<name>.
 ```
 
-The qualifiers do real work. "don't change anything yet" keeps it read-only, and the nitpick rule pre-filters the noise so the verified findings are worth your time.
+Runs [code-review](../../skills/code-review/SKILL.md) once across Standards, Spec, and Tests, repairs in-scope hard findings once, and stops for your merge decision.
 
 ## Fix a bug through a failing test
 
@@ -170,17 +170,17 @@ To watch the catch-up instead, run [ketchup-video](../../skills/ketchup-video/SK
 
 ## The pitfalls
 
-- **Enumerating skills in the prompt.** "use /architect then /arena then /interrogate" reorders steps the playbook already sequences. State the goal and constraints. Name a skill only to override a default.
+- **Enumerating skills in the prompt.** "use /architect then /arena then /swarm" reorders steps the playbook already sequences. State the goal and constraints. Name a skill only to override a default.
 - **A vague finish condition.** "make it better" gives the agent nothing to check. Give a command or artifact that can pass or fail.
 - **Leading with your theory of the cause.** The agent searches wherever you pointed. Ask it to restate the problem first, then share your hunch.
 - **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes or [architect](../../skills/architect/SKILL.md) and pick from evidence.
-- **Polishing an abstract plan.** Adversarial review of a plan with no code behind it invents risks that will never happen. Settle the open questions with prototypes, then review what got built.
+- **Polishing an abstract plan.** Speculative review of a plan with no code behind it invents risks that will never happen. Settle the open questions with prototypes, then review what got built.
 - **Parallel agents in one worktree.** They overwrite each other, and nobody can tell which agent changed what. Give each agent its own checkout, or say "own worktree per attempt".
 - **Looping before you trust the loop.** A loop that can't verify its own work only makes unchecked work faster. Get the verification skill working first.
 - **Trusting an unvetted number.** A warm cache or a skipped code path can fake a speedup. Run [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md) before the number goes anywhere.
 - **Correcting the same mistake by hand.** A correction in chat helps one run. [correct](../../skills/correct/SKILL.md) fixes the repo so no later run repeats it.
 - **Using [arena](../../skills/arena/SKILL.md) for coverage.** [arena](../../skills/arena/SKILL.md) repeats one design or code brief, then picks a base and grafts the best parts. [swarm](../../skills/swarm/SKILL.md) partitions slices or declared race arms and aggregates one report.
-- **Accepting every review comment.** Bots and humans both file real catches and noise in one list. [interrogate](../../skills/interrogate/SKILL.md) keeps only the findings a rerun proves and lists what it dropped and why, and you can override either way.
+- **Accepting every review comment.** Bots and humans both file real catches and noise in one list. [code-review](../../skills/code-review/SKILL.md) checks every kept runtime claim by rerunning it and keeps hard findings distinct from judgement calls.
 - **Treating `auto` as a model slug.** `auto` and `inherit-parent` mean "use the parent chat model." [Setup](./01-setup.md) covers the roles.
 - **Reporting success off a green build.** A build proves it compiles. Ask for the real command, flow, stored value, or profile, and expect the evidence in the reply.
 - **Writing a `SKILL.md` freehand.** Route it through the [Authoring or modifying a skill playbook](../../skills/mmw-mode/playbooks/authoring-a-skill.md) so validation and review happen.

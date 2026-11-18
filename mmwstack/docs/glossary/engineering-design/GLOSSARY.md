@@ -198,7 +198,7 @@ A comment claiming an obligation, such as preserving specific wording. Where the
 ### Code review
 
 **Code review**:
-One review of a project branch after the tickets of its spec have landed on it, on the Standards, Spec and Tests axes. The operator asks for it. It runs once. The [code-review](../../../skills/code-review/SKILL.md) skill reviews and reports, and the [Code review playbook](../../../skills/mmw-mode/playbooks/code-review.md) repairs once and stops. It differs from an ambiguity scan, which reads a draft before any code exists, and from [interrogate](../../../skills/interrogate/SKILL.md), which tries to break a change with runs.
+One review of a project branch after the tickets of its spec have landed on it, on the Standards, Spec and Tests axes. The operator asks for it. It runs once. The [code-review](../../../skills/code-review/SKILL.md) skill reviews and reports, and the [Code review playbook](../../../skills/mmw-mode/playbooks/code-review.md) repairs once and stops. It differs from an ambiguity scan, which reads a draft before any code exists.
 _Avoid_: review alone for any of these. A forge check named Code Review Gate is a separate thing.
 
 **Review axis**:

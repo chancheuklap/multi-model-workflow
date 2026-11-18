@@ -75,7 +75,7 @@ The operator's saved assignments of models and settings to roles, normally in `~
 A host's saved definition of one role's delegate, fixing its model, reasoning level and system prompt, such as a Droid custom droid. Setup writes one for each role line in the rule and for each seat of a list role, and a spawn names it to get that role. The definition carries the role's instructions, so a brief gives no path to them. Where the host fixes reasoning and speed this way, the role's assignment stands in place of a per-job adjustment. [Agent definitions](../../../skills/setup-mmwstack/references/agent-definitions.md)
 
 **Model role**:
-A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, and `reader` covers a read-only assignment to read and report. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
+A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
 
 **Reasoning budget**:
 The operator's target reasoning level. The targets for `unlimited`, `large`, `medium`, and `small` are `max`, `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
@@ -87,7 +87,7 @@ The choice of standard or fast execution for a delegate. Unless the operator fix
 The operator's explicit choice of `inherit-parent` or `auto`. Both values run the delegate on the parent's model with its inherited settings.
 
 **Panel role**:
-An assignment with one seat per entry in `arena runners`, `architect runners`, or `interrogate reviewers`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Arena can add runners for multiple design directions using the configured models. Architect applies Arena's runner rules to its own list. [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
+An assignment with one seat per entry in `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Arena can add runners for multiple design directions using the configured models. Architect applies Arena's runner rules to its own list. [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
 
 **Arena cross-judge pool**:
 The operator's ordered list of models from which one read-only judge is selected. Arena takes the first available model from a different vendor than the parent's. A vendor is the company that trains the model, and models from one vendor count as one vendor even when the vendor names its lines differently. If the parent's vendor is unknown, Arena can use an explicitly named model and reports that it could not check the vendor. Inherited entries cannot judge.
@@ -147,16 +147,3 @@ The candidate the parent selects as the starting artifact for synthesis. A **gra
 The record accompanying the verified Arena artifact. It identifies the base and why it won, the judge's verdict or absence, each graft and its source, rejected alternatives, any convergence or dropouts, and the verification result.
 
 [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md) · [Architect runner brief](../../../skills/architect/references/runner-prompt.md)
-
-### Adversarial review
-
-**Interrogate**:
-A review in which independent adversaries try to break a change or design against its stated intent. The output reports the findings the parent can reproduce and what it dropped. Fixes are a separate assignment.
-
-**Adversary**:
-A reviewer given the scope, the intended behavior, and its own worktree. It reports the command it ran, the output it saw, and the output the intent required. For a design, the run can be a prototype or a probe of the current code.
-
-**Verified finding (Interrogate)**:
-A failure the parent reproduces by rerunning the adversary's command and can show violates the intent. The report combines findings with the same root cause, credits the adversaries that found them, and counts each adversary's dropped findings with reasons. A review can end with no verified findings.
-
-[interrogate](../../../skills/interrogate/SKILL.md)

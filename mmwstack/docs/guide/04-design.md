@@ -1,10 +1,10 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. [interrogate](../../skills/interrogate/SKILL.md) has other models try to break the result. When the job is coverage rather than design synthesis, [swarm](../../skills/swarm/SKILL.md) fans out slices or races and aggregates their results.
+One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. When the job is coverage rather than design synthesis, [swarm](../../skills/swarm/SKILL.md) fans out slices or races and aggregates their results.
 
 The two most common design mistakes are taking the agent's first design and polishing a plan that no code has tested. This page fixes both. You plan through code. Prototypes answer the open questions, a README or tutorial sets the target, and the written plan comes last.
 
-![Three robots draft competing bridge models at their own tables under /architect, /arena, and /interrogate panels, while a judge robot with a clipboard inspects skeptically.](./images/design.jpg)
+![Three robots draft competing bridge models at their own tables under /architect and /arena panels, while a judge robot with a clipboard inspects skeptically.](./images/design.jpg)
 
 ## Settle the shape with [architect](../../skills/architect/SKILL.md)
 
@@ -62,16 +62,6 @@ The panel comes from your [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md)
 
 Reach for it when parallelism buys coverage or lets independent checks race. [arena](../../skills/arena/SKILL.md) gives every worker the same design or code brief, then picks a base and grafts the best parts. [swarm](../../skills/swarm/SKILL.md) covers slices or runs a race with a selection rule declared up front. It does not use the base-selection and grafting ceremony.
 
-## Break it with [interrogate](../../skills/interrogate/SKILL.md)
-
-```text
-/interrogate the whole branch, but skeptically. no nitpicks unless it's an actual bug or regression.
-```
-
-[interrogate](../../skills/interrogate/SKILL.md) gives the change and its intent to adversaries on the configured models, and each tries to break it with a run against the real code. Adversaries find different failures. A finding survives only when rerunning its command shows a failure that breaks the intent. The report lists every verified finding with the adversaries that found it, then what each adversary dropped and why, and applies nothing.
-
-Read the Dropped list too. You can override the verdict.
-
 ## Settle decisions across sessions
 
 Suppose you're deciding how a desktop app should update while a job is running. The restart rule, the update prompt and recovery may each need a conversation. Ask the main chat to chart those questions with [Wayfinder](../../skills/mmw-mode/playbooks/wayfinder.md). It creates a map and a decision ticket for each question you can already state.
@@ -94,7 +84,7 @@ The same idea scales up to a real design. Pair [architect](../../skills/architec
 /mmw-mode we need rate limiting for external webhooks. /architect it first, and answer open questions with prototypes. let me review before proceeding.
 ```
 
-Don't spend adversaries on an abstract plan. [interrogate](../../skills/interrogate/SKILL.md) drops every finding a run does not prove, so a plan with no code behind it gives them little to break. Let prototypes settle the questions, then review what got built.
+Don't spend reviewers on an abstract plan. Let prototypes settle the questions, then review what got built.
 
 ## Write the README first for shared code
 
@@ -132,12 +122,12 @@ For a migration, state the bar in the prompt:
 
 You might be wondering whether every change needs this. No. Most changes need none of it. A rough ladder:
 
-- A small, finished change you're unsure about needs [interrogate](../../skills/interrogate/SKILL.md) alone.
+- A small, finished change you're unsure about needs [blast-radius](../../skills/blast-radius/SKILL.md) to verify what it could break outside itself.
 - A change that crosses function boundaries or moves ownership earns [architect](../../skills/architect/SKILL.md), which brings [arena](../../skills/arena/SKILL.md) with it.
 - A standalone decision where independent attempts would help, like naming, formats, or an algorithm, is [arena](../../skills/arena/SKILL.md) directly.
 - A coverage matrix, set of parallel checks, or race with declared arms is [swarm](../../skills/swarm/SKILL.md).
 - An open question you could answer by running something, like a layout, a timing, or an approach, gets a prototype, not a debate.
-- A contested design that's expensive to reverse gets [architect](../../skills/architect/SKILL.md), then [interrogate](../../skills/interrogate/SKILL.md) before shipping.
+- A finished project branch gets one [code-review](../../skills/code-review/SKILL.md) pass on Standards, Spec, and Tests when you ask for it.
 - Work that spans several phases gets a plan, written after the design settles.
 
 [mmw-mode](../../skills/mmw-mode/SKILL.md) already applies this ladder. Boundary-crossing work triggers [architect](../../skills/architect/SKILL.md) on its own, so you reach for these directly mainly when you want more or less scrutiny than the default.

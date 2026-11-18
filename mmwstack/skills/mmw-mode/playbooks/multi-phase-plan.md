@@ -29,7 +29,7 @@ Start from the work issue and its agreed spec, or the agreed design in the discu
 
 One box is one unit of work. Every box names the evidence that checks it. A nested box is a sub-step of the box above it. Check a box only when its evidence exists, a file, a log line, a screenshot, a test run, or a SHA. The body is a how-to. The appendices explain and record.
 
-The program runs `<mmw-mode-dir>/playbooks/<execution playbook>.md`. <Who merges, and which changes the operator reserves for review.>
+The program runs `<mmw-mode-dir>/playbooks/<execution playbook>.md` against the project branch `project/<slug>`, created from the repository's integration branch before owners start. <Who merges into the project branch, and which changes the operator reserves for review. Once every ticket's PR merges into the project branch, stop for the operator's `/code-review project/<slug>` and final integration merge.>
 
 Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
@@ -38,6 +38,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 ### Arm the program
 
 - [ ] State the protocol and this plan to the operator, then stop. Start execution only on the operator's explicit go.
+- [ ] Create and push `project/<slug>` from the repository's integration branch (`git fetch origin && git push origin origin/<integration>:refs/heads/project/<slug>`) so every PR in this program targets it instead of merging directly into the integration branch.
 - [ ] Read these from trunk at program start. Re-read them at every tick. Fill in each source repository's trunk ref and tracked paths.
   - [ ] `git show origin/main:mmwstack/skills/mmw-mode/playbooks/<execution playbook>.md`
   - [ ] `git show origin/main:mmwstack/skills/swarm/SKILL.md`
@@ -52,24 +53,24 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 - [ ] Use the spec's execution tickets that link to this plan. If the tickets have yet to be published, use `to-tickets` to split the checked plan and publish the approved tickets.
 - [ ] On the operator's go, assign a PR owner to each code ticket that can start. Give the owner the ticket URL, its acceptance criteria and the relevant plan material. Include the existing PR URL if work has already started on that PR.
-- [ ] Follow the tickets' direct blockers. Independent changes branch from trunk. When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
+- [ ] Follow the tickets' direct blockers. Independent changes branch from `project/<slug>` (`scripts/worktree start ... --base project/<slug>`). When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
 - [ ] Hold the file boundaries and the operator's review gates for the assigned work.
 
 ### PR mechanics, for every PR
 
 - [ ] Resolve the forge once per **Opening a PR** and use it throughout the run.
-- [ ] Open the ticket's PR ready on its intended base and link the two records, per **Opening a PR**. A stack child targets its parent branch.
+- [ ] Open the ticket's PR ready with `project/<slug>` as its base (or its parent PR's branch when stacked) and link the two records, per **Opening a PR**.
 - [ ] Run the repo's lint and typecheck once before the PR-facing push. Push with hooks on.
 - [ ] Run `/deslop` before each commit and `/no-comments` before review.
 - [ ] Triage every Bugbot and security-reviewer comment per `<mmw-mode-dir>/references/bugbot-triage.md`.
-- [ ] Rebase onto current trunk before the code-ready report and babysit. Keep that merge base in fix rounds. Rebase again only at merge prep, on a `git merge-tree` conflict with trunk, on a CI failure that comes from a change on trunk, or when a known concurrent change to the same files lands.
+- [ ] Rebase onto current `project/<slug>` before the code-ready report and babysit. Keep that merge base in fix rounds. Rebase again only at merge prep, on a `git merge-tree` conflict with `project/<slug>`, on a CI failure that comes from a change on `project/<slug>`, or when a known concurrent change to the same files lands.
 
 ### Verdict and merge, for every PR
 
 For each code ticket, use its acceptance criteria and the relevant phase checks to fill the unit, live and perf boxes in the decision trail for its actual PR. Give each verifier the PR URL and the commit it must check.
 
 - [ ] Unit. Run the named tests at the committed head and save the results.
-- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head, and a wording-only change gets none. Run each full swarm per the `swarm` skill. One gates lane. The live and perf lanes below. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The root audits the receipts in the merge-ready report before the verdict.
+- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head, and a wording-only change gets none. Run each full swarm per the `swarm` skill. One gates lane, plus the live and perf lanes below. Leave diff-wide code review to the Code review playbook after the spec's PRs land on `project/<slug>`. The root checks the receipts in the merge-ready report before the verdict.
 - [ ] Live. Run ten lanes on the configured swarm workers model at the PR head. Give each a concrete scenario, a screenshot to save and a pass predicate. Run the regression lane on the same load-bearing scenario at trunk and head. If trunk lacks the feature, record that and gate the behavior the diff adds plus the end state the user waits for.
 - [ ] Perf. Record the metric, interleaved probe, trunk baseline and failure rule. Measure both sides when comparable. Otherwise set absolute budgets for the new work and the user-visible end state.
 - [ ] For an interaction change, post the screenshots and a 30 to 60 second video in chat. Stop at merge-ready and wait for the operator's approval.
@@ -110,6 +111,7 @@ Each live lane runs on its own remote machine at the PR head. Use the verificati
 ## Close the program
 
 - [ ] Every box above is checked with its evidence.
+- [ ] Once every ticket's PR has merged into `project/<slug>`, stop and hand `project/<slug>` to the operator for `/code-review project/<slug>` and final merge into the integration branch.
 - [ ] Reply to the operator with the report the execution playbook names.
 
 ## Appendix A. Prototype evidence
@@ -126,7 +128,7 @@ Each live lane runs on its own remote machine at the PR head. Use the verificati
 
 ## Appendix D. Links and reading list
 
-<Docs to read before editing. Which changes need the `interrogate` skill. The trail per the `show-me-your-work` skill.>
+<Docs to read before editing. The trail per the `show-me-your-work` skill.>
 ````
 
 **Reply:** the plan issue URL or draft path, the phases, their prerequisites and review gates, what the prototypes proved and what stays unproven, and the check script's output.

@@ -1,6 +1,6 @@
 ### Code review
 
-**You own one review of one project branch and the single fix pass after it.** The operator names the branch once the tickets of its spec have landed on it. Distinct from Interrogate, which tries to break any diff with runs, and from Babysit, which drives one PR.
+**You own one review of one project branch and the single fix pass after it.** The operator names the branch once the tickets of its spec have landed on it. Distinct from Babysit, which drives one PR.
 
 1. Run the [code-review](../../code-review/SKILL.md) skill on the branch. It returns the reviewed commit and the checked findings, each marked a hard finding or a judgement call.
 2. Repair once. Record the in-scope hard findings on one execution ticket with [to-tickets](../../to-tickets/SKILL.md#open). Deliver the repair through the playbook that fits the work, in one PR whose base is the project branch. Record why any hard finding stays unrepaired. Record each unrelated defect as its own ticket and leave it. A judgement call is not a code change. Report each one with the finding, your judgment and your recommendation. Run the checks that target each correction.

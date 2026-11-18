@@ -15,7 +15,7 @@ Find the spec issue the branch's tickets draw on, and the execution tickets whos
 
 ## Fan out
 
-Spawn one fresh subagent for each axis, in parallel, each in its own worktree at the reviewed commit. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and use the `judgment and prose` role from the operator's [model rule](../setup-mmwstack/SKILL.md#model-rule). Give each the diff, the reviewed commit, the spec and the landed tickets, the standards files that govern the changed paths, and the reference for its axis. The reviewer leaves the reviewed files unchanged and pushes nothing.
+Spawn one fresh subagent for each axis, in parallel, each in its own worktree at the reviewed commit. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and use the `code review` role from the operator's [model rule](../setup-mmwstack/SKILL.md#model-rule). Give each the diff, the reviewed commit, the spec and the landed tickets, the standards files that govern the changed paths, and the reference for its axis. The reviewer leaves the reviewed files unchanged and pushes nothing.
 
 | Axis | Reference |
 | --- | --- |

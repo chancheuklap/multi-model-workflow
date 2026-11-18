@@ -70,7 +70,6 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Look up interface depth, locality, seams, or the deletion test | [codebase-dic](../codebase-dic/SKILL.md) |
 | Get several attempts at one brief, merged into the best one | [arena](../arena/SKILL.md) |
 | Run parallel checks over slices, or race workers | [swarm](../swarm/SKILL.md) |
-| Have different models review a diff and try to break it | [interrogate](../interrogate/SKILL.md) |
 | Ask one stronger model for a verdict before a major decision or when stuck | [advisor](../advisor/SKILL.md) |
 | Review a finished project branch once, on three axes | [code-review](../code-review/SKILL.md) |
 | Write the tests for code you are landing, failing-first for a bug | [write-tests](../write-tests/SKILL.md) |
@@ -109,7 +108,7 @@ Close calls:
 - [how](../how/SKILL.md) explains what the code does. [why](../why/SKILL.md) explains the reasons. [teach](../teach/SKILL.md) runs one or both and explains the result plainly.
 - [arena](../arena/SKILL.md) gives every worker the same brief and merges the best parts. [swarm](../swarm/SKILL.md) splits work into slices or a race and returns one report.
 - [architect](../architect/SKILL.md) implements right after it settles the design. Add "with checkpoint" to review the design before it writes code. Inside a playbook that hands the code to another agent, it returns the design instead.
-- [interrogate](../interrogate/SKILL.md) reviews the diff. [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe. [code-review](../code-review/SKILL.md) checks a finished project branch once, on three axes, and the Code review playbook repairs it once.
+- [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe. [code-review](../code-review/SKILL.md) checks a finished project branch once, on three axes, and the Code review playbook repairs it once.
 - [recall](../recall/SKILL.md) rebuilds context across recent chats. [ketchup](../ketchup/SKILL.md) covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
 - [bro](../bro/SKILL.md) is the one entry for aligning understanding. It hands off to [ketchup](../ketchup/SKILL.md), [ketchup-video](../ketchup-video/SKILL.md), [recall](../recall/SKILL.md), [teach](../teach/SKILL.md), [big-pics-little-words](../big-pics-little-words/SKILL.md), or [sharpen](../sharpen/SKILL.md) when the user's words call for one, and each still works on its own.
 - [figure-it-out](../figure-it-out/SKILL.md) designs one rigorous run. The Orchestrate playbook runs a program that spans days and many PRs. The Autonomous run playbook drives one task to a finish condition.
