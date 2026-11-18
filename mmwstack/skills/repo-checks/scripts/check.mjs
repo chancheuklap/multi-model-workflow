@@ -1594,6 +1594,7 @@ if (typeof process.send === 'function' && args.length === 0) {
       '  1  A check/selftest failed, lint found invalid configuration, or ensure --check has pending repairs.',
       '  2  Invalid request/configuration, selector failure, uncovered missing need, or ensure cannot repair.',
       ' 70  Engine unavailable or unexpected internal error.',
+      '130  Interrupted by SIGINT.  143  Terminated by SIGTERM.',
     ].join('\n'));
   } else if (args[0] === 'report' || args[0] === 'selftest') {
     if (args.length !== 1) throw new RequestError(`Usage: scripts/check ${args[0]} [--json]. Use --help.`, 'usage');
