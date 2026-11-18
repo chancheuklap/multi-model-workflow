@@ -68,7 +68,7 @@ A human-approved allowance at the line where an enforcement check would otherwis
 A context pointer in an agent instruction file that tells the agent where to find a file or doc. Instruction files hold little besides these.
 
 **Guardrail**:
-An automated check that runs without the agent's help, such as a pre-commit hook or a CI job that runs lint, typecheck, and tests. A repository with none leaves every mistake to review.
+An automated check that runs without the agent's help, such as a pre-commit hook or a CI job that runs lint, typecheck, and tests. A repository with none leaves every mistake to review. [Repo checks](../repo-checks/GLOSSARY.md) defines the repository's checks and automatic moments.
 
 **Context pressure**:
 The load of exploring, writing, and debugging that an agent carries. The implementation agent carries the most. The review agent receives a diff and carries the least, so it applies the coding standards.
