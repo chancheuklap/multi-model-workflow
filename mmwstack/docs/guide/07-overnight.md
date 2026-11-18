@@ -1,6 +1,6 @@
 # Run work while you sleep
 
-This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe isn't hope. It's a checkable finish condition, an isolated worktree or remote worker, and a decision log you audit in the morning.
+This is the payoff for everything before it. An agent you can trust to verify its own work is an agent you can leave alone with a hard task. What makes that safe isn't hope. It's a checkable finish condition, an isolated workspace in the run's environment, and a decision log you audit in the morning.
 
 ![She waves goodnight from the door while robots keep the factory running, one updating a DECISION LOG wall board under a BUILD LOOP ACTIVE sign.](./images/overnight.jpg)
 
@@ -32,7 +32,7 @@ Walk through what each line buys you:
 - "done means..." turns the goal into checks every iteration can run.
 - "fresh worktree off `<base>`" keeps the run from colliding with anything else you have open.
 - "don't ask me before committing" pre-answers the permission the agent would otherwise block on.
-- The [Autonomous run playbook](../../skills/mmw-mode/playbooks/autonomous-run.md) re-checks the finish condition when an event arrives or a timer wakes the agent. To continue while your machine is offline, the coordinator and its wake-up must run elsewhere.
+- The [Autonomous run playbook](../../skills/mmw-mode/playbooks/autonomous-run.md) re-checks the finish condition when an event arrives or a timer wakes the agent. If the run must continue with your computer offline, start the coordinator in a cloud workspace and arrange a cloud wake-up.
 - The escape hatch lets it stop at a genuine dead end and write up why, which beats eight hours of creative goal reinterpretation.
 
 Because you'll review this work after stepping away, [mmw-mode](../../skills/mmw-mode/SKILL.md) routes it through [figure-it-out](../../skills/figure-it-out/SKILL.md), which designs the run's phases before any code and wires in the decision log.
@@ -93,7 +93,7 @@ When a large or cross-cutting task needs its own workflow, [mmw-mode](../../skil
 
 ## Run many projects in parallel
 
-Give each project a persistent coordinator conversation. The coordinator doesn't write code. It directs workers on separate remote machines so they can keep going with your laptop closed. The coordinator and its wake-up must stay online too. Start your prompts to the coordinator with [mmw-mode](../../skills/mmw-mode/SKILL.md), and the subagents it spawns follow the playbooks. Each agent it starts reads [`worker.md`](../../skills/mmw-mode/worker.md) first, so workers hold to the kickoff's bar, decide reversible calls instead of asking you, and open PRs ready for review.
+Give each project a persistent coordinator conversation. The coordinator doesn't write code. A local coordinator keeps its workers on the user's computer and needs that computer online. For a run that must outlast the laptop going offline, start the coordinator and its workers in the cloud. The coordinator and its wake-up must stay online too. Start your prompts to the coordinator with [mmw-mode](../../skills/mmw-mode/SKILL.md), and the subagents it spawns follow the playbooks. Each agent it starts reads [`worker.md`](../../skills/mmw-mode/worker.md) first, so workers hold to the kickoff's bar, decide reversible calls instead of asking you, and open PRs ready for review.
 
 A few habits help:
 

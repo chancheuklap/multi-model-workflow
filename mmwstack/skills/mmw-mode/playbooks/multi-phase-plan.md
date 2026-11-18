@@ -53,7 +53,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 - [ ] Use the spec's execution tickets that link to this plan. If the tickets have yet to be published, use `to-tickets` to split the checked plan and publish the approved tickets.
 - [ ] On the operator's go, assign a PR owner to each code ticket that can start. Give the owner the ticket URL, its acceptance criteria and the relevant plan material. Include the existing PR URL if work has already started on that PR.
-- [ ] Follow the tickets' direct blockers. Independent changes branch from `project/<slug>` (`scripts/worktree start ... --base project/<slug>`). When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
+- [ ] Follow the tickets' direct blockers. Branch independent changes from `project/<slug>` in the assigned workspace. For a local Home Repo worktree use `scripts/worktree start ... --base project/<slug>`. When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
 - [ ] Hold the file boundaries and the operator's review gates for the assigned work.
 
 ### PR mechanics, for every PR
@@ -79,9 +79,9 @@ For each code ticket, use its acceptance criteria and the relevant phase checks 
 
 ### Boot recipe, for every live lane
 
-Each live lane runs on its own remote machine at the PR head. Use the verification skill named in **Verify** for the lane's surface.
+Run each live lane at the PR head in a separate local worktree or cloud workspace according to the run's execution environment. Isolate ports and runtime data when lanes share a machine, or run conflicting lanes in sequence. Use the verification skill named in **Verify** for the lane's surface.
 
-- [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.
+- [ ] In the lane's assigned worktree or cloud workspace, run `git fetch origin <head-branch> && git checkout <head SHA>`.
 - [ ] <Start the backend and the surface. Wait for ready.>
 - [ ] <Deliver input only through the user-facing driver named in Verify. Name the read-only diagnostics.>
 - [ ] Save every screenshot to `/tmp/swarm-<pr-id>/worker-<n>/<slug>.png` and return links or paths the operator can open.

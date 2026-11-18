@@ -34,7 +34,7 @@ If you're new to mmwstack, say yes. An agent that can check its own work keeps g
 
 Then setup offers once to generate a formal verification skill with [create-formal-verification-skill](../../skills/create-formal-verification-skill/SKILL.md), unless the project already has one. Tests check the cases someone thought to write. A formal verification skill checks one key property of your code, such as "a job never runs twice at once", in every case within a stated scope. Say yes when your code has concurrency, retries, a state machine, or a parser, where a bug is costly and tests rarely reach the case that breaks. Otherwise say no, and run it later if that changes. [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers it.
 
-A new task starts by opening or reusing a GitHub work issue, and follow-ups stay on the same work issue. For code delivery, the agent links each execution ticket with its corresponding PR. [mmw-mode](../../skills/mmw-mode/SKILL.md) does this for every task it routes. A skill you name directly skips the mode, so put the same rule in your persistent instructions to cover that case.
+A new task starts by opening or reusing a GitHub work issue, and follow-ups stay on the same work issue. For code delivery, the agent links each execution ticket with its corresponding PR. [mmw-mode](../../skills/mmw-mode/SKILL.md) does this for every task it routes. A skill you name directly skips the mode. In the persistent instructions loaded by both local and cloud sessions, require the same work issue rule and [mmw-mode's execution environment rule](../../skills/mmw-mode/SKILL.md#subagents) for direct skill calls.
 
 After setup, start a new chat. The model rule applies to new sessions.
 
