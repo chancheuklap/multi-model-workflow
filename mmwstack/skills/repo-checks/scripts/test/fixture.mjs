@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +13,7 @@ export function cleanConfig() {
     integration: 'main',
     ci_workflow: null,
     test_files: ['**/*.test.{js,mjs,ts}', '**/test_*.py'],
-    inert: ['README.md', 'scripts/check'],
+    inert: ['README.md', 'scripts/check', '.githooks/**'],
     affects_all: ['.agents/checks.json'],
     checks: [{
       id: 'unit', run: 'node --test', inputs: ['src/**', 'test/**'],
@@ -31,15 +31,20 @@ export function fixture(t, nodeArgs = []) {
   const home = join(root, 'home');
   const hooks = join(root, 'hooks');
   for (const dir of [repo, home, hooks]) mkdirSync(dir);
+  copyFileSync(process.env.GIT_CONFIG_GLOBAL ?? join(homedir(), '.gitconfig'), join(home, '.gitconfig'));
+  writeFileSync(join(home, 'node'), `#!/bin/sh\nexec ${[process.execPath, ...nodeArgs].map(quote).join(' ')} "$@"\n`);
+  chmodSync(join(home, 'node'), 0o755);
   const env = {
     ...process.env,
     HOME: home,
     XDG_CONFIG_HOME: join(home, '.config'),
     XDG_CACHE_HOME: join(home, '.cache'),
-    GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL ?? join(homedir(), '.gitconfig'),
+    GIT_CONFIG_GLOBAL: join(home, '.gitconfig'),
     GIT_TERMINAL_PROMPT: '0',
+    PATH: `${home}:${process.env.PATH}`,
+    MMW_REPO_CHECKS_ENGINE: engine,
   };
-  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR']) delete env[key];
+  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_REPO_CHECKS_HOOK']) delete env[key];
   function git(...args) {
     const result = spawnSync('git', ['-c', `core.hooksPath=${hooks}`,
       '-c', 'gc.auto=0', '-c', 'maintenance.auto=false', ...args], {
@@ -66,18 +71,20 @@ export function fixture(t, nodeArgs = []) {
     git('add', '--all');
     git('commit', '-m', message);
   }
-  function cli(...args) {
+  function invoke(args, options = {}) {
     const start = performance.now();
     const result = spawnSync(join(repo, 'scripts/check'), args, {
-      cwd: repo, env, encoding: 'utf8', timeout: 15_000, maxBuffer: 16 * 1024 * 1024,
+      cwd: repo, env, encoding: 'utf8', timeout: 15_000, maxBuffer: 16 * 1024 * 1024, ...options,
     });
     assert.ifError(result.error);
     return { ...result, elapsed_ms: performance.now() - start };
   }
+  function cli(...args) { return invoke(args); }
   function start(args = [], options = {}) {
-    const child = spawn(join(options.repo ?? repo, 'scripts/check'), args, {
-      cwd: options.repo ?? repo, env: options.env ?? env, stdio: ['ignore', 'pipe', 'pipe'],
+    const child = spawn(join(options.repo ?? repo, options.entry ?? 'scripts/check'), args, {
+      cwd: options.repo ?? repo, env: options.env ?? env, stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
+    if (options.input !== undefined) child.stdin.end(options.input);
     let stdout = '';
     let stderr = '';
     const lines = [];
@@ -104,11 +111,13 @@ export function fixture(t, nodeArgs = []) {
   }
   config(cleanConfig());
   write('README.md', 'Fixture repository.\n');
-  write('scripts/check', `#!/bin/sh\nexec ${[process.execPath, ...nodeArgs, engine].map(quote).join(' ')} "$@"\n`);
-  chmodSync(join(repo, 'scripts/check'), 0o755);
+  for (const [path, template] of [['scripts/check', 'check'], ['.githooks/pre-commit', 'pre-commit'], ['.githooks/pre-push', 'pre-push']]) {
+    write(path, readFileSync(new URL(`../../templates/${template}`, import.meta.url)));
+    chmodSync(join(repo, path), 0o755);
+  }
   commit('Initial fixture');
   git('push', '-u', 'origin', 'main');
-  return { root, repo, home, env, git, write, config, commit, cli, start,
+  return { root, repo, home, env, git, write, config, commit, cli, invoke, start,
     cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 

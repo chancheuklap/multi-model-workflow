@@ -11,7 +11,7 @@ test('lint meets the one-second budget in three fresh processes over 8475 tracke
   config.inert.push('docs/**', 'assets/**');
   f.config(config);
   const payload = 'Ordinary fixture data without legacy mechanism text. '.repeat(20);
-  for (let i = 0; i < 8472; i++) {
+  for (let i = 0; i < 8470; i++) {
     const name = String(i).padStart(5, '0');
     const path = [
       `src/module-${name}.js`, `test/unit-${name}.test.mjs`,
@@ -44,8 +44,8 @@ test('lint meets the one-second budget in three fresh processes over 8475 tracke
   assert.equal(f.git('status', '--porcelain'), '');
   console.log(JSON.stringify({
     node: process.version, platform: process.platform, cores: cpus().length,
-    load_before: beforeLoad, tracked_files: count, generated_files: 8472,
-    generated_bytes_per_file: Buffer.byteLength(`${JSON.stringify({ index: 8471, payload })}\n`),
+    load_before: beforeLoad, tracked_files: count, generated_files: 8470,
+    generated_bytes_per_file: Buffer.byteLength(`${JSON.stringify({ index: 8469, payload })}\n`),
     command: 'scripts/check lint --json', budget_ms: 1000,
     cache: 'Fresh engine processes with no lint warmup. Filesystem cache is not flushed after git fixture setup.',
     negative_control: control, runs,
