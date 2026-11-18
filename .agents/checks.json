@@ -86,7 +86,7 @@
   "checks": [
     {
       "id": "syntax",
-      "run": "python3 scripts/syntax-check.py",
+      "run": "python3 scripts/syntax-check.py && python3 -m unittest scripts/test_syntax_check.py",
       "inputs": [
         "scripts/syntax-check.py",
         "scripts/**/*.py",
@@ -103,7 +103,9 @@
         "mmwstack/skills/statechart/scripts/statechart",
         "mmwstack/tests/exe-release/fixtures/fake-remote/*"
       ],
-      "tests": [],
+      "tests": [
+        "scripts/test_syntax_check.py"
+      ],
       "needs": ["cmd:python3", "cmd:bash", "cmd:node"],
       "ci": false,
       "ci_reason": "multi-model-workflow has no PR or deployment gate."

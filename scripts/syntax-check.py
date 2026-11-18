@@ -12,10 +12,22 @@ def target_paths(args: list[str]) -> list[str]:
     if args:
         return args
     out = subprocess.check_output(
-        ["git", "-C", str(ROOT), "ls-files", "-z", "mmwstack", "scripts"],
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "mmwstack",
+            "scripts",
+        ],
         text=True,
     )
-    return [path for path in out.split("\0") if path]
+    return list(dict.fromkeys(path for path in out.split("\0") if path))
 
 
 def check_file(rel: str) -> str | None:
