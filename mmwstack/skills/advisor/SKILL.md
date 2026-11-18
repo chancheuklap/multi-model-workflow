@@ -7,14 +7,12 @@ description: "Consult a stronger model at a major decision or when stuck, and ac
 
 The advisor is a stronger model. It reads your brief and the repository, returns a verdict and edits nothing. You keep doing the work and own the decision.
 
-A consult spawns an agent, so the main chat or an owner session runs it. A delegate that reaches a checkpoint replies `needs: advisor <the question>` and stops. The agent that spawned it runs the consult and resumes it with the verdict.
-
 ## When to consult
 
 Consult only when the operator asks.
 
 - "Ask the advisor ...", `/advisor <question>`, or a request for a second opinion from a stronger model is one consult now. The mode stays as it was.
-- "Advisor on", or `/advisor` with no question, turns advisor mode on for this conversation. Consult at the checkpoints below until the operator says "advisor off". Keep the mode in the conversation. An owner session you start consults only when its brief says advisor mode is on.
+- "Advisor on", or `/advisor` with no question, turns advisor mode on for this conversation. Consult at the checkpoints below until the operator says "advisor off". Keep the mode in the conversation. A session you start consults only when its brief says advisor mode is on.
 
 Checkpoints:
 
@@ -26,7 +24,7 @@ Each consult is a strong-model call. Go on without one when reading the sources 
 ## How to consult
 
 1. Write the brief from the [briefing template](references/briefing-template.md).
-2. Give a fresh read-only subagent the [advisor role](../../agents/advisor.md) and the brief, on the `advisor` role from the [model rule](../setup-mmwstack/SKILL.md#model-rule). A host that runs roles through agent definitions spawns [its advisor droid](../setup-mmwstack/references/agent-definitions.md#find-a-roles-droid) and gives it the brief alone. Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
+2. Give a fresh read-only subagent the [advisor role](../../agents/advisor.md) and the brief, on the `advisor` role from the [model rule](../setup-mmwstack/SKILL.md#model-rule). Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
 3. When the advisor asks for missing input, supply it once by resuming the advisor (a fresh one with the input added when the host cannot resume). Give a later checkpoint a fresh advisor.
 4. Act on the verdict.
    - `proceed`: go.

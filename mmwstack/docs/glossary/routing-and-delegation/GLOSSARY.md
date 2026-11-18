@@ -33,24 +33,23 @@ A decision about how to divide work. It records what must finish first, which wo
 An agent assigned a bounded part of the work. A routed skill can give it a role-specific brief. The parent remains responsible for the result. Under Guard the Context Window, a subagent that reads a large collection returns only its findings and their sources to its parent. [principle-guard-the-context-window](../../../skills/principle-guard-the-context-window/SKILL.md)
 
 **Delegate**:
-A subagent that starts no agents. Code delegates, helpers, readers, investigators, runners, judges and reviewers are delegates. A delegate never has delegates of its own, and it never runs a skill that spawns.
-_Avoid_: nested delegate.
+A subagent carrying out a scoped assignment. Code delegates, helpers, readers, investigators, runners, judges and reviewers are delegates.
 
 **Needs reply**:
-A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when its job reaches a step that would spawn. Its spawner runs the step and passes the findings back by resuming the delegate, or by briefing a fresh one when the host cannot resume. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
+A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. Its spawner runs the step and includes the findings in the next brief, following the fresh subagent rule. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
 **Owner session**:
-An agent session that carries an assignment as its own and starts delegates itself. A PR owner, a swarm or Orchestrate worker, a sub-coordinator and a verifier are owner sessions. Each runs on its own remote machine where the host has one. [Agent definitions](../../../skills/setup-mmwstack/references/agent-definitions.md#start-an-owner)
+An agent session that carries an assignment as its own and starts delegates itself. A PR owner or swarm worker can take this role.
 _Avoid_: delegate for an owner session, owner alone for the operator.
 
 **mmw-agent**:
-The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly. It starts no agents, so it replies with a needs reply when its scope reaches a step that spawns.
+The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly.
 
 **Brief**:
 The instructions one delegate receives. They state the operator's goal and the delegate's scope. For repository work, the brief identifies the assigned work issue, an existing PR when relevant, and the exact revision for a PR verifier. The brief received by the agent writing the code identifies its execution ticket and assigned change.
 
 **Fresh subagent**:
-A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator, or for a delegate waiting on its needs reply.
+A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator.
 
 [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [mmw-help](../../../skills/mmw-help/SKILL.md) · [Feature playbook](../../../skills/mmw-mode/playbooks/feature.md) · [mmw-agent role](../../../agents/mmw-agent.md) · [ambiguity-scan](../../../skills/ambiguity-scan/SKILL.md)
 
@@ -69,10 +68,7 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 ### Model assignments
 
 **mmwstack model rule**:
-The operator's saved assignments of models and settings to roles, normally in `~/.agents/mmwstack-models.md`. An owner session that starts delegates receives the same rule or the role lines it needs. An assignment that cannot run leaves an unfilled role.
-
-**Agent definition**:
-A host's saved definition of one role's delegate, fixing its model, reasoning level and system prompt, such as a Droid custom droid. Setup writes one for each role line in the rule and for each seat of a list role, and a spawn names it to get that role. The definition carries the role's instructions, so a brief gives no path to them. Where the host fixes reasoning and speed this way, the role's assignment stands in place of a per-job adjustment. [Agent definitions](../../../skills/setup-mmwstack/references/agent-definitions.md)
+The operator's saved assignments of models and settings to roles, normally in `~/.agents/mmwstack-models.md`. Each host has its own section. A subagent that will delegate receives that section or the role lines it needs. An assignment that cannot run leaves an unfilled role.
 
 **Model role**:
 A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
@@ -96,10 +92,10 @@ The operator's ordered list of models from which one read-only judge is selected
 An independent answer to the same prompt from a different model.
 
 **Advisor**:
-The stronger model the main chat or an owner session consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)
+The stronger model the agent handling the decision consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)
 
 **Reader**:
-The delegate role for an assignment that reads and reports, such as a large artifact, a chat transcript, or an event to watch, when no playbook or skill names a role for it. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model, and a host that runs roles through agent definitions gives its droid read-only tools. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents) · [Agent definitions](../../../skills/setup-mmwstack/references/agent-definitions.md)
+The delegate role for an assignment that reads and reports, such as a large artifact, a chat transcript, or an event to watch, when no playbook or skill names a role for it. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
 [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [reflect](../../../skills/reflect/SKILL.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [arena](../../../skills/arena/SKILL.md)
 

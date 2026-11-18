@@ -8,14 +8,20 @@ import { execFileSync } from "node:child_process";
 const ALLOW = { decision: "allow" };
 const REFERENCE = /(?:\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+)?(?:([\w.-]+\/[\w.-]+))?#(\d+)/gi;
 const BRANCH_TICKET = /^(?:feat|fix|docs|chore|refactor|test|ci|perf|revert)\/(\d+)-/;
+const PR_URL = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/\d+$/i;
 const REMOTE_SLUG = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/;
 const PR_COMMANDS = [
+	{ action: "merge", words: ["gh", "pr", "merge"] },
+	{ action: "merge", words: ["origin", "pr", "merge"] },
 	{ action: "create", words: ["gh", "pr", "create"] },
 	{ action: "create", words: ["origin", "pr", "create"] },
 	{ action: "edit", words: ["gh", "pr", "edit"] },
+	{ action: "edit", words: ["origin", "pr", "edit"] },
 ];
 const FLAGS_WITHOUT_FINAL_BODY = new Set(["--fill", "-f", "--fill-first", "--fill-verbose", "--web", "-w", "--editor", "-e"]);
 const VALUE_FLAGS = new Map([
+	["--title", "title"],
+	["-t", "title"],
 	["--base", "base"],
 	["-B", "base"],
 	["--body", "body"],
@@ -300,20 +306,19 @@ function judgeBody(body, ticket, target) {
 		if (ticket === null) return ref.closing;
 		if (ref.number !== ticket) return false;
 		if (ref.slug === undefined || ref.slug === target.slug) return ref.closing;
-		// GitHub closes only same-repository issues, so a link to another registered repository is the cross-repository form.
 		return isRegistered(ref.slug);
 	};
 	if (references.some(closesTicket)) return "linked";
 	return references.some((ref) => ref.closing) ? "different" : "missing";
 }
 
-function denial(judgment, { action, phase, branch, ticket, head }) {
-	const merge = action === "edit" ? "This PR is retargeted onto" : "This PR merges into";
+function denial(judgment, { action, phase, branch, ticket, head, selector }) {
+	const merge = phase !== "after" && action === "edit" ? "This PR is retargeted onto" : "This PR merges into";
 	const prefix = `${merge} the default branch \`${branch}\``;
 	const line = ticket === null ? "a line `Closes #<issue>` for each issue this PR completes" : `a line \`Closes #${ticket}\``;
 	const elsewhere = ticket === null ? "" : ` (name \`owner/repo#${ticket}\` instead when that ticket lives in another registered repository)`;
 	let where = "to the body and run the command again";
-	if (phase === "after") where = `to the PR body with \`gh pr edit ${head ?? "<pr>"} --body-file <file>\`, keeping the PR's current text`;
+	if (phase === "after") where = `to the PR body with \`gh pr edit ${selector ?? head ?? "<pr>"} --body-file <file>\`, keeping the PR's current text`;
 	else if (action === "edit") where = "to the body that `--body` or `--body-file` sets, keeping the PR's current text, and run the command again";
 	const fix = `Add ${line} ${where}${elsewhere}; handle this yourself without asking the owner.`;
 
@@ -331,25 +336,52 @@ function denial(judgment, { action, phase, branch, ticket, head }) {
 function readPullRequest(selector, target, dir) {
 	const args = ["pr", "view", ...(selector === undefined ? [] : [selector]), ...(target.flagged ? ["--repo", target.slug] : [])];
 	try {
-		const output = execFileSync("gh", [...args, "--json", "body,baseRefName,headRefName"], {
+		const output = execFileSync("gh", [...args, "--json", "body,baseRefName,headRefName,url"], {
 			cwd: dir ?? undefined,
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "ignore"],
 			timeout: 1500,
 		});
-		const { body, baseRefName, headRefName } = JSON.parse(output);
-		return typeof baseRefName === "string" && typeof headRefName === "string" ? { body: body ?? "", baseRefName, headRefName } : null;
+		const { body, baseRefName, headRefName, url } = JSON.parse(output);
+		return typeof baseRefName === "string" && typeof headRefName === "string" && typeof body === "string" ? { body, baseRefName, headRefName, url } : null;
 	} catch {
 		return null;
 	}
 }
 
-function checkPr(action, args, { dir, phase }) {
+function checkSavedPr(target, dir, selector) {
+	const retry = { kind: "pr", cwd: dir, repo: target.slug, selector };
+	const branch = defaultBranch(target.repoDir);
+	const pr = selector && !selector.startsWith("-") ? readPullRequest(selector, target, dir) : null;
+	if (!branch || !pr) return {
+		decision: "deny",
+		reason: `The saved PR ${selector ?? "(unknown)"} could not be verified.`,
+		fix: "Read the PR from the forge and recheck its saved base, head and ticket link before handoff.",
+		retry,
+	};
+	if (pr.baseRefName !== branch) return ALLOW;
+	if (typeof pr.url === "string") retry.selector = pr.url;
+	const ticket = branchTicket(pr.headRefName);
+	const judgment = judgeBody(pr.body, ticket, target);
+	if (judgment === "linked") return ALLOW;
+	return { ...denial(judgment, { phase: "after", branch, ticket, head: pr.headRefName, selector: retry.selector }), retry };
+}
+
+function checkPr(action, args, { dir, phase, prUrl }) {
 	const given = readFlags(args);
-	const target = resolveTarget(given.repo, dir);
+	const namedRepo = typeof given.selector === "string" ? PR_URL.exec(given.selector)?.[1] : undefined;
+	const target = resolveTarget(given.repo === undefined ? namedRepo : given.repo, dir);
 	if (target === null) return ALLOW;
 
 	const edit = action === "edit";
+	if (action === "merge") return phase === "after" ? ALLOW : checkSavedPr(target, dir, given.selector ?? currentBranch(dir));
+	if (phase === "after") {
+		if (edit && given.base === undefined && given.body === undefined && given.bodyFile === undefined) return ALLOW;
+		const url = typeof prUrl === "string" && PR_URL.exec(prUrl);
+		if (url && url[1].toLowerCase() === target.slug) return checkSavedPr(target, dir, prUrl);
+		const selector = edit ? (given.selector === undefined ? currentBranch(dir) : given.selector) : createHead(given, dir);
+		return checkSavedPr(target, dir, selector);
+	}
 	const branch = defaultBranch(target.repoDir);
 	const base = given.base === undefined && !edit ? branch : given.base;
 	if (branch === null || base !== branch) return ALLOW;
@@ -358,9 +390,8 @@ function checkPr(action, args, { dir, phase }) {
 	let body = given.fill ? null : commandBody(given, dir);
 	// An edit that sets no body leaves the PR's current body in force, so that is the body to check.
 	const keepsBody = edit && given.body === undefined && given.bodyFile === undefined;
-	if (body === null && phase === "before" && !keepsBody) return ALLOW;
+	if (body === null && !keepsBody) return ALLOW;
 	if (body === null || edit) {
-		// Before the command runs, a body it writes or computes does not exist yet. After it runs, GitHub holds the real one.
 		const selector = edit ? given.selector : head;
 		if (selector === null) return ALLOW;
 		const pr = readPullRequest(selector, target, dir);
@@ -375,18 +406,36 @@ function checkPr(action, args, { dir, phase }) {
 }
 
 function decide(event) {
+	if (event.kind === "pr" && typeof event.cwd === "string") {
+		const target = resolveTarget(event.repo ?? undefined, event.cwd);
+		return target ? checkSavedPr(target, event.cwd, event.selector == null ? null : String(event.selector)) : ALLOW;
+	}
 	if (event.kind !== "shell" || typeof event.command !== "string" || typeof event.cwd !== "string") return ALLOW;
 	const phase = event.phase === "after" ? "after" : "before";
 	let dir = event.cwd;
-	for (const { words } of parse(event.command, 0, false).commands) {
+	const commands = parse(event.command, 0, false).commands;
+	const actionOf = (words) => PR_COMMANDS.find(pr => pr.words.every((word, k) => words[k] === word))?.action;
+	const prUrl = event.prUrl && commands.filter(({ words }) => actionOf(words)).length === 1 ? event.prUrl : undefined;
+	const failures = [];
+	for (const { words } of commands) {
 		if (words[0] === "cd") {
 			dir = cdTarget(dir, words);
-		} else {
-			const command = PR_COMMANDS.find(({ words: expected }) => expected.every((part, k) => words[k] === part));
-			const decision = command ? checkPr(command.action, words.slice(3), { dir, phase }) : ALLOW;
-			if (decision.decision === "deny") return decision;
+			continue;
 		}
+		const action = actionOf(words);
+		if (!action) continue;
+		const decision = checkPr(action, words.slice(3), { dir, phase, prUrl });
+		if (decision.decision !== "deny") continue;
+		if (phase === "before") return decision;
+		failures.push(decision);
 	}
+	if (failures.length === 1) return failures[0];
+	if (failures.length > 1) return {
+		decision: "deny",
+		reason: failures.map(failure => failure.reason).join("\n"),
+		fix: failures.map(failure => failure.fix).join("\n"),
+		retries: failures.map(failure => failure.retry),
+	};
 	return ALLOW;
 }
 

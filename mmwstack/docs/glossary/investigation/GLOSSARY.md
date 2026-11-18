@@ -88,7 +88,7 @@ A reconstruction of the operator's recent work across chats in the named workspa
 Evidence about the same work outside the operator's own chats, such as recurring reports, a reverted fix, or an error still occurring in production. Recall cites the shared source and checks the current state of the branches, pull requests, and issues it finds.
 
 **Recall investigator**:
-The delegate Recall starts for one source the topic touches, on the `judgment and prose` role. It reads only, writes nothing, and holds the tools its source needs, such as git and `gh` for source control. It reports the current state, what was tried and did not hold, and what users still report. A source it cannot read is reported as unread, and an empty search is a finding. The `reader` role does not fit, because its droid cannot run git or `gh`. [Reader](../routing-and-delegation/GLOSSARY.md#model-assignments)
+The delegate Recall starts for one source the topic touches, on the `reader` role when its tools can read the source, otherwise on the `judgment and prose` role with the required read access. It reads only, writes nothing, and holds the tools its source needs, such as git and `gh` for source control. It reports the current state, what was tried and did not hold, and what users still report. A source it cannot read is reported as unread, and an empty search is a finding. [Reader](../routing-and-delegation/GLOSSARY.md#model-assignments)
 
 **Current-state brief**:
 Recall's account of where the work stands. It opens with a *capsule* of at most five bullets, gives the status of each thread, names up to five recurring problems, and closes with one concrete next move. A full state capsule supplied by the operator can replace the search through past chats.

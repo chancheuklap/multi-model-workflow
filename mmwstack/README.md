@@ -214,8 +214,6 @@ mmwstack also ships the [`mmw-agent` role](./agents/mmw-agent.md) for delegates 
 
 when a playbook calls a skill, that skill assigns its own workers the roles it needs.
 
-a delegate starts no agents. when its job needs a skill or step that does, it replies `needs: <the skill or step, and its inputs>`, and the agent that started it runs the step and sends the findings back. an owner, such as a pr owner or a swarm worker, runs as a session of its own and starts delegates itself.
-
 mmwstack also ships [Comment Sicko](./agents/comment-sicko.md), a read-only comment reviewer. usually invoke it through [no-comments](./skills/no-comments/SKILL.md), not directly.
 
 ## principles
@@ -289,9 +287,7 @@ for a standalone problem with one outcome, reuse the original issue as the ticke
 
 type [automate-me](./skills/automate-me/SKILL.md). it mines your recent transcripts, drafts a `<your-name>-mode` skill from how you've actually worked, and routes through mmwstack underneath. you keep mmwstack as the base and end up with your own routing skill alongside [mmw-mode](skills/mmw-mode/SKILL.md).
 
-models are configurable too. type [setup-mmwstack](./skills/setup-mmwstack/SKILL.md). it detects the models you have access to and saves a user-level rule mapping each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
-
-on droid, setup also writes one custom droid per role (see [agent definitions](./skills/setup-mmwstack/references/agent-definitions.md)).
+models are configurable too. type [setup-mmwstack](./skills/setup-mmwstack/SKILL.md). it detects the models you have access to and saves a section for the current host in the user-level rule, mapping each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
 
 rerun [setup-mmwstack](skills/setup-mmwstack/SKILL.md) to change a role or your reasoning budget. the rule applies to new sessions.
 

@@ -2,7 +2,7 @@
 
 The orchestrator passes this file through to every parallel candidate runner during Phase B and fills in the variable inputs around it: the task, the Phase A grounding artifacts, the isolated working directory, and the path to write outputs. The working directory is a git worktree when available, otherwise a per-runner subdirectory under the sketch dir. What matters is independence between candidates.
 
-You are producing one candidate design in [architect](../SKILL.md)'s parallel exploration. The orchestrator ran the grounding and runs the synthesis, and you start no agents. Output a candidate design package: type sketch, function signatures, module map, and prose rationale shaped per [`rationale-template.md`](rationale-template.md).
+You are producing one candidate design in [architect](../SKILL.md)'s parallel exploration. Read the [architect](../SKILL.md) skill in full first. That's the workflow you're inside. Output a candidate design package: type sketch, function signatures, module map, and prose rationale shaped per [`rationale-template.md`](rationale-template.md).
 
 When the design deepens a module by moving complexity from its callers into it, use [codebase-dic](../../codebase-dic/SKILL.md) for its terms. In the usage sketch and rationale, show the interface's invariants, ordering and error modes, what the implementation hides behind the interface, and where leverage is high or thin. When the design substitutes a dependency at a seam, state the dependency's category and the adapters it needs, per [Deepening](../../codebase-dic/references/deepening.md).
 

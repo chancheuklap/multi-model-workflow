@@ -299,11 +299,10 @@ test("allows before and denies after when the command writes its own body file",
 	const before = fakeGh({ body: "no link", baseRefName: "main", headRefName: "main" });
 	expect(shell(command, repo, "before", before).decision).toBe("allow");
 	expect(before.calls()).toEqual([]);
-	expect(shell(command, repo, "after").decision).toBe("allow");
-	writeFileSync(file, "no link\n");
-	expect(shell(command, repo, "after").decision).toBe("deny");
+	expect(shell(command, repo, "after", before).decision).toBe("deny");
 	writeFileSync(file, "Closes #1\n");
-	expect(shell(command, repo, "after").decision).toBe("allow");
+	expect(shell(command, repo, "after", before).decision).toBe("deny");
+	expect(shell(command, repo, "after", fakeGh({ body: "Closes #1", baseRefName: "main", headRefName: "main" })).decision).toBe("allow");
 });
 
 test("treats an event without a phase, or with an unknown one, as before", () => {
@@ -323,7 +322,7 @@ test("reads the PR after the command when the command does not carry the body", 
 		const result = shell(`gh pr create ${flags}`, ticketedRepo, "after", gh);
 		expect(result.decision).toBe("deny");
 		if (result.decision === "deny") expect(result.fix).toContain("gh pr edit feat/7-x --body-file");
-		expect(gh.calls()).toEqual(["pr view feat/7-x --json body,baseRefName,headRefName"]);
+		expect(gh.calls()).toEqual(["pr view feat/7-x --json body,baseRefName,headRefName,url"]);
 		expect(shell(`gh pr create ${flags}`, ticketedRepo, "after", fakeGh({ ...unlinked, body: "Closes #7" })).decision).toBe("allow");
 	}
 });
@@ -338,17 +337,17 @@ test("does not read the PR before the command runs", () => {
 test("reads the PR of a registered repository by its head branch and slug", () => {
 	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
 	expect(shell("gh pr create --repo owner/other --head feat/7-x --fill", repo, "after", gh).decision).toBe("deny");
-	expect(gh.calls()).toEqual(["pr view feat/7-x --repo owner/other --json body,baseRefName,headRefName"]);
+	expect(gh.calls()).toEqual(["pr view feat/7-x --repo owner/other --json body,baseRefName,headRefName,url"]);
 });
 
-test("allows after the command when the PR cannot be read", () => {
-	expect(shell("gh pr create --fill", ticketedRepo, "after").decision).toBe("allow");
+test("keeps the saved PR pending when it cannot be read", () => {
+	expect(shell("gh pr create --fill", ticketedRepo, "after").decision).toBe("deny");
 });
 
-test("allows when gh does not answer within the time the hook can spend", () => {
+test("keeps a timed-out read pending", () => {
 	const gh = fakeGh({ body: "no link", baseRefName: "main", headRefName: "feat/7-x" });
 	writeFileSync(join(gh.dir, "delay"), "4");
-	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
+	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("deny");
 });
 
 test("allows after the command when the PR it opened does not merge into the default branch", () => {
@@ -356,14 +355,14 @@ test("allows after the command when the PR it opened does not merge into the def
 	expect(shell("gh pr create --fill", ticketedRepo, "after", gh).decision).toBe("allow");
 });
 
-test("does not read the PR after the command when the command carries a readable body", () => {
+test("judges the saved body even when the command supplied another body", () => {
 	const gh = fakeGh({ body: "Closes #7", baseRefName: "main", headRefName: "feat/7-x" });
-	expect(shell('gh pr create --body "no link"', ticketedRepo, "after", gh).decision).toBe("deny");
-	expect(gh.calls()).toEqual([]);
+	expect(shell('gh pr create --body "no link"', ticketedRepo, "after", gh).decision).toBe("allow");
+	expect(gh.calls().length).toBe(1);
 });
 
 const viewing = (body: string, headRefName = "feat/7-x", baseRefName = "feat/parent") => fakeGh({ body, baseRefName, headRefName });
-const VIEW = "--json body,baseRefName,headRefName";
+const VIEW = "--json body,baseRefName,headRefName,url";
 
 test("denies retargeting a PR onto the default branch when its current body does not close the branch ticket", () => {
 	const gh = viewing("no link");
@@ -414,11 +413,11 @@ test("reads the body file an edit sets from the directory the command runs in", 
 });
 
 test("waits for the PR after the command when an edit sets a body it cannot read yet", () => {
-	const gh = viewing("no link");
+	const gh = viewing("no link", "feat/7-x", "main");
 	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "before", gh).decision).toBe("allow");
 	expect(gh.calls()).toEqual([]);
 	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", gh).decision).toBe("deny");
-	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", viewing("Closes #7")).decision).toBe("allow");
+	expect(shell("gh pr edit 5 --base main --body-file absent.md", repo, "after", viewing("Closes #7", "feat/7-x", "main")).decision).toBe("allow");
 });
 
 test("reads the PR of a registered repository by its slug when editing", () => {
@@ -448,4 +447,34 @@ test("allows an edit whose PR the shell chooses or whose PR cannot be read", () 
 
 test("allows an edit when the default branch cannot be found", () => {
 	expect(shell("gh pr edit 5 --base main", plainDirectory, undefined, viewing("no link")).decision).toBe("allow");
+});
+
+test("checks the returned PR even when a create command names another head or base", () => {
+	const gh = fakeGh({ body: "Closes #8", baseRefName: "main", headRefName: "feat/7-x" });
+	const prUrl = "https://github.com/owner/ticketed/pull/55";
+	const result = decide(JSON.stringify({ kind: "shell", command: "gh pr create --head another --base project/x --fill", cwd: ticketedRepo, phase: "after", prUrl }), gh);
+	expect(result.decision).toBe("deny");
+	expect(gh.calls()[0]).toContain(`pr view ${prUrl} `);
+});
+
+test("checks a saved body-only correction, including an Origin write and a native PR tool", () => {
+	for (const command of ["gh pr edit 5 --body ok", "origin pr edit 5 --body ok"]) {
+		expect(shell(command, repo, "after", viewing("Closes #8", "feat/7-x", "main")).decision).toBe("deny");
+		expect(shell(command, repo, "after", viewing("Closes #7", "feat/7-x", "main")).decision).toBe("allow");
+	}
+	const event = { kind: "pr", cwd: plainDirectory, repo: "owner/other", selector: "5" };
+	expect(decide(JSON.stringify(event), viewing("Closes #8", "feat/7-x", "main")).decision).toBe("deny");
+	expect(decide(JSON.stringify(event), viewing("Closes #7", "feat/7-x", "main")).decision).toBe("allow");
+});
+
+test("keeps both failed PRs from a compound write for independent rechecks", () => {
+	const event = { kind: "shell", phase: "after", cwd: repo, command: "gh pr edit 5 --body x && gh pr edit 6 --body y" };
+	const result = decide(JSON.stringify(event), viewing("Closes #8", "feat/7-x", "main"));
+	expect(result).toMatchObject({ decision: "deny", retries: [{ selector: "5" }, { selector: "6" }] });
+});
+
+test("reads the saved PR before merge and allows a non-default base", () => {
+	expect(shell("gh pr merge 5 --squash", repo, "before", viewing("Closes #8", "feat/7-x", "main")).decision).toBe("deny");
+	expect(shell("origin pr merge 5", repo, "before", viewing("Closes #7", "feat/7-x", "main")).decision).toBe("allow");
+	expect(shell("gh pr merge 5", repo, "before", viewing("Refs #7")).decision).toBe("allow");
 });

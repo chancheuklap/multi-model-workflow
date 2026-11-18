@@ -7,17 +7,17 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 ## Model rule
 
-In a new session, read `~/.agents/mmwstack-models.md` or the mmwstack model rule the user supplies. For each delegation, use the model and settings assigned to its role. A host that runs roles through agent definitions names the role's agent at spawn instead of reading the rule, as [agent-definitions](references/agent-definitions.md#find-a-roles-droid) says. On other hosts, give an owner that will delegate a readable path to the same rule or the relevant role lines in its brief. A delegate starts no agents and needs neither. `inherit-parent` and `auto` run a role on the parent model when the user selects them. If an assignment cannot run, report the unfilled role.
+Before the first delegation, identify the host from the session environment (for example, `codex`, `cursor` or `claude-code`). If the host is unclear, ask the user once. Read that host's `## <host>` section in `~/.agents/mmwstack-models.md` or the rule the user supplies. For each delegation, use its model and settings for the role, in the listed order for panel seats. Give a subagent that will delegate in turn the host and a readable path to the same rule, or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. Check the host's dispatch record when available. If the host substitutes a different model or fixed setting, report the role as unfilled and leave its result unused. Report a missing host section or role assignment. If an assignment cannot run, report the unfilled role.
 
 ## Steps
 
 ### 1. Detect available models
 
-List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
+Identify the current host as in Model rule. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
 
 ### 2. Load current state
 
-If the rule exists, read its `# budget` line and each role's current assignment. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names, such as `how critics`, `how explainer`, `why investigators`, `why synthesizer` and `interrogate reviewers`.
+Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names, such as `how critics`, `how explainer`, `why investigators`, `why synthesizer` and `interrogate reviewers`.
 
 ### 3. Budget, map, and confirm
 
@@ -34,14 +34,14 @@ If the rule exists, read its `# budget` line and each role's current assignment.
 
 ### 4. Validate
 
-Confirm each selected model and setting is available before saving it. A host that runs roles through agent definitions can swap an unsupported setting without an error, so check each pair as [agent-definitions](references/agent-definitions.md#check-each-pair-before-writing) says. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
+Confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
 
 ### 5. Write the rule
 
-Save the confirmed budget label and target effort, then one line per role in `~/.agents/mmwstack-models.md` or the rule file the user supplied. Overwrite the role table so re-runs stay idempotent. Fill the template with the user's choices. Use the model names and settings their subagents accept.
+Save the confirmed budget label and target effort, then one line per role in `~/.agents/mmwstack-models.md` or the rule file the user supplied. Update only the current host section. Preserve other sections and any unsectioned choices for hosts still to configure. Fill the template with the user's choices. Use the model names and settings their subagents accept.
 
 ```
-# mmwstack model configuration. One line per role.
+## <host>
 # Use inherit-parent or auto for an explicitly inherited model.
 # budget: <chosen budget> (<target effort>)
 feature, refactoring: <model and settings>
@@ -61,13 +61,9 @@ swarm workers: <model and settings>
 architect runners: <one model and its settings per seat, comma-separated>
 ```
 
-### 5b. Write the agent definitions
-
-On a host that runs roles through agent definitions, such as Droid's custom droids, write one for each role line and list entry after the rule, as [agent-definitions](references/agent-definitions.md#write-the-droids) says. Skip this step on other hosts.
-
 ### 6. Confirm
 
-Tell the user where you saved the rule and that it applies to new sessions. When you wrote agent definitions, say where, and name each role you left unfilled. Re-running this skill updates both.
+Tell the user where you saved the rule and that it applies to new sessions. Name the host and each role you left unfilled.
 
 ### 7. Offer a verification skill (optional)
 
