@@ -52,21 +52,21 @@ ask /arena for a second opinion on this thread and our approach
 
 Your current design becomes one candidate among several, and the synthesis tells you whether the panel found something better or confirmed what you had. It costs little next to a design that is expensive to reverse.
 
-## Ask a stronger model before a big call
+## Ask the advisor before a big call
 
 ```text
 /advisor should we keep the queue in memory or move it into the database?
 ```
 
-One stronger model reads the agent's brief and the repository, then returns a verdict: proceed, proceed with changes, or stop. Say `advisor on` and the agent consults it before major decisions and when it is stuck, until you say `advisor off`. Each consult is one call, so it suits a decision that is costly to undo. [advisor](../../skills/advisor/SKILL.md)
+An independent advisor reads the agent's brief and the repository, then returns a verdict: proceed, proceed with changes, or stop. Say `advisor on` and the agent consults it before major decisions and when it is stuck, until you say `advisor off`. Each consult is one call, so it suits a decision that is costly to undo. [advisor](../../skills/advisor/SKILL.md)
 
 ## Check independent slices in parallel
 
 ```text
-/swarm check every package under packages/ against its check.sh. one worker per package. one report.
+Check every package under packages/ against its check.sh. one worker per package. one report.
 ```
 
-Each worker owns one package. The parent waits for every slice and returns one `PASS`, `ISSUES`, or `BLOCKED` report instead of raw worker dumps.
+Each worker owns one package. The parent waits for every slice and returns one report with the results, evidence and gaps.
 
 ## Review a finished project branch
 
@@ -170,7 +170,7 @@ To watch the catch-up instead, run [ketchup-video](../../skills/ketchup-video/SK
 
 ## The pitfalls
 
-- **Enumerating skills in the prompt.** "use /architect then /arena then /swarm" reorders steps the playbook already sequences. State the goal and constraints. Name a skill only to override a default.
+- **Enumerating skills in the prompt.** "use /architect then /arena" reorders steps the playbook already sequences. State the goal and constraints. Name a skill only to override a default.
 - **A vague finish condition.** "make it better" gives the agent nothing to check. Give a command or artifact that can pass or fail.
 - **Leading with your theory of the cause.** The agent searches wherever you pointed. Ask it to restate the problem first, then share your hunch.
 - **Taking the first design.** One attempt locks in the first shape the model thought of. Ask for prototypes or [architect](../../skills/architect/SKILL.md) and pick from evidence.
@@ -179,7 +179,7 @@ To watch the catch-up instead, run [ketchup-video](../../skills/ketchup-video/SK
 - **Looping before you trust the loop.** A loop that can't verify its own work only makes unchecked work faster. Get the verification skill working first.
 - **Trusting an unvetted number.** A warm cache or a skipped code path can fake a speedup. Run [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md) before the number goes anywhere.
 - **Correcting the same mistake by hand.** A correction in chat helps one run. [correct](../../skills/correct/SKILL.md) fixes the repo so no later run repeats it.
-- **Using [arena](../../skills/arena/SKILL.md) for coverage.** [arena](../../skills/arena/SKILL.md) repeats one design or code brief, then picks a base and grafts the best parts. [swarm](../../skills/swarm/SKILL.md) partitions slices or declared race arms and aggregates one report.
+- **Using [arena](../../skills/arena/SKILL.md) for coverage.** [arena](../../skills/arena/SKILL.md) repeats one design or code brief, then picks a base and grafts the best parts. For coverage, assign each agent its scope and collect its findings.
 - **Accepting every review comment.** Bots and humans both file real catches and noise in one list. [code-review](../../skills/code-review/SKILL.md) checks every kept runtime claim by rerunning it and keeps hard findings distinct from judgement calls.
 - **Treating `auto` as a model slug.** `auto` and `inherit-parent` mean "use the parent chat model." [Setup](./01-setup.md) covers the roles.
 - **Reporting success off a green build.** A build proves it compiles. Ask for the real command, flow, stored value, or profile, and expect the evidence in the reply.

@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts. When the job is coverage rather than design synthesis, [swarm](../../skills/swarm/SKILL.md) fans out slices or races and aggregates their results.
+One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts.
 
 The two most common design mistakes are taking the agent's first design and polishing a plan that no code has tested. This page fixes both. You plan through code. Prototypes answer the open questions, a README or tutorial sets the target, and the written plan comes last.
 
@@ -24,7 +24,7 @@ To find modules worth deepening, ask for [Improve codebase architecture](../../s
 /arena take my prompt to the arena verbatim. i want to compare their proposals with yours.
 ```
 
-[arena](../../skills/arena/SKILL.md) is the general tool underneath. N subagents attempt the same design or code brief in parallel, each writing to its own worktree or directory. A read-only judge from a different model vendor scores every candidate against a rubric. When no model from another vendor can run, the coordinator skips the judge and picks the base itself. The coordinator reads each candidate end to end, picks a base, grafts in the best ideas from the losers, and verifies the result.
+[arena](../../skills/arena/SKILL.md) is the general tool underneath. N subagents attempt the same design or code brief in parallel, each writing to its own worktree or directory. A fresh read-only judge from the configured pool scores every candidate against a rubric. When no configured judge can run, the coordinator skips the judge and picks the base itself. The coordinator reads each candidate end to end, picks a base, grafts in the best ideas from the losers, and verifies the result.
 
 ```mermaid
 flowchart LR
@@ -46,15 +46,9 @@ The panel comes from your [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md)
 /arena this, 5 candidates. the cache key format is expensive to change later.
 ```
 
-## Cover slices and races with [swarm](../../skills/swarm/SKILL.md)
+## Research in parallel
 
-```text
-/swarm check every package under packages/ against its check.sh. one worker per package. one report.
-```
-
-[swarm](../../skills/swarm/SKILL.md) fans N workers across independent slices, coverage matrices, gauntlet lanes, exploration partitions, or declared race arms. Each worker gets its own scope and check, then reports `PASS`, `ISSUES`, or `BLOCKED`. The parent waits for the workers and returns one compact report with any gaps or dropouts.
-
-Reach for it when parallelism buys coverage or lets independent checks race. [arena](../../skills/arena/SKILL.md) gives every worker the same design or code brief, then picks a base and grafts the best parts. [swarm](../../skills/swarm/SKILL.md) covers slices or runs a race with a selection rule declared up front. It does not use the base-selection and grafting ceremony.
+Ask [research](../../skills/research/SKILL.md) to investigate the same question independently or give each researcher a direction. The configured `arena runners` entries supply the researchers. Each writes a separate cited report and the caller consolidates their findings.
 
 ## Settle decisions across sessions
 
@@ -119,7 +113,7 @@ You might be wondering whether every change needs this. No. Most changes need no
 - A small, finished change you're unsure about needs [blast-radius](../../skills/blast-radius/SKILL.md) to verify what it could break outside itself.
 - A change that crosses function boundaries or moves ownership earns [architect](../../skills/architect/SKILL.md), which brings [arena](../../skills/arena/SKILL.md) with it when the design is large or contested.
 - A standalone decision where independent attempts would help, like naming, formats, or an algorithm, is [arena](../../skills/arena/SKILL.md) directly.
-- A coverage matrix, set of parallel checks, or race with declared arms is [swarm](../../skills/swarm/SKILL.md).
+- For independent research directions, use [research](../../skills/research/SKILL.md).
 - An open question you could answer by running something, like a layout, a timing, or an approach, gets a prototype, not a debate.
 - A finished project branch gets one [code-review](../../skills/code-review/SKILL.md) pass on Standards, Spec, and Tests when you ask for it.
 - Work that spans several phases gets a plan, written after the design settles.

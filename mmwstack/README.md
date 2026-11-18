@@ -8,7 +8,7 @@ there's a growing sense that ai writes too much slop code. i agree. i don't want
 
 **mmwstack gives you fearless parallelism.** when you can go deep on one agent and trust it to write good, verifiable code, you can truly parallelize with confidence. start multiple agents up with [mmw-mode](skills/mmw-mode/SKILL.md) and trust that they'll apply rigorous engineering principles to their work.
 
-every frontier model has its strengths and weaknesses. use the models your session can assign. in fact, many of my skills use multi-model workflows to take advantage of each model's unique strengths.
+each runner works independently. choose the same model for several seats or a different model for each. the coordinator compares what the agents produce.
 
 fork it. improve it. make it yours. PRs are welcome! 
 
@@ -71,7 +71,7 @@ morning.
 | [release an install package](./skills/mmw-mode/playbooks/release-an-install-package.md) | build a windows install package from the current branch for each product the change touched, then hand the operator an install test. |
 | [code review](./skills/mmw-mode/playbooks/code-review.md) | one review of a finished project branch on three axes, then one fix pass. |
 | [autonomous run](./skills/mmw-mode/playbooks/autonomous-run.md) | drive a long task to completion without stopping. |
-| [autopilot-full](./skills/mmw-mode/playbooks/autopilot-full.md) | run independent prs to merged with one owner per pr. a swarm verifies each code-ready head, and every later change to the patch gets a fresh check. |
+| [autopilot-full](./skills/mmw-mode/playbooks/autopilot-full.md) | run independent prs to merged with one owner per pr. an independent verifier checks each code-ready head, and every later change to the patch gets a fresh check. |
 | [autopilot-stack](./skills/mmw-mode/playbooks/autopilot-stack.md) | autopilot-full without the merge. build and verify prs for the operator to review and land, stacking a pr only on a pr it builds on. |
 | [session pickup](./skills/mmw-mode/playbooks/session-pickup.md) | resume or take over a prior agent's in-flight work. |
 | [pause safely](./skills/mmw-mode/playbooks/pause-safely.md) | suspend in-flight work cleanly so it can be resumed later. |
@@ -95,7 +95,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 
 ## skills
 
-[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
+[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
 
 ```
 /how do we cancel runs? do we have an n+1 when we look up every run to cancel?
@@ -119,8 +119,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [architect](./skills/architect/SKILL.md) | you're about to write code that crosses a function boundary and want the caller's usage, types, and module shape settled first. |
 | [codebase-dic](./skills/codebase-dic/SKILL.md) | look up the shared vocabulary for deep modules, dependency seams, and tests at the interface. |
 | [arena](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
-| [swarm](./skills/swarm/SKILL.md) | you want N parallel workers across different slices or races, then one aggregated report. |
-| [advisor](./skills/advisor/SKILL.md) | you want one stronger model's verdict before a major decision or when the agent is stuck. ask once, or say `advisor on` to consult it at those points for the conversation. |
+| [advisor](./skills/advisor/SKILL.md) | you want an independent advisor's verdict before a major decision or when the agent is stuck. ask once, or say `advisor on` to consult it at those points for the conversation. |
 | [code-review](./skills/code-review/SKILL.md) | a project branch is finished and you want one review of it on three axes: standards, spec and tests. the code review playbook repairs once and stops. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |
 | [make-bot-ui](./skills/make-bot-ui/SKILL.md) | you want a page or dashboard whose buttons wake a Grok Bot over a webhook, including the sender-key handoff and Tailscale. |
@@ -190,8 +189,6 @@ architect:         design this instrumentation to be high signal with no false p
                    this first.
 arena:             /arena take my prompt to the arena verbatim. i want to compare their proposals
                    with yours.
-swarm:             /swarm check every package under packages/ against its check.sh. one worker per
-                   package. one report.
 code-review:       /code-review project/billing
 write-tests:       /write-tests implement
 unslop:            can we unslop and tighten the new changes?

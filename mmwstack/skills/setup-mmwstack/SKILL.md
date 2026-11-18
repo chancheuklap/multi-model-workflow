@@ -17,7 +17,7 @@ Identify the current host as in Model rule. List the models, reasoning levels, a
 
 ### 2. Load current state
 
-Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
+Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. When upgrading this host, carry the model, reasoning and speed from its old `swarm workers` line to `verifier` if no `verifier` value exists. Remove the old line when saving the confirmed section. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
 
 ### 3. Budget, map, and confirm
 
@@ -28,9 +28,9 @@ Read the current host section's budget and role assignments. If the rule has old
 - `medium — high reasoning`
 - `small — medium reasoning`
 
-**(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, and speeds. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
+**(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, speeds and explicitly chosen per-role reasoning levels. Apply the budget to settings the user leaves to the budget. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It tries only values from a vendor other than the parent's, in list order, so order it by preference. An `inherit-parent` or `auto` value never judges. `swarm workers` assigns the workers. For a model race, each arm names its model from this configuration.
+**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
 
 ### 4. Validate
 
@@ -44,6 +44,7 @@ Save the confirmed budget label and target effort, then one line per role in `~/
 ## <host>
 # Use inherit-parent or auto for an explicitly inherited model.
 # budget: <chosen budget> (<target effort>)
+coder: <model and settings>
 feature, refactoring: <model and settings>
 bug-fix: <model and settings>
 perf-issue: <model and settings>
@@ -54,7 +55,7 @@ reader: <model and settings>
 code review: <model and settings>
 arena runners: <one model and its settings per seat, comma-separated>
 arena cross-judge pool: <judge models in preference order>
-swarm workers: <model and settings>
+verifier: <model and settings>
 architect runners: <one model and its settings per seat, comma-separated>
 ```
 

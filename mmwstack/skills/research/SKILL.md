@@ -7,7 +7,9 @@ description: Investigate a question against high-trust primary sources and captu
 
 When another agent assigns you this question, investigate it and return the report and its attachments. That work is below.
 
-Otherwise, spawn one fresh general-purpose subagent. Give it the question, its work issue URL, known sources, the report location and a readable path to this skill. Use the `judgment and prose` role from the [setup-mmwstack](../setup-mmwstack/SKILL.md#model-rule) model rule. Continue your own work while the researcher runs.
+When the assignment calls for parallel independent research, launch one researcher per configured `arena runners` entry, including repeats. Give them the same question or their assigned directions, the work issue, and separate report paths. Each receives this skill and investigates directly. Compare their primary sources and consolidate the reports into the requested deliverable.
+
+For a single research assignment, spawn one fresh general-purpose subagent. Give it the question, its work issue URL, known sources, the report location and a readable path to this skill. Use the `judgment and prose` role from the [setup-mmwstack](../setup-mmwstack/SKILL.md#model-rule) model rule. Continue your own work while the researcher runs.
 
 ## Investigate
 
@@ -22,7 +24,7 @@ For the default structure:
 
 - Name `<topic>` with the subject and question keywords, using lowercase English words joined by hyphens, such as `codex-cloud-usage`. Keep dates, ticket numbers, and branch names in the report rather than the directory name.
 - Write the complete report in `README.md`. Put an optional HTML explanation in `overview.html` beside it, and necessary small attachments in `assets/`. Create those only when needed.
-- Add a link to the report in `docs/research/README.md`, using the report's full question as the link title. This index holds titles and links. The report holds the findings.
+- For a single report, add its link to `docs/research/README.md` under the full question. For parallel reports, the caller adds the consolidated report to the index once. This index holds titles and links. The report holds the findings.
 
 Keep large logs, media, caches, and temporary downloads in `.scratch/<topic>/` or the OS temporary directory. Retain the safe excerpt or stable controlled-storage link needed to support a conclusion that cannot be reproduced. Keep credentials and raw customer data out of commits.
 

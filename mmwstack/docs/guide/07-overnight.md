@@ -65,7 +65,7 @@ When you're back, ask for the run in review form:
 /show-me-your-work catch me up on what you did last night
 ```
 
-Before the skill hands back its summary, it spawns a reviewer from a different model vendor to read the trail and the transcript, and the reply ends with an Attention section listing what deserves your scrutiny. Read that section first, then the log rows it points at. You're auditing decisions, not re-reading the whole night.
+Before the skill hands back its summary, it spawns a fresh reviewer who did none of the work to read the trail and the transcript, and the reply ends with an Attention section listing what deserves your scrutiny. Read that section first, then the log rows it points at. You're auditing decisions, not re-reading the whole night.
 
 For a quick status instead of an audit, run [ketchup](../../skills/ketchup/SKILL.md) in the chat that ran the work. It reads only, and tells you in plain words what changed since your last message, with the screenshots and small diagrams the work produced. Then it lists each call waiting on you, such as a merge, an approval, or a choice between options, with its pick, the evidence, and the risk, so you can decide from the reply alone.
 
@@ -73,7 +73,7 @@ For a quick status instead of an audit, run [ketchup](../../skills/ketchup/SKILL
 
 The contract above drives one task to one finish condition. Some nights hold more, a queue of independent changes or a whole program. Two playbooks and one skill scale the same trust up.
 
-[Autopilot-full](../../skills/mmw-mode/playbooks/autopilot-full.md) runs a queue of independent PRs to merged. Each PR gets one owner agent that carries it from build through merge, and no owner merges on its own verdict. A swarm of fresh verifiers checks the owner's code-ready head. A later rebase or minor fix gets one fresh verifier, and only new behavior or a large new diff calls the full swarm again. Only a clean verdict on the patch that merges authorizes the merge:
+[Autopilot-full](../../skills/mmw-mode/playbooks/autopilot-full.md) runs a queue of independent PRs to merged. Each PR gets one owner agent that carries it from build through merge, and no owner merges on its own verdict. One independent verifier checks the owner's code-ready head. A later rebase or minor fix gets a targeted recheck. New behavior, a redesign or a large new diff gets full verification again. Only a clean verdict on the patch that merges authorizes the merge:
 
 ```text
 /mmw-mode full autopilot on this queue. each item is independent. i want them merged by morning.
@@ -99,7 +99,7 @@ A few habits help:
 
 - Give each body of work its own coordinator, such as a feature, a migration, a perf push, or a tech-debt cleanup. Several can run side by side.
 - Keep related chats, including finished ones, in the project's shared context so each agent can read them.
-- Give each PR a verification swarm before it merges, and let Autopilot-stack or Autopilot-full carry the queue.
+- Give each PR an independent verifier before it merges, and let Autopilot-stack or Autopilot-full carry the queue.
 - Ask the coordinator for a plan backed by data, and have it answer open questions with prototypes before it asks you.
 
 One prompt can carry a whole project, from research through execution:

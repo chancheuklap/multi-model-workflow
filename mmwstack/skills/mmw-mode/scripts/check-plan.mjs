@@ -2,8 +2,9 @@
 import fs from "node:fs";
 import process from "node:process";
 
-const RULE =
+const LEGACY_RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
+const RULE = "Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.";
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -18,7 +19,6 @@ const HOW_TO_READ_MARKERS = [
 	"names the evidence",
 	"Check a box only when its evidence exists",
 	"playbooks/",
-	RULE,
 ];
 const BOX = /^\s*- \[[ x]\] /;
 
@@ -92,6 +92,7 @@ if (!howToRead) fail(1, 'no "## How to read this" section');
 if (h1 !== -1 && howToRead) {
 	const intro = lines.slice(h1 + 1).filter((l) => l.n < howToRead.n && l.text.trim() !== "");
 	if (intro.length >= 10) fail(lines[h1].n, `intro is ${intro.length} lines, under ten required`);
+	if (![RULE, LEGACY_RULE].some((rule) => bodyText(howToRead).includes(rule))) fail(howToRead.n, `How to read this lacks "${RULE}"`);
 	for (const marker of HOW_TO_READ_MARKERS) {
 		if (!bodyText(howToRead).includes(marker)) fail(howToRead.n, `How to read this lacks "${marker}"`);
 	}

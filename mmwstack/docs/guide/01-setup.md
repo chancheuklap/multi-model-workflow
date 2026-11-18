@@ -22,7 +22,7 @@ Choose a model for each role. Rerun [setup-mmwstack](../../skills/setup-mmwstack
 
 Setup updates the section for the current host. The same role can use a different model in another host.
 
-You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Setup also configures `swarm workers`, the model for [swarm](../../skills/swarm/SKILL.md) workers. For a model race, choose a configured model for each arm.
+You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Autopilot starts PR owners on `coder`. Autopilot and Shipping use `verifier` for independent PR checks. For a model race, choose a configured model for each arm.
 
 ## Accept the verification offers, or don't
 

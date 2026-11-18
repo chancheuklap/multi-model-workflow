@@ -13,18 +13,18 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 1. State the artifact each candidate is producing. For an implementation, include the execution ticket URL in the task each candidate receives.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
-3. Pick the runners from the `arena runners` line in the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule). Spawn one runner per entry, including repeated models and explicit `auto` or `inherit-parent` entries. For multiple design directions, assign additional runners to the configured models. Use the same configured model N times when the work is generation-bound rather than judgment-sensitive.
+3. Pick the runners from the `arena runners` line in the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule). Spawn one runner per entry, including repeated models and explicit `auto` or `inherit-parent` entries. For multiple design directions, assign additional runners to the configured models.
 4. Give each candidate its own output location that the parent and judge can read (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill.
 
 ## Phase B: Fan out
 
-Spawn all N subagents in parallel. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
+Spawn all N subagents in parallel, each in a fresh context. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
 
 If a candidate produces no output, proceed with N-1 and note the dropout.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, spawn one read-only judge from the `arena cross-judge pool` in the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule). The judge is never from the parent's vendor. A vendor is the company that trains the model, and models from one vendor count as one vendor even when the vendor names its lines differently. Take the first available entry from a different vendor than the parent's, in the user's order. `auto` and `inherit-parent` run on the parent model and cannot judge. If the parent's vendor is unknown, use an explicitly named entry in pool order and disclose that the vendor check could not run. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
+After all Phase B candidates complete, spawn one read-only judge from the `arena cross-judge pool` in the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule). Use the first available entry in pool order, including an explicitly inherited model. Start a fresh agent that produced none of the candidates. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
 
 ## Phase D: Pick a base
 

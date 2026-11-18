@@ -70,7 +70,7 @@ From then on, "verify it in the app" is a step any agent can execute, in this re
 /mmw-mode repro this with /verify-<app>. if it repros on main, fix it and show me a video as proof.
 ```
 
-Once the verify skill works, a [swarm](../../skills/swarm/SKILL.md) can split a full pass by feature-map entry and aggregate the results. A swarm of verifiers also confirms a perf win over a big enough sample, or fuzzes the app for regressions before a PR ships.
+In Shipping and Autopilot the independent PR verifier uses the verification skill to run the ticket’s scenarios at the PR head and returns evidence for each.
 
 Treat the verification skill as infrastructure, not a one-off. Commit it, so every person and every agent on the team drives the app the same way. Then [principle-build-the-lever](../../skills/principle-build-the-lever/SKILL.md). When agents keep writing throwaway scripts to click through the app, ask for a small control CLI that the skill calls instead. Agents spend fewer tokens, and every run becomes repeatable. A CLI that agents use well has these traits:
 
