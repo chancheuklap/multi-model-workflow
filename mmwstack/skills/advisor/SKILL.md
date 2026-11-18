@@ -12,7 +12,7 @@ The advisor is a stronger model. It reads your brief and the repository, returns
 Consult only when the operator asks.
 
 - "Ask the advisor ...", `/advisor <question>`, or a request for a second opinion from a stronger model is one consult now. The mode stays as it was.
-- "Advisor on", or `/advisor` with no question, turns advisor mode on for this conversation. Consult at the checkpoints below until the operator says "advisor off". Keep the mode in the conversation. An owner session you start consults only when its brief says advisor mode is on.
+- "Advisor on", or `/advisor` with no question, turns advisor mode on for this conversation. Consult at the checkpoints below until the operator says "advisor off". Keep the mode in the conversation. A session you start consults only when its brief says advisor mode is on.
 
 Checkpoints:
 

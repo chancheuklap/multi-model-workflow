@@ -36,7 +36,7 @@ An agent assigned a bounded part of the work. A routed skill can give it a role-
 A subagent carrying out a scoped assignment. Code delegates, helpers, readers, investigators, runners, judges and reviewers are delegates.
 
 **Needs reply**:
-A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. Its spawner runs the step and passes the findings back by resuming the delegate, or by briefing a fresh one when the host cannot resume. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
+A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. Its spawner runs the step and includes the findings in the next brief, following the fresh subagent rule. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
 **Owner session**:
 An agent session that carries an assignment as its own and starts delegates itself. A PR owner or swarm worker can take this role.
@@ -49,7 +49,7 @@ The delegate role that follows the installed mode for a playbook's code-writing 
 The instructions one delegate receives. They state the operator's goal and the delegate's scope. For repository work, the brief identifies the assigned work issue, an existing PR when relevant, and the exact revision for a PR verifier. The brief received by the agent writing the code identifies its execution ticket and assigned change.
 
 **Fresh subagent**:
-A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator, or for a delegate waiting on its needs reply.
+A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator.
 
 [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [mmw-help](../../../skills/mmw-help/SKILL.md) · [Feature playbook](../../../skills/mmw-mode/playbooks/feature.md) · [mmw-agent role](../../../agents/mmw-agent.md) · [ambiguity-scan](../../../skills/ambiguity-scan/SKILL.md)
 
