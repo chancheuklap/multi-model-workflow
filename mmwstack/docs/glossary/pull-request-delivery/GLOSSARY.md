@@ -38,13 +38,13 @@ A PR the forge reports as merged with trunk as its base. For work on a project b
 ### Stacks and the portion that can land
 
 **Project branch**:
-A branch the operator names to collect the PRs of one spec before they reach trunk. While it is named, trunk means that branch for this work. PRs open against it, and a PR is landed when it merges into it. Merging the project branch into the repository's trunk is a separate step the operator authorizes.
+A branch collecting the PRs of one spec or multi-phase plan before they reach the repository's integration branch (`dev` or `main`). Multi-PR specs and plans create and push `project/<slug>` off the integration branch before spawning owners; while active, trunk means that branch for the program. Child PRs open against and merge into it, leaving the integration branch untouched until the operator runs code review and authorizes the final merge.
 
 **PR stack**:
 A chain of base branches. The root PR targets trunk. Each child PR targets the branch of the parent PR it builds on. *Upstack* means closer to the tip. A group of sibling tickets or a list of PRs in time order can have no such branch relationship.
 
 **PR queue**:
-The PRs covered by an Autopilot assignment. Autopilot-full runs independent PRs from trunk. Autopilot-stack can include dependent PRs in a base-branch chain and leaves the verified changes to the operator.
+The PRs covered by an Autopilot assignment. Autopilot-full runs independent PRs from trunk (a `project/<slug>` branch for a multi-PR spec or plan, or the integration branch for standalone single-ticket work). Autopilot-stack can include dependent PRs in a base-branch chain and leaves the verified changes to the operator.
 
 **Merge queue**:
 The forge's queue for changes submitted to land. Admission can precede the actual merge. The GitHub watcher's `WAITING` reason `merge-queue` describes a blocker-free frontier still waiting to merge. The watcher derives that reason from the PR state, without checking queue enrollment.
@@ -80,10 +80,10 @@ An agent independent of the PR author, assigned to exercise the change at a name
 An independent verifier's judgment on a particular PR patch. `PASS` and `PASS+NOTES` admit the PR to a verified run. `FAIL` stops the run at that PR. A green CI report and an approving bot comment answer different questions.
 
 **PR verification swarm**:
-Autopilot's independent verification of the code-ready head. The gates lane reruns repository checks, live lanes exercise the product, and audit lanes inspect the diff and the evidence. The regression lane compares the same scenario on trunk and head. The performance check compares like measurements or uses an absolute budget where trunk lacks the behavior.
+Autopilot's independent verification of the code-ready head. The gates lane reruns repository checks, live lanes exercise the product, and perf lanes measure timed paths. Diff-wide code review stays out of per-PR verification and runs once via Code review after the spec's PRs land on the project branch. The regression lane compares the same scenario on trunk and head. The performance check compares like measurements or uses an absolute budget where trunk lacks the behavior.
 
 **Clean verdict**:
-The root's Autopilot judgment after the required live verification and audit of the owner's evidence. A demonstrated user-facing bug, failed gate, or shipped documentation made wrong by the PR can block. A base defect blocks when the PR copies it or newly reaches it. Each new head still needs green CI.
+The root's Autopilot judgment after the required live verification and receipt check of the owner's evidence. A demonstrated user-facing bug, failed gate, or shipped documentation made wrong by the PR can block. A base defect blocks when the PR copies it or newly reaches it. Each new head still needs green CI.
 
 ### Babysitting and review
 

@@ -96,14 +96,10 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 
 ## skills
 
-[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [interrogate](skills/interrogate/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
+[mmw-mode](./skills/mmw-mode/SKILL.md) runs most of these for you when a step needs them ([why](skills/why/SKILL.md), [architect](skills/architect/SKILL.md), [arena](skills/arena/SKILL.md), [swarm](skills/swarm/SKILL.md), [code-review](skills/code-review/SKILL.md), [unslop](skills/unslop/SKILL.md), [no-comments](skills/no-comments/SKILL.md), [technical-writing](skills/technical-writing/SKILL.md), [write-tests](skills/write-tests/SKILL.md), and the principles). the table below is for when you want one directly:
 
 ```
 /how do we cancel runs? do we have an n+1 when we look up every run to cancel?
-```
-
-```
-/interrogate review this pr.
 ```
 
 <details>
@@ -125,7 +121,6 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [codebase-dic](./skills/codebase-dic/SKILL.md) | look up the shared vocabulary for deep modules, dependency seams, and tests at the interface. |
 | [arena](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
 | [swarm](./skills/swarm/SKILL.md) | you want N parallel workers across different slices or races, then one aggregated report. |
-| [interrogate](./skills/interrogate/SKILL.md) | you have a diff and want different models to try to break it, keeping only findings a run proves. |
 | [advisor](./skills/advisor/SKILL.md) | you want one stronger model's verdict before a major decision or when the agent is stuck. ask once, or say `advisor on` to consult it at those points for the conversation. |
 | [code-review](./skills/code-review/SKILL.md) | a project branch is finished and you want one review of it on three axes: standards, spec and tests. the code review playbook repairs once and stops. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |
@@ -198,7 +193,6 @@ arena:             /arena take my prompt to the arena verbatim. i want to compar
                    with yours.
 swarm:             /swarm check every package under packages/ against its check.sh. one worker per
                    package. one report.
-interrogate:       /interrogate review this pr.
 code-review:       /code-review project/billing
 write-tests:       /write-tests implement
 unslop:            can we unslop and tighten the new changes?
