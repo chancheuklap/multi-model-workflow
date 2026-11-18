@@ -27,9 +27,9 @@ new_case() {
   git -C "$repo" init -q
   git -C "$repo" config user.email t@example.test
   git -C "$repo" config user.name release-test
-  # 本机的提交前门禁是全局 core.hooksPath,会把这里的 seed 提交拦下来。仓库级设置压过
-  # 全局,指向一个不存在的目录就等于这个仓库没有钩子——跟 husky 仓库的做法一样。
-  git -C "$repo" config core.hooksPath "$repo/.git/no-hooks"
+  # 本机的提交前门禁可能是全局 core.hooksPath，会把这里的 seed 提交拦下来。仓库级设置压过
+  # 全局，指向仓库自己的 .githooks（此夹具仓库里不存在该目录，等价于无钩子）。
+  git -C "$repo" config core.hooksPath .githooks
   printf 'seed\n' > "$repo/scripts/release/existing.txt"
   # .release/ is the engine's own state directory, which a consuming repository gitignores;
   # events.jsonl stands in for this fixture's event_sink (a real one posts elsewhere).

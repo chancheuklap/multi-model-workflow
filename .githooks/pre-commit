@@ -1,0 +1,2 @@
+#!/bin/sh
+MMW_REPO_CHECKS_HOOK=pre-commit exec "$(git rev-parse --show-toplevel)/scripts/check" --staged

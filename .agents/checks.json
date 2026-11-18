@@ -1,0 +1,209 @@
+{
+  "integration": "dev",
+  "ci_workflow": null,
+  "test_files": [
+    "**/*.test.{js,mjs,cjs,ts}",
+    "**/*.spec.{js,mjs,cjs,ts}",
+    "**/test_*.py",
+    "**/test_*.sh",
+    "mmwstack/tests/exe-release/check-*.sh",
+    "mmwstack/tests/exe-release/*.ps1"
+  ],
+  "inert": [
+    ".agents/plugins/marketplace.json",
+    ".cursor-plugin/marketplace.json",
+    ".github/workflows/release-mmw-v5.yml",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "DESIGN.md",
+    "GLOSSARY-MAP.md",
+    "README.md",
+    "archive/**",
+    "deprecated/**",
+    "docs/glossary/**",
+    "docs/research/**",
+    "mmw-v2/**",
+    "mmw-v3/**",
+    "mmw-v4/**",
+    "mmw-v5/**",
+    "mmw-v5-cloud/**",
+    "upstream/**",
+    "scripts/dev/board-fixtures/**",
+    "mmwstack/.cursor-plugin/plugin.json",
+    "mmwstack/.gitignore",
+    "mmwstack/LICENSE",
+    "mmwstack/README.md",
+    "mmwstack/plugin.json",
+    "mmwstack/agents/*.md",
+    "mmwstack/assets/*.png",
+    "mmwstack/automations/**",
+    "mmwstack/docs/**",
+    "mmwstack/licenses/**",
+    "mmwstack/skills/*/SKILL.md",
+    "mmwstack/skills/*/LICENSE",
+    "mmwstack/skills/mmw-mode/playbooks/*.md",
+    "mmwstack/skills/{advisor,architect,code-review,codebase-dic,correct,create-verification-skill,design-artifact,domain-modeling,exe-release,html,mmw-help,mmw-mode,reflect,repo-checks,setup-mmwstack,to-tickets,typescript-best-practices,write-tests,writing-for-agents}/references/**/*.md",
+    "mmwstack/skills/show-me-your-work/references/**"
+  ],
+  "affects_all": [
+    ".agents/checks.json",
+    "scripts/check",
+    ".githooks/**",
+    ".gitignore",
+    "mmwstack/skills/mmw-mode/scripts/package.json",
+    "mmwstack/skills/mmw-mode/scripts/bun.lock",
+    "mmwstack/skills/mmw-mode/scripts/watch-pr/tsconfig.json",
+    "mmwstack/skills/repo-checks/scripts/package.json",
+    "mmwstack/skills/statechart/scripts/package.json",
+    "mmwstack/skills/statechart/scripts/tsconfig.json"
+  ],
+  "marker_exempt": [
+    "archive/**",
+    "deprecated/**",
+    "docs/glossary/**",
+    "docs/research/**",
+    "mmw-v2/**",
+    "mmw-v3/**",
+    "mmw-v4/**",
+    "mmw-v5/**",
+    "mmw-v5-cloud/**",
+    "README.md",
+    "upstream/**",
+    "mmwstack/skills/repo-checks/scripts/check.mjs",
+    "mmwstack/skills/repo-checks/scripts/test/ensure.test.mjs",
+    "mmwstack/skills/repo-checks/scripts/test/lint-budget.test.mjs",
+    "mmwstack/skills/repo-checks/scripts/test/lint.test.mjs",
+    "mmwstack/skills/repo-checks/scripts/test/run.test.mjs"
+  ],
+  "prepare": {
+    "run": "bun install --frozen-lockfile --cwd mmwstack/skills/mmw-mode/scripts && npm install --prefix mmwstack/skills/statechart/scripts --no-audit --no-fund --no-package-lock",
+    "stamps": [
+      "mmwstack/skills/mmw-mode/scripts/package.json",
+      "mmwstack/skills/mmw-mode/scripts/bun.lock",
+      "mmwstack/skills/statechart/scripts/package.json"
+    ]
+  },
+  "checks": [
+    {
+      "id": "syntax",
+      "run": "python3 scripts/syntax-check.py && python3 -m unittest scripts/test_syntax_check.py",
+      "inputs": [
+        "scripts/syntax-check.py",
+        "scripts/**/*.py",
+        "scripts/**/*.sh",
+        "scripts/**/*.mjs",
+        "scripts/**/*.js",
+        "scripts/**/*.cjs",
+        "mmwstack/**/*.py",
+        "mmwstack/**/*.sh",
+        "mmwstack/**/*.mjs",
+        "mmwstack/**/*.js",
+        "mmwstack/**/*.cjs",
+        "mmwstack/skills/mmw-mode/scripts/watch-pr/watch-pr",
+        "mmwstack/skills/statechart/scripts/statechart",
+        "mmwstack/tests/exe-release/fixtures/fake-remote/*"
+      ],
+      "tests": [
+        "scripts/test_syntax_check.py"
+      ],
+      "needs": ["cmd:python3", "cmd:bash", "cmd:node"],
+      "ci": false,
+      "ci_reason": "multi-model-workflow has no PR or deployment gate."
+    },
+    {
+      "id": "mmw-mode",
+      "run": "cd mmwstack/skills/mmw-mode/scripts && bun run test && bun run typecheck",
+      "inputs": [
+        "mmwstack/skills/mmw-mode/scripts/**"
+      ],
+      "tests": [
+        "mmwstack/skills/mmw-mode/scripts/**/*.test.ts"
+      ],
+      "needs": [
+        "cmd:bun",
+        "path:mmwstack/skills/mmw-mode/scripts/node_modules"
+      ],
+      "ci": false,
+      "ci_reason": "multi-model-workflow has no PR or deployment gate."
+    },
+    {
+      "id": "statechart",
+      "run": "npm --prefix mmwstack/skills/statechart/scripts test",
+      "inputs": [
+        "mmwstack/skills/statechart/scripts/**",
+        "mmwstack/skills/statechart/references/render.md"
+      ],
+      "tests": [
+        "mmwstack/skills/statechart/scripts/test/**/*.test.ts"
+      ],
+      "needs": [
+        "cmd:node",
+        "cmd:npm",
+        "path:mmwstack/skills/statechart/scripts/node_modules"
+      ],
+      "ci": false,
+      "ci_reason": "multi-model-workflow has no PR or deployment gate."
+    },
+    {
+      "id": "repo-checks",
+      "run": "npm --prefix mmwstack/skills/repo-checks/scripts test",
+      "inputs": [
+        "mmwstack/skills/repo-checks/scripts/**",
+        "mmwstack/skills/repo-checks/templates/**"
+      ],
+      "tests": [
+        "mmwstack/skills/repo-checks/scripts/test/*.test.mjs"
+      ],
+      "needs": ["cmd:node", "cmd:npm", "cmd:git"],
+      "ci": false,
+      "ci_reason": "multi-model-workflow has no PR or deployment gate.",
+      "timeout_s": 900
+    },
+    {
+      "id": "exe-release",
+      "run": "bash mmwstack/tests/exe-release/run.sh",
+      "inputs": [
+        "mmwstack/skills/exe-release/**",
+        "mmwstack/tests/exe-release/**"
+      ],
+      "tests": [
+        "mmwstack/tests/exe-release/test_*.py",
+        "mmwstack/tests/exe-release/test_*.sh"
+      ],
+      "needs": ["cmd:bash", "cmd:python3", "cmd:uv", "cmd:jq"],
+      "ci": false,
+      "ci_reason": "multi-model-workflow has no PR or deployment gate."
+    }
+  ],
+  "lanes": [
+    {
+      "id": "exe-release-windows",
+      "kind": "device",
+      "reason": "PowerShell syntax and template behaviour checks require a Windows build machine with PowerShell.",
+      "run_by": "owner",
+      "tests": [
+        "mmwstack/tests/exe-release/check-generated-powershell.sh",
+        "mmwstack/tests/exe-release/check-template-behaviour.sh",
+        "mmwstack/tests/exe-release/ps-syntax-check.ps1",
+        "mmwstack/tests/exe-release/template-behaviour.ps1"
+      ],
+      "command": "bash mmwstack/tests/exe-release/check-generated-powershell.sh && bash mmwstack/tests/exe-release/check-template-behaviour.sh"
+    }
+  ],
+  "excluded": [
+    {
+      "paths": [
+        "archive/**",
+        "deprecated/**",
+        "docs/research/**",
+        "mmw-v2/**",
+        "mmw-v3/**",
+        "mmw-v4/**",
+        "mmw-v5/**",
+        "mmw-v5-cloud/**",
+        "upstream/**"
+      ],
+      "reason": "Retired v2-v5 editions, archive, deprecated, research snapshots, and vendored upstream directories; inert and exempt from legacy-marker scanning."
+    }
+  ]
+}

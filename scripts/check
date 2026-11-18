@@ -1,242 +1,70 @@
-#!/usr/bin/env python3
-"""This repository's one check: the syntax of the changed files and the test suites, in three
-tiers. Only mmwstack's tests remain; every other suite was retired.
+#!/bin/sh
+engine=${MMW_REPO_CHECKS_ENGINE:-"$HOME/.agents/skills/repo-checks/scripts/check.mjs"}
+if ! command -v node >/dev/null 2>&1; then echo "repo-checks Node.js unavailable" >&2; [ -n "${MMW_REPO_CHECKS_HOOK:-}" ] && exit 0; exit 70; fi
+if [ -f "$engine" ] && [ -z "${MMW_REPO_CHECKS_HOOK:-}" ]; then
+  exec node "$engine" "$@"
+fi
+exec node --input-type=module -e '
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { join, resolve } from "node:path";
+import { constants } from "node:os";
 
-    scripts/check            the default tier: syntax of the files changed against the base, then
-                             each suite whose inputs in MAP hold a changed path
-    scripts/check --all      every step runnable on this machine
-    scripts/check --staged   the syntax of the staged files; no commit-hook tool is configured here
-
-The base is MMW_BASE_REF when it is set, else origin/dev, this repository's base branch.
-Changed paths are `git diff --name-only <base>...HEAD`, the uncommitted changes and the
-untracked files. The repository has no root package manager. Suites that run under `uv run`
-resolve their own dependencies.
-
-Before the steps run, one `SELECT <suite>: <changed path> (<input>)` line per selected suite.
-Each step prints `PASS|FAIL|ENV <step> <seconds>s`; a failing step adds its last lines and the
-path of its full log under .scratch/check/, and so does a step that exits 2 (ENV: its suite
-cannot run on this machine, such as Chromium that will not start). The last line is the summary.
-
-Exit 0: every step passed. Exit 1: a step is red, or the self-check found a test directory MAP
-does not name and EXCLUDED does not list. Exit 2: the environment cannot run the check: a tool
-missing from PATH or a base ref git does not know, and nothing was run; or no step is red and a
-suite exited 2 because it cannot run here.
-
-Python standard library only.
-"""
-
-from __future__ import annotations
-
-import os
-import shutil
-import subprocess
-import sys
-import time
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_BASE = "origin/dev"
-TAIL = 20
-
-# step: (command, tools it needs on PATH)
-STEPS = {
-    "mmwstack-exe-release": ("bash mmwstack/tests/exe-release/run.sh", ["bash", "python3", "uv", "jq"]),
+for (const stream of [process.stdout, process.stderr]) stream.on("error", error => {
+  if (error.code !== "EPIPE") throw error;
+});
+const [engine, ...args] = process.argv.slice(1);
+const hook = process.env.MMW_REPO_CHECKS_HOOK;
+const missing = !existsSync(engine);
+function audit(record) {
+  const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+  const common = resolve(git("rev-parse", "--git-common-dir"));
+  const key = createHash("sha256").update(git("rev-parse", "--show-toplevel")).digest("hex").slice(0, 24);
+  const folder = join(common, "repo-checks", key);
+  mkdirSync(folder, { recursive: true });
+  appendFileSync(join(folder, "audit.jsonl"), `${JSON.stringify({
+    ...record, time: new Date().toISOString(),
+  })}\n`);
 }
-
-# Each suite's inputs: a changed path starting with the prefix selects the suites, and a suite
-# no changed path selects does not run.
-MAP = [
-    ("mmwstack/skills/exe-release/", ["mmwstack-exe-release"]),
-    ("mmwstack/tests/exe-release/", ["mmwstack-exe-release"]),
-]
-
-# Test roots: every directory directly under each must be a suite above or listed here.
-TEST_ROOTS = ["mmwstack/tests"]
-# Trees whose test directories are history or third-party snapshots, never run.
-NOT_OURS = ("mmw-v2/", "mmw-v3/", "archive/", "deprecated/", "docs/research/", "upstream/", "mmw-v4/docs/retired-")
-EXCLUDED = {
-    "mmwstack/skills/statechart/scripts/test": "the upstream statechart skill's own tests (node --test with fast-check and a Java oracle), not run here",
-    "mmwstack/skills/repo-checks/scripts/test": "the repo-checks engine's own node --test suite, not run here",
+function finish(code, signal = null) {
+  const exit = code ?? 128 + constants.signals[signal];
+  if (hook && ![0, 1, 2].includes(exit)) {
+    const reason = missing ? `engine missing: ${engine}` : `engine failed (${signal ?? exit})`;
+    console.error(`repo-checks ${reason}; allowing ${hook}`);
+    try {
+      audit({ type: "engine-failure", reason, hook, exit_code: exit });
+    } catch (error) { console.error(`repo-checks cannot record engine failure: ${error.message}`); }
+  }
+  process.exitCode = hook ? ([1, 2].includes(exit) ? exit : 0) : exit;
 }
-NOT_RUN_HERE = ("exe-release's PowerShell checks (mmwstack/tests/exe-release/check-generated-powershell.sh,"
-                " check-template-behaviour.sh): they need a Windows build machine")
-
-
-def git(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
-
-
-def changed_paths(base: str) -> list[str]:
-    committed = git("diff", "--name-only", f"{base}...HEAD")
-    if committed.returncode != 0:
-        raise EnvironmentError(f"git cannot diff against {base}: {(committed.stderr.strip().splitlines() or [''])[0]}; "
-                               "set MMW_BASE_REF to a ref this clone has, or run `git fetch origin`")
-    paths = set(committed.stdout.split())
-    paths |= set(git("diff", "--name-only", "HEAD").stdout.split())
-    paths |= set(git("ls-files", "--others", "--exclude-standard").stdout.split())
-    return sorted(paths)
-
-
-def staged_paths() -> list[str]:
-    return sorted(git("diff", "--cached", "--name-only", "--diff-filter=ACMR").stdout.split())
-
-
-def selected(paths: list[str]) -> dict[str, tuple[str, str]]:
-    """Each suite a changed path selects, with the first such path and the input that matched."""
-    picked: dict[str, tuple[str, str]] = {}
-    for path in paths:
-        for prefix, names in MAP:
-            if path.startswith(prefix):
-                for name in names:
-                    picked.setdefault(name, (path, prefix))
-    return {name: picked[name] for name in STEPS if name in picked}
-
-
-def self_check() -> list[str]:
-    found = []
-    for root in TEST_ROOTS:
-        for child in sorted((ROOT / root).iterdir()):
-            if child.is_dir() and child.name != "__pycache__" and not child.name.startswith("."):
-                rel = f"{root}/{child.name}"
-                if any(prefix == rel + "/" and names and all(name in STEPS for name in names)
-                       for prefix, names in MAP):
-                    continue
-                if rel not in EXCLUDED:
-                    found.append(f"{rel} is a test directory STEPS and MAP in scripts/check do not name; "
-                                 "add its suite there, or list it in EXCLUDED with the reason")
-    roots = set()
-    for path in git("ls-files").stdout.splitlines():
-        if path.startswith(NOT_OURS) or path.startswith('"') or not (ROOT / path).is_file():
-            continue
-        parts = path.split("/")
-        for i, part in enumerate(parts[:-1]):
-            if part in ("tests", "test", "__tests__"):
-                roots.add("/".join(parts[:i + 1]))
-                break
-    for root in sorted(roots):
-        if root not in TEST_ROOTS and root not in EXCLUDED:
-            found.append(f"{root} holds tests that scripts/check does not know; "
-                         "add it to TEST_ROOTS with its suites, or list it in EXCLUDED with the reason")
-    return found
-
-
-def syntax_errors(paths: list[str]) -> list[str]:
-    errors = []
-    for rel in paths:
-        path = ROOT / rel
-        if not path.is_file() or rel.startswith("docs/research/"):
-            continue
-        if rel.endswith(".py"):
-            try:
-                compile(path.read_bytes(), rel, "exec")
-            except (SyntaxError, ValueError) as err:
-                errors.append(f"{rel}: {err}")
-        elif rel.endswith(".sh") or (path.read_bytes()[:64].startswith(b"#!/usr/bin/env bash")):
-            r = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
-            if r.returncode != 0:
-                errors.append(r.stderr.strip())
-    return errors
-
-
-class Run:
-    def __init__(self) -> None:
-        self.logs = ROOT / ".scratch" / "check" / time.strftime("%Y%m%d-%H%M%S")
-        self.failed: list[str] = []
-        self.unrunnable: list[str] = []
-        self.count = 0
-
-    def report(self, name: str, ok: bool, seconds: float, lines: list[str], log: Path | None,
-               unrunnable: bool = False) -> None:
-        self.count += 1
-        print(f"{'PASS' if ok else 'ENV' if unrunnable else 'FAIL'} {name} {seconds:.0f}s", flush=True)
-        if not ok:
-            (self.unrunnable if unrunnable else self.failed).append(name)
-            for line in lines[-TAIL:]:
-                print(f"    {line}")
-            if log:
-                print(f"    full log: {log}")
-
-    def step(self, name: str) -> None:
-        command = STEPS[name][0]
-        self.logs.mkdir(parents=True, exist_ok=True)
-        log = self.logs / f"{name}.log"
-        start = time.monotonic()
-        with log.open("w") as out:
-            rc = subprocess.run(["bash", "-c", command], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT).returncode
-        lines = log.read_text(errors="replace").splitlines()
-        self.report(name, rc == 0, time.monotonic() - start, lines, log, unrunnable=rc == 2)
-
-    def syntax(self, paths: list[str]) -> None:
-        start = time.monotonic()
-        errors = syntax_errors(paths)
-        self.report(f"syntax ({len(paths)} files)", not errors, time.monotonic() - start, errors, None)
-
-
-def missing_tools(names: list[str]) -> list[str]:
-    needed = {tool for name in names for tool in STEPS[name][1]} | {"git"}
-    return sorted(tool for tool in needed if shutil.which(tool) is None)
-
-
-def cannot_run(reason: str) -> int:
-    print(f"CHECK CANNOT RUN: {reason}")
-    return 2
-
-
-def main(argv: list[str]) -> int:
-    tier = {"--staged": "staged", "--all": "all"}.get(argv[0], None) if argv else "default"
-    if tier is None or len(argv) != (1 if argv else 0):
-        print("usage: scripts/check [--staged | --all]", file=sys.stderr)
-        return 2
-    started = time.monotonic()
-    run = Run()
-
-    if tier == "staged":
-        if shutil.which("git") is None:
-            return cannot_run("git is not on PATH")
-        print("no commit-hook tool is configured in this repository; checking the syntax of the staged files")
-        run.syntax(staged_paths())
-    else:
-        if tier == "all":
-            names = list(STEPS)
-            paths = git("ls-files", "mmwstack", "scripts").stdout.split()
-            print("tier --all: every step")
-        else:
-            base = os.environ.get("MMW_BASE_REF") or DEFAULT_BASE
-            if shutil.which("git") is None:
-                return cannot_run("git is not on PATH")
-            try:
-                paths = changed_paths(base)
-            except EnvironmentError as err:
-                return cannot_run(str(err))
-            chosen = selected(paths)
-            names = list(chosen)
-            print(f"tier default, base {base}: {len(paths)} changed paths; "
-                  f"steps {', '.join(names) or 'none: no suite reads a changed path'}")
-            for name, (path, prefix) in chosen.items():
-                print(f"SELECT {name}: {path} ({prefix})")
-        missing = missing_tools(names)
-        if missing:
-            return cannot_run(f"{', '.join(missing)} not on PATH, needed by "
-                              + ", ".join(n for n in names if set(STEPS[n][1]) & set(missing))
-                              + "; install it, or run from a shell whose PATH has it")
-        problems = self_check()
-        run.report("self-check", not problems, 0, problems, None)
-        run.syntax(paths)
-        for name in names:
-            run.step(name)
-        print(f"not run here: {NOT_RUN_HERE}")
-
-    total = time.monotonic() - started
-    if run.failed:
-        unrunnable = f"; cannot run here: {', '.join(run.unrunnable)}" if run.unrunnable else ""
-        print(f"CHECK FAIL {tier}: {len(run.failed)} of {run.count} steps red ({', '.join(run.failed)}){unrunnable} in {total:.0f}s")
-        return 1
-    if run.unrunnable:
-        return cannot_run(f"{', '.join(run.unrunnable)} exited 2: these suites cannot run on this machine (above); "
-                          f"the other {run.count - len(run.unrunnable)} steps passed in {total:.0f}s")
-    print(f"CHECK PASS {tier}: {run.count} steps in {total:.0f}s")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+const request = args.filter(arg => arg !== "--json");
+const diagnostic = ["report", "selftest", "replay"].includes(request[0])
+  || (args.length === 1 && args[0] === "--help");
+if (missing && process.env.MMW_CHECKS_SKIP?.trim() && !diagnostic) {
+  const reason = process.env.MMW_CHECKS_SKIP;
+  const bypassHook = hook ?? (request[0] === "--staged" ? "pre-commit" : request[0] === "--push" ? "pre-push" : "manual");
+  audit({ type: "bypass", reason, hook: bypassHook });
+  if (args.includes("--json")) console.log(JSON.stringify({ mode: "bypass", ok: true, exit_code: 0, reason, hook: bypassHook }));
+  else console.log(`SKIPPED BY REASON ${reason}`);
+  process.exit(0);
+}
+if (missing) console.error(`repo-checks engine missing: ${engine}`);
+if (missing && args[0] !== "--staged") finish(70);
+else if (missing && !existsSync("prek.toml") && !existsSync(".pre-commit-config.yaml")) finish(0);
+else {
+  const child = missing ? spawn("prek", ["run"], { stdio: "inherit" })
+    : spawn(process.execPath, [engine, ...args], { stdio: "inherit" });
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
+  child.once("error", error => {
+    if (missing && error.code === "ENOENT") {
+      console.error("Install prek: brew install prek (or uv tool install prek).");
+      finish(2);
+    } else {
+      console.error(`repo-checks ${error.message}`);
+      finish(70);
+    }
+  });
+  child.once("exit", (code, signal) => finish(missing && code !== null ? (code === 0 ? 0 : 1) : code, signal));
+}
+' "$engine" "$@"
