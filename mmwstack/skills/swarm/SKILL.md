@@ -23,11 +23,11 @@ Start a checklist with one entry per phase before launching anything.
 
 ## Phase B: Fan out
 
-Spawn all N workers in parallel in the background, each on its own remote machine with its assigned model. Run a worker locally only when it needs access to something on the user's computer.
+Spawn the workers in parallel in the background on their assigned models. Follow [mmw-mode's execution environment rule](../mmw-mode/SKILL.md#subagents) for the whole swarm, including retries. Give concurrent writers separate local worktrees in a local task or separate cloud workspaces in a cloud task. Report a required slice as `BLOCKED` if its resources are available only in the other environment.
 
 When a worker needs a non-default pushed branch, name it in the brief and have the worker check it out before starting.
 
-Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. Include the execution ticket URL when the worker will implement the change. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence. A worker that can prove a defect reports `ISSUES` and lists every issue it can prove, not only the first.
+Every brief stands alone. Include the task's execution environment, goal, scope, exact slice or race arm, how to verify, and what to report. Include the execution ticket URL when the worker will implement the change. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence. A worker that can prove a defect reports `ISSUES` and lists every issue it can prove, not only the first.
 
 If a worker drops out, proceed with N-1 and note it.
 
