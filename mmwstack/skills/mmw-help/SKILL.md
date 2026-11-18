@@ -69,8 +69,7 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Settle types and module shape before code that crosses a function boundary | [architect](../architect/SKILL.md) |
 | Look up interface depth, locality, seams, or the deletion test | [codebase-dic](../codebase-dic/SKILL.md) |
 | Get several attempts at one brief, merged into the best one | [arena](../arena/SKILL.md) |
-| Run parallel checks over slices, or race workers | [swarm](../swarm/SKILL.md) |
-| Ask one stronger model for a verdict before a major decision or when stuck | [advisor](../advisor/SKILL.md) |
+| Ask the advisor for an independent verdict before a major decision or when stuck | [advisor](../advisor/SKILL.md) |
 | Review a finished project branch once, on three axes | [code-review](../code-review/SKILL.md) |
 | Write the tests for code you are landing, failing-first for a bug | [write-tests](../write-tests/SKILL.md) |
 | Apply TypeScript rules to `.ts` or `.tsx` work | [typescript-best-practices](../typescript-best-practices/SKILL.md) |
@@ -106,7 +105,7 @@ If a skill directory next to this one is missing from the table, read its frontm
 Close calls:
 
 - [how](../how/SKILL.md) explains what the code does. [why](../why/SKILL.md) explains the reasons. [teach](../teach/SKILL.md) runs one or both and explains the result plainly.
-- [arena](../arena/SKILL.md) gives every worker the same brief and merges the best parts. [swarm](../swarm/SKILL.md) splits work into slices or a race and returns one report.
+- [arena](../arena/SKILL.md) gives each runner the same brief and merges the best parts. For parallel coverage, assign each agent its scope and collect the results.
 - When a playbook hands the code to another agent, [architect](../architect/SKILL.md) returns the design to that playbook.
 - [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe. [code-review](../code-review/SKILL.md) checks a finished project branch once, on three axes, and the Code review playbook repairs it once.
 - [recall](../recall/SKILL.md) rebuilds context across recent chats. [ketchup](../ketchup/SKILL.md) covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.

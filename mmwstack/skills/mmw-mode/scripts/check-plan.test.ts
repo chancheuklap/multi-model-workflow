@@ -54,6 +54,13 @@ const runPlan = (example: string, expectedExit: number, plan = validPlan) => {
 	}
 };
 
+test("accepts ticket-specific verification and plans already in progress", () => {
+	const current = "Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.";
+	expect(runPlan("", 0, validPlan.replace(rule, current)).stdout).toContain("0 problems");
+	expect(runPlan("", 0, validPlan).stdout).toContain("0 problems");
+	expect(runPlan("", 1, validPlan.replace(rule, "")).stderr).toContain("How to read this lacks");
+});
+
 test("checks the phases before tickets or PRs exist", () => {
 	const result = runPlan("", 0);
 	expect(result.stdout).toContain("1 phase, 0 problems");

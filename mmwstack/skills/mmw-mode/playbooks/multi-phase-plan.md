@@ -31,7 +31,7 @@ One box is one unit of work. Every box names the evidence that checks it. A nest
 
 The program runs `<mmw-mode-dir>/playbooks/<execution playbook>.md` against the project branch `project/<slug>`, created from the repository's integration branch before owners start. <Who merges into the project branch, and which changes the operator reserves for review. Once every ticket's PR merges into the project branch, stop for the operator's `/code-review project/<slug>` and final integration merge.>
 
-Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
+Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.
 
 ## Program checklist
 
@@ -41,12 +41,11 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 - [ ] Create and push `project/<slug>` from the repository's integration branch (`git fetch origin && git push origin origin/<integration>:refs/heads/project/<slug>`) so every PR in this program targets it instead of merging directly into the integration branch.
 - [ ] Read these from trunk at program start. Re-read them at every tick. Fill in each source repository's trunk ref and tracked paths.
   - [ ] `git show origin/main:mmwstack/skills/mmw-mode/playbooks/<execution playbook>.md`
-  - [ ] `git show origin/main:mmwstack/skills/swarm/SKILL.md`
   - [ ] `git show origin/main:<tracked SKILL.md path for the selected verification skill>`
   - [ ] `git show origin/main:mmwstack/skills/mmw-mode/playbooks/opening-a-pr.md`
   - [ ] `git show origin/main:mmwstack/skills/<each other leaf skill the program uses>`
 - [ ] On the operator's go, schedule an hourly audit with the prompt below. Never leave the cadence to memory.
-- [ ] Use this tick prompt, verbatim. "Re-read the execution playbook from trunk. Audit the operation against it and fix drift in this tick. Probe every active lane and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then post a short status message to the operator in chat only when the audit found a tracked change that no earlier status message reported, such as a PR opened, a code-ready head, a round launched or closed, a verdict, a merge, a stuck agent and the action taken, a blocker added or cleared, or a decision only the operator can make. Name every such change and nothing else. Do not repeat a table, the merged list, or an unchanged blocker. If the audit found none, end the turn with no reply text. Either way, log this tick's row in your decision trail. The row names the items reported, or none."
+- [ ] Use this tick prompt, verbatim. "Re-read the execution playbook from trunk. Audit the operation against it and fix drift in this tick. Probe every active agent and judge progress by side effects only. Stand down a stuck agent and dispatch its replacement now. Then post a short status message to the operator in chat only when the audit found a tracked change that no earlier status message reported, such as a PR opened, a code-ready head, a round launched or closed, a verdict, a merge, a stuck agent and the action taken, a blocker added or cleared, or a decision only the operator can make. Name every such change and nothing else. Do not repeat a table, the merged list, or an unchanged blocker. If the audit found none, end the turn with no reply text. Either way, log this tick's row in your decision trail. The row names the items reported, or none."
 - [ ] On the operator's hold or stand-down, send every owner a zero-writes order at once.
 
 ### Spawn owners
@@ -67,24 +66,24 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 ### Verdict and merge, for every PR
 
-For each code ticket, use its acceptance criteria and the relevant phase checks to fill the unit, live and perf boxes in the decision trail for its actual PR. Give each verifier the PR URL and the commit it must check.
+For each code ticket, use its acceptance criteria and the relevant phase checks to fill the unit, live and perf boxes in the decision trail for its actual PR. Give the verifier the PR URL and the commit it must check. Record why a check is inapplicable.
 
 - [ ] Unit. Run the named tests at the committed head and save the results.
-- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head, and a wording-only change gets none. Run each full swarm per the `swarm` skill. One gates lane, plus the live and perf lanes below. Leave diff-wide code review to the Code review playbook after the spec's PRs land on `project/<slug>`. The root checks the receipts in the merge-ready report before the verdict.
-- [ ] Live. Run ten lanes on the configured swarm workers model at the PR head. Give each a concrete scenario, a screenshot to save and a pass predicate. Run the regression lane on the same load-bearing scenario at trunk and head. If trunk lacks the feature, record that and gate the behavior the diff adds plus the end state the user waits for.
+- [ ] Give one independent verifier the code-ready PR head and ticket. Apply the execution playbook's rules for later heads. The root checks the receipts before the verdict. Project-wide Code review follows once the spec's PRs land.
+- [ ] Live. For each scenario in the ticket, record the user action, pass condition and evidence location. Compare the load-bearing regression scenario on trunk and head. If trunk lacks the feature, record that and verify the new behavior and the end state the user waits for.
 - [ ] Perf. Record the metric, interleaved probe, trunk baseline and failure rule. Measure both sides when comparable. Otherwise set absolute budgets for the new work and the user-visible end state.
 - [ ] For an interaction change, post the screenshots and a 30 to 60 second video in chat. Stop at merge-ready and wait for the operator's approval.
-- [ ] Judge every finding by the execution playbook's blocking rule. The verdict is clean when none blocks. A failure on trunk behavior in a lane marked `Regression lane against trunk.` is recorded against trunk and does not block the PR. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `<mmw-mode-dir>/playbooks/shipping.md`.
+- [ ] Judge every finding by the execution playbook's blocking rule. The verdict is clean when none blocks. A failure already present in the regression scenario on trunk is recorded against trunk and does not block the PR. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `<mmw-mode-dir>/playbooks/shipping.md`.
 - [ ] <The merge or handoff rule from the execution playbook, with the patch-id rule from `<mmw-mode-dir>/playbooks/shipping.md`.>
 
-### Boot recipe, for every live lane
+### Boot recipe, for each PR
 
-Run each live lane at the PR head in a separate local worktree or cloud workspace according to the task's execution environment. Isolate ports and runtime data when lanes share a machine, or run conflicting lanes in sequence. Use the verification skill named in **Verify** for the lane's surface.
+Run the PR verifier at the head under review in a separate local worktree or cloud workspace according to the task's execution environment. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
 
-- [ ] In the lane's assigned worktree or cloud workspace, run `git fetch origin <head-branch> && git checkout <head SHA>`.
+- [ ] In the verifier's assigned worktree or cloud workspace, run `git fetch origin <head-branch> && git checkout <head SHA>`.
 - [ ] <Start the backend and the surface. Wait for ready.>
 - [ ] <Deliver input only through the user-facing driver named in Verify. Name the read-only diagnostics.>
-- [ ] Save every screenshot to `/tmp/swarm-<pr-id>/worker-<n>/<slug>.png` and return links or paths the operator can open.
+- [ ] Save the evidence for each scenario at the location named in the ticket or plan and return links or paths the operator can open.
 
 ## Phase 1. <Goal as a verb phrase>
 

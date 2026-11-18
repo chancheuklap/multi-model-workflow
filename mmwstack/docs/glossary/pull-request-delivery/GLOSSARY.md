@@ -23,7 +23,7 @@ An open, non-draft PR. Opening it in this state lets CI and automated reviews st
 Whether merging a PR can be walked back. A **two-way door** can be. A **one-way door**, such as a destructive action or a hard-to-reverse decision, cannot. The PR's `Blast Radius` section opens with it.
 
 **Code-ready head**:
-The exact commit an Autopilot owner reports after finishing the change, cleaning the diff and comments, checking the affected paths, and updating the branch to its intended base. The independent verification swarm can start at this revision.
+The exact commit an Autopilot owner reports after finishing the change, cleaning the diff and comments, checking the affected paths, and updating the branch to its intended base. The independent verifier can start at this revision.
 
 **Self-proof**:
 The PR owner's evidence that the implemented change works on the real artifact. The owner includes it in the merge-ready report. An independent PR verifier checks the change separately.
@@ -79,8 +79,8 @@ An agent independent of the PR author, assigned to exercise the change at a name
 **Shipping verdict**:
 An independent verifier's judgment on a particular PR patch. `PASS` and `PASS+NOTES` admit the PR to a verified run. `FAIL` stops the run at that PR. A green CI report and an approving bot comment answer different questions.
 
-**PR verification swarm**:
-Autopilot's independent verification of the code-ready head. The gates lane reruns repository checks, live lanes exercise the product, and perf lanes measure timed paths. Diff-wide code review stays out of per-PR verification and runs once via Code review after the spec's PRs land on the project branch. The regression lane compares the same scenario on trunk and head. The performance check compares like measurements or uses an absolute budget where trunk lacks the behavior.
+**PR verification**:
+Autopilot's independent verification of the code-ready head. One independent verifier reruns the required repository checks, exercises the product, and measures timed paths where relevant. Diff-wide code review stays out of per-PR verification and runs once via Code review after the spec's PRs land on the project branch. The verifier compares the same scenario on trunk and head. The performance check compares like measurements or uses an absolute budget where trunk lacks the behavior.
 
 **Clean verdict**:
 The root's Autopilot judgment after the required live verification and receipt check of the owner's evidence. A demonstrated user-facing bug, failed gate, or shipped documentation made wrong by the PR can block. A base defect blocks when the PR copies it or newly reaches it. Each new head still needs green CI.

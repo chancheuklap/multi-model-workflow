@@ -28,14 +28,14 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 - `/mmw-mode we need <feature>. /architect it first, and answer open questions with prototypes. let me review before proceeding.`
 - `/mmw-mode write a tutorial for how i would use <new package> first. then /teach me why it beats the current one.`
 - `ask /arena for a second opinion on this thread and our approach.`
-- `/advisor should we keep the queue in memory or move it into the database?` One stronger model returns a verdict. Say `advisor on` to have it consulted before major decisions and when the agent is stuck.
+- `/advisor should we keep the queue in memory or move it into the database?` The configured advisor returns an independent verdict. Say `advisor on` to have it consulted before major decisions and when the agent is stuck.
 - `/mmw-mode turn this design into a plan. show each phase's outcome, dependencies, and verification steps.`
 - `/mmw-mode plan the migration of <library> to <target>. include visual regression checks for each phase. the result must match the original exactly, bugs included.`
 
 ## Review and ship
 
 - `/create-formal-verification-skill prove <property> holds in <module>, even when <steps> interleave or retry.` After merges or refactors in that code: `/maintain-formal-verification-skill`.
-- `/swarm check every package under <dir> against its check script. one worker per package. one report.`
+- `Check every package under <dir> against its check script. one worker per package. one report.`
 - `/mmw-mode open the pr. small ordered commits, evidence in the description.`
 - `/mmw-mode babysit this pr. get it green.` For status only: `/mmw-mode check on pr <number>. anything outstanding?`
 - `/mmw-mode land the stack.`

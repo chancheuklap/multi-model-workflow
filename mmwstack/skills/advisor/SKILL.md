@@ -1,11 +1,11 @@
 ---
 name: advisor
-description: "Consult a stronger model at a major decision or when stuck, and act on its verdict. Use for /advisor, \"ask the advisor\", \"get a second opinion from a stronger model\", or when the operator turns advisor mode on. Never start it on your own."
+description: "Consult an independent advisor at a major decision or when stuck, and act on its verdict. Use for /advisor, \"ask the advisor\", \"get a second opinion from a stronger model\", or when the operator turns advisor mode on. Never start it on your own."
 ---
 
 # Advisor
 
-The advisor is a stronger model. It reads your brief and the repository, returns a verdict and edits nothing. You keep doing the work and own the decision.
+The advisor is a fresh read-only agent using the configured `advisor` model. If the operator specifically requests a stronger model, check that the configured choice meets the request before dispatch. It reads your brief and the repository, returns a verdict and edits nothing. You keep doing the work and own the decision.
 
 ## When to consult
 
@@ -19,7 +19,7 @@ Checkpoints:
 1. **Before a major decision.** Choosing between architectures or approaches; changes that are hard to reverse or have a wide blast radius (schema or data migrations, deleting or rewriting a module, public API or config format changes, dependency swaps, auth, payments, or other security-sensitive code); or a request ambiguous in a way that would change the work materially. Consult once you have a concrete plan and the options in hand, not before you understand the problem. One consult covers the plan, so skip a consult per file.
 2. **When stuck.** The same error or failing test after two genuine fix attempts; behavior you cannot explain from the code; or when you are about to reach for a workaround: a retry loop, a `sleep`, a broad `try/except`, skipping a test, or disabling a check to get past something.
 
-Each consult is a strong-model call. Go on without one when reading the sources or a small check settles the question, or when no answer would change your next action. If a task needs more than about four consults, split the task or ask the operator.
+Each consult starts a separate agent. Go on without one when reading the sources or a small check settles the question, or when no answer would change your next action. If a task needs more than about four consults, split the task or ask the operator.
 
 ## How to consult
 

@@ -42,7 +42,7 @@ A subagent carrying out a scoped assignment. Code delegates, helpers, readers, i
 A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. The parent supplies missing inputs, performs a step it is eligible to perform, or assigns an eligible agent in the task's execution environment. If the required step still cannot run, the parent reports it as blocked. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
 **Owner session**:
-An agent session that carries an assignment as its own and starts delegates itself. A PR owner or swarm worker can take this role.
+An agent session that carries an assignment as its own and starts delegates itself. A PR owner can take this role.
 _Avoid_: delegate for an owner session, owner alone for the operator.
 
 **mmw-agent**:
@@ -63,8 +63,6 @@ A subagent that carries out one assignment and returns a result its parent can i
 
 The worker's kickoff names its goal, write boundaries and completion evidence. A worker assigned as [PR owner](../pull-request-delivery/GLOSSARY.md#the-pr-and-its-owner) is the sole writer of that PR's branch.
 
-A swarm worker receives one coverage slice or race arm and returns `PASS`, `ISSUES`, or `BLOCKED` with evidence for the coordinator's report. [swarm](../../../skills/swarm/SKILL.md)
-
 **Execution playbook**:
 The playbook that assigns authorized tickets and directs their delivery. It receives the `ready-for-agent` tickets whose direct blockers have cleared. A multi-phase plan names the execution playbook that determines who may merge and what the operator reserves for review. [to-tickets](../../../skills/to-tickets/SKILL.md) · [Multi-phase plan playbook](../../../skills/mmw-mode/playbooks/multi-phase-plan.md)
 
@@ -74,7 +72,7 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 The operator's saved assignments of models and settings to roles, normally in `~/.agents/mmwstack-models.md`. Each host has its own section. A subagent that will delegate receives that section or the role lines it needs. An assignment that cannot run leaves an unfilled role.
 
 **Model role**:
-A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`.
+A named kind of assignment in the model rule. Autopilot starts its PR owner on `coder`. Autopilot and Shipping assign independent PR checks to `verifier`. Scoped code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A single-agent [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`.
 
 **Reasoning budget**:
 The operator's target reasoning level. The targets for `unlimited`, `large`, `medium`, and `small` are `max`, `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
@@ -89,37 +87,18 @@ The operator's explicit choice of `inherit-parent` or `auto`. Both values run th
 An assignment with one seat per entry in `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Arena can add runners for multiple design directions using the configured models. Architect applies Arena's runner rules to its own list. [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
 
 **Arena cross-judge pool**:
-The operator's ordered list of models from which one read-only judge is selected. Arena takes the first available model from a different vendor than the parent's. A vendor is the company that trains the model, and models from one vendor count as one vendor even when the vendor names its lines differently. If the parent's vendor is unknown, Arena can use an explicitly named model and reports that it could not check the vendor. Inherited entries cannot judge.
+The operator's ordered list for one independent read-only judge. Arena uses the first available entry, including an explicitly inherited model. A candidate author cannot judge the submissions.
 
 **Second opinion**:
-An independent answer to the same prompt from a different model.
+An answer from a fresh agent given the same question.
 
 **Advisor**:
-The stronger model the agent handling the decision consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)
+The independent agent a decision owner consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)
 
 **Reader**:
 The delegate role for an assignment that reads and reports, such as a large artifact, a chat transcript, or an event to watch, when no playbook or skill names a role for it. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
 [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [arena](../../../skills/arena/SKILL.md)
-
-### Swarm coverage and races
-
-**Swarm**:
-Parallel workers assigned independent portions of a task, the same task in a race, or a mixture of both. The `swarm workers` role supplies the worker model. The coordinator returns one report with the results, proved issues, and gaps.
-
-**Coverage slice**:
-The part of a swarm that one worker must check, such as one package in a repository. Coverage is complete when every required slice has a result.
-
-**Race arm**:
-One independent attempt at the same brief. A model race identifies the model for each arm up front. The predeclared selection rule takes the first passing result (`first pass`), ranks the results (`rank all`), or selects the best result (`best-of`).
-
-**Swarm worker result**:
-A worker's evidence and its status for the assigned check. `PASS` records a successful check, `ISSUES` records all defects the worker can prove, and `BLOCKED` records a check the worker could not complete. A measurement result identifies the requested revisions and method.
-
-**Coverage gap**:
-A required slice with no usable result. A **dropout** is a worker that returns no output. A worker can also leave a gap by returning results twice without the revisions or method its brief required.
-
-[swarm](../../../skills/swarm/SKILL.md)
 
 ### Arena candidates and synthesis
 
