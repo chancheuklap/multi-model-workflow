@@ -79,7 +79,7 @@ For each code ticket, use its acceptance criteria and the relevant phase checks 
 
 ### Boot recipe, for every live lane
 
-Run each live lane at the PR head in a separate local worktree or cloud workspace according to the run's execution environment. Isolate ports and runtime data when lanes share a machine, or run conflicting lanes in sequence. Use the verification skill named in **Verify** for the lane's surface.
+Run each live lane at the PR head in a separate local worktree or cloud workspace according to the task's execution environment. Isolate ports and runtime data when lanes share a machine, or run conflicting lanes in sequence. Use the verification skill named in **Verify** for the lane's surface.
 
 - [ ] In the lane's assigned worktree or cloud workspace, run `git fetch origin <head-branch> && git checkout <head SHA>`.
 - [ ] <Start the backend and the surface. Wait for ready.>

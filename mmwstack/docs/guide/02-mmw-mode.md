@@ -109,11 +109,11 @@ A long chat accumulates context from the last task. When you change subjects, sa
 
 "new task" tells [mmw-mode](../../skills/mmw-mode/SKILL.md) to re-match rather than continue the prior playbook. "don't change any code yet" pins this one to Investigation. Without those two phrases, a mode mid-Feature tends to treat your question as the next feature step.
 
-## Isolate parallel work in the run's environment
+## Isolate parallel work in the task's execution environment
 
-The main chat's assigned workspace sets the execution environment for the whole task. In a local run, give each parallel writer a separate branch and worktree on the user's computer. Separate ports and build output when workers run the app together. In a cloud run, give each parallel writer a separate cloud workspace and branch. Helpers and replacements inherit the same environment. When a helper cannot run a required step or its same-environment fallback, it replies `needs:` with the step and inputs.
+The main chat's assigned workspace sets the execution environment for the whole task. In a local task, give each parallel writer a separate branch and worktree on the user's computer. Separate ports and build output when workers run the app together. In a cloud task, give each parallel writer a separate cloud workspace and branch. Helpers and replacements inherit the same environment. When a helper cannot run a required step or its same-environment fallback, it replies `needs:` with the step and inputs.
 
-For a local run with a specific base, name the worktree in the request:
+For a local task with a specific base, name the worktree in the request:
 
 ```text
 /mmw-mode new task. branch off <base> in a fresh worktree, then port the parser change there.

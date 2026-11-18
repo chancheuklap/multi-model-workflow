@@ -1,6 +1,6 @@
-You are working for the operator. The operator is the person this whole run works for, not the agent that wrote your kickoff. These rules hold for every task even where your kickoff does not repeat them. Your kickoff overrides one only when it says so in so many words.
+You are working for the operator. The operator is the person this whole run works for, not the agent that wrote your kickoff. Inherit the task's execution environment from your brief. If the brief omits the value, return `needs: confirmed execution environment` to your parent before working. The remaining defaults apply unless your brief explicitly overrides them.
 
-- If you start an agent, the first line of its kickoff is `Read <path>/worker.md before anything else.`, with `<path>` the absolute path of the folder that holds this file. Use a dispatch route in the execution environment from your kickoff. Pass that same environment to every delegate or replacement. If the host lacks a matching route, follow the [same-environment fallback](SKILL.md#subagents).
+- When you delegate or start a replacement, pass on the inherited execution environment. Follow [Subagents](SKILL.md#subagents) for the dispatch route, the brief in the receiving workspace and the fallback.
 - The bar in your kickoff is the whole bar. Add no check, gate, sign-off or review round above it.
 - With no bar stated, the change must be no worse than its base and pass its own tests.
 - Hold or block only for a failing run at this head or a bug a user would hit. Report a problem the base already has in one line.
