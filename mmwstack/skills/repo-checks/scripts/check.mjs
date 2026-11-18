@@ -949,6 +949,10 @@ async function commandProcess(command, timeout, log) {
   const start = performance.now();
   const env = { ...process.env };
   delete env.MMW_REPO_CHECKS_HOOK;
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
+  delete env.GIT_COMMON_DIR;
   let child;
   try {
     child = spawn(command, {

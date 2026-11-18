@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, unlinkSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, globSync, mkdirSync, readFileSync, readdirSync, symlinkSync, unlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { cleanConfig, fixture, lintJson } from './fixture.mjs';
@@ -235,6 +235,62 @@ test('a real push is refused for a selected failing check and accepts an inert c
   const allowed = realGit(f, 'push', 'origin', 'inert');
   assert.equal(allowed.status, 0, output(allowed));
   assert.match(output(allowed), /SUMMARY nothing selected/);
+});
+
+test('a real linked-worktree push removes Git repository variables from check commands', t => {
+  const f = fixture(t);
+  const c = cleanConfig();
+  c.checks[0].run = command('console.log(JSON.stringify(["GIT_DIR","GIT_WORK_TREE","GIT_INDEX_FILE","GIT_COMMON_DIR"].filter(key=>Object.hasOwn(process.env,key))))');
+  f.config(c);
+  f.commit('Configure environment check');
+  f.git('push', 'origin', 'main');
+  f.write('src/input.js', 'selected\n');
+  f.commit();
+  const linked = join(f.root, 'linked');
+  f.git('worktree', 'add', '-b', 'linked', linked);
+  enableHooks(f);
+  const gitDir = f.git('-C', linked, 'rev-parse', '--absolute-git-dir');
+  const env = { ...f.env, GIT_DIR: gitDir, GIT_WORK_TREE: linked,
+    GIT_INDEX_FILE: join(gitDir, 'index'), GIT_COMMON_DIR: join(f.repo, '.git') };
+  const result = realGit({ ...f, repo: linked, env }, 'push', 'origin', 'linked');
+  assert.equal(result.status, 0, output(result));
+  assert.match(output(result), /PASS unit/);
+  const paths = globSync(join(f.repo, '.git/repo-checks/*/records/*.json'));
+  assert.equal(paths.length, 1, output(result));
+  const saved = JSON.parse(readFileSync(paths[0], 'utf8'));
+  assert.equal(saved.mode, 'push');
+  const log = readFileSync(saved.results[0].log, 'utf8');
+  t.diagnostic(log.trim());
+  assert.deepEqual(JSON.parse(log), []);
+});
+
+test('a real linked-worktree push creating a bare repository leaves the main checkout usable', t => {
+  const f = fixture(t);
+  const c = cleanConfig();
+  const bare = join(f.root, 'check-bare.git');
+  mkdirSync(bare);
+  c.checks[0].run = `cd ${quote(bare)} && git init --bare --template= && git config core.bare`;
+  f.config(c);
+  f.commit('Configure bare repository check');
+  f.git('push', 'origin', 'main');
+  f.write('src/input.js', 'selected\n');
+  f.commit();
+  const linked = join(f.root, 'linked');
+  f.git('worktree', 'add', '-b', 'linked', linked);
+  const tip = f.git('-C', linked, 'rev-parse', 'HEAD');
+  assert.equal(f.git('config', '--get', 'core.bare'), 'false');
+  enableHooks(f);
+  const result = realGit({ ...f, repo: linked }, 'push', 'origin', 'linked');
+  const coreBare = realGit(f, 'config', '--get', 'core.bare');
+  const status = realGit(f, 'status', '--porcelain');
+  t.diagnostic(`main core.bare=${coreBare.stdout.trim()} status_exit=${status.status} push_exit=${result.status}`);
+  t.diagnostic(output(status).trim());
+  t.diagnostic(output(result).trim());
+  assert.equal(coreBare.stdout.trim(), 'false');
+  assert.equal(status.status, 0, output(status));
+  assert.equal(result.status, 0, output(result));
+  assert.match(output(result), /PASS unit/);
+  assert.equal(f.git('--git-dir', join(f.root, 'origin.git'), 'rev-parse', 'refs/heads/linked'), tip);
 });
 
 test('a real multi-branch push unions merge-base ranges rather than remote old SHAs', t => {
