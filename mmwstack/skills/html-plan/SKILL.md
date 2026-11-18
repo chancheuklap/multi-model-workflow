@@ -37,7 +37,7 @@ Do not add a timeline, progress percentage, status badge, or dashboard summary u
 
 When working from approved wording, decisions, or designs, use [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md) before changing their presentation.
 
-- Keep source commitments recognizable.
+- Keep source commitments recognizable. Apply [unslop](../unslop/SKILL.md) to newly written copy.
 - Tell accepted decisions, assumptions, and open questions apart at the item where each applies.
 - Show sequence and dependency only where they are real.
 - Use tables for exact mappings, comparisons, or repeated fields.

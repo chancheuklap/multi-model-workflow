@@ -181,7 +181,7 @@ Create only when all of these are true:
 
 Never create for a feature request, question, feedback item, reroute, possible duplicate, confident duplicate, or already-fixed issue.
 
-The new issue must be self-contained:
+Use mmwstack's `unslop` for the issue title and the prose you write. Quote the reporter verbatim. The new issue must be self-contained:
 
 - Plain title that names the area and symptom
 - Reporter quote

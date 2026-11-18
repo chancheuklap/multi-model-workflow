@@ -35,6 +35,6 @@ A **hard finding** is a documented-standard breach, a spec finding, or a test fi
 
 ## Report
 
-Return to the invoker the reviewed commit and, for each axis, the supported finding count, the dropped findings with reasons, and what stayed unverified. Mark each kept finding a hard finding or a judgement call, and keep judgement calls under their axis.
+Use [unslop](../unslop/SKILL.md) for the report. Return to the invoker the reviewed commit and, for each axis, the supported finding count, the dropped findings with reasons, and what stayed unverified. Mark each kept finding a hard finding or a judgement call, and keep judgement calls under their axis.
 
 Do not send the axes or any reviewer again. A second review needs a new request from the operator.

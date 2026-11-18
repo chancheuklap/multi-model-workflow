@@ -38,7 +38,7 @@ A candidate with no repeated class behind it, whether seen once or a standing ga
 
 ## Fix and prove
 
-Then fix the most frequent classes now, one commit each. Prove each new check fails on a real past mistake. Run the same command locally and in CI. Exceptions go on the offending line with a reason, an expiry date, and a human's approval.
+Then fix the most frequent classes now, one commit each. Run [deslop](../deslop/SKILL.md) on each code diff before committing and write the message with [unslop](../unslop/SKILL.md). Prove each new check fails on a real past mistake. Run the same command locally and in CI. Exceptions go on the offending line with a reason, an expiry date, and a human's approval.
 
 ## Keep the rule table
 
