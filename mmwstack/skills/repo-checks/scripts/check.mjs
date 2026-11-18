@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { accessSync, appendFileSync, chmodSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { accessSync, appendFileSync, chmodSync, closeSync, constants, existsSync, globSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFileSync, fork, spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -223,46 +223,73 @@ const legacyMarkers = [
 
 const anyLegacyMarker = new RegExp(legacyMarkers.map(({ pattern }) => `(?:${pattern.source})`).join('|'), 'i');
 
-function workflowFilterAt(text, index) {
-  let offset = 0;
-  let filterIndent = null;
-  let inTriggers = false;
-  for (const line of text.split('\n')) {
+function workflowFilterAt(text, index, scan) {
+  scan.workflow ??= { offset: 0, end: -1, filterIndent: null, inTriggers: false };
+  const state = scan.workflow;
+  while (state.end < index && state.offset <= text.length) {
+    const newline = text.indexOf('\n', state.offset);
+    state.end = newline < 0 ? text.length : newline;
+    const line = text.slice(state.offset, state.end);
     const indent = line.search(/\S/);
     const topKey = indent === 0 && !line.startsWith('#');
-    if (topKey) inTriggers = /^["']?on["']?\s*:/.test(line);
+    if (topKey) state.inTriggers = /^["']?on["']?\s*:/.test(line);
     const key = line.match(/^(\s*)["']?paths(?:-ignore)?["']?\s*:/);
     const inlineFilter = /[,{]\s*["']?paths(?:-ignore)?["']?\s*:/.test(line);
-    if (inTriggers && (key || inlineFilter)) filterIndent = indent;
-    else if (!inTriggers || (filterIndent !== null && indent >= 0 && !line.trimStart().startsWith('#') && indent <= filterIndent)) filterIndent = null;
-    if (offset + line.length >= index) return filterIndent !== null;
-    offset += line.length + 1;
+    if (state.inTriggers && (key || inlineFilter)) state.filterIndent = indent;
+    else if (!state.inTriggers || (state.filterIndent !== null && indent >= 0 && !line.trimStart().startsWith('#') && indent <= state.filterIndent)) state.filterIndent = null;
+    state.offset = state.end + 1;
   }
-  return false;
+  return state.filterIndent !== null;
 }
 
-function markerContext(kind, path, text, index) {
+function markerContext(kind, path, text, index, scan) {
   if (!kind) return true;
-  const before = text.slice(0, index);
-  const after = text.slice(index);
-  const nearby = [...before.split('\n').slice(-3), ...after.split('\n').slice(0, 3)].join('\n');
-  const heading = before.match(/^#{1,6}\s+.*$/gm)?.at(-1) ?? '';
-  const context = `${heading}\n${nearby}`;
   const workflow = /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
-  if (kind === 'workflow-filter') return workflow && workflowFilterAt(text, index);
+  if (kind === 'workflow-filter') return workflow && workflowFilterAt(text, index, scan);
+  if (kind === 'ticket-check' && !/(?:^|\/)verify-erp(?:\/|$)/.test(path)) return false;
   if (kind === 'exclusion') {
-    if (workflow) return workflowFilterAt(text, index);
-    const tomlSection = before.match(/^\s*\[([^\]]+)\]/gm)?.at(-1) ?? '';
-    const testOrLintSection = /(?:^|\/)pyproject\.toml$/.test(path) &&
+    if (workflow) return workflowFilterAt(text, index, scan);
+    if (/(?:^|\/)\.(?:gitignore|dockerignore|ignore|eslintignore|prettierignore)$|(?:eslint|oxlint|vitest|jest|pytest|ruff)[^/]*(?:config|\.ini|\.json|\.toml)/.test(path)) return true;
+    const toml = /(?:^|\/)pyproject\.toml$/.test(path);
+    const ini = /(?:^|\/)(?:setup\.cfg|tox\.ini)$/.test(path);
+    if (toml || ini) {
+      scan.sections ??= { pattern: /^\s*\[([^\]]+)\]/gm, current: '' };
+      const sections = scan.sections;
+      if (sections.next === undefined) sections.next = sections.pattern.exec(text);
+      while (sections.next && sections.next.index + sections.next[0].length <= index) {
+        sections.current = sections.next[0];
+        sections.next = sections.pattern.exec(text);
+      }
+    }
+    const tomlSection = scan.sections?.current ?? '';
+    const testOrLintSection = toml &&
       /\[tool\.(?:pytest|ruff|black|isort|coverage|pylint|flake8|mypy)(?:[.\]]|$)/.test(tomlSection);
-    const pytestSection = /(?:^|\/)(?:setup\.cfg|tox\.ini)$/.test(path) &&
+    const pytestSection = ini &&
       /^\s*\[(?:tool:pytest|pytest)\]\s*$/.test(tomlSection);
-    return testOrLintSection || pytestSection || /(?:^|\/)\.(?:gitignore|dockerignore|ignore|eslintignore|prettierignore)$|(?:eslint|oxlint|vitest|jest|pytest|ruff)[^/]*(?:config|\.ini|\.json|\.toml)/.test(path) ||
-      /\b(?:ignore[sd]?|exclud\w*|omit)\b|排除|忽略/i.test(context);
+    if (testOrLintSection || pytestSection) return true;
   }
-  if (kind === 'ticket-check') return /(?:^|\/)verify-erp(?:\/|$)/.test(path) && /\bticket\b|工单|票据/i.test(context);
-  return path === 'scripts/check' || /^\.githooks\//.test(path) ||
-    /\bscripts\/check\b|\bcheck(?:s|ers)?\b|检查|MMW[^\n]*(?:工单|ticket)/i.test(context);
+  if (kind === 'checks' && (path === 'scripts/check' || /^\.githooks\//.test(path))) return true;
+  scan.headings ??= { pattern: /^#{1,6}\s+.*$/gm, current: '' };
+  const headings = scan.headings;
+  if (headings.next === undefined) headings.next = headings.pattern.exec(text);
+  while (headings.next && headings.next.index + headings.next[0].length <= index) {
+    headings.current = headings.next[0];
+    headings.next = headings.pattern.exec(text);
+  }
+  const heading = headings.next && headings.next.index < index ?
+    text.slice(headings.next.index, index).match(/^#{1,6}\s+.*$/m)?.[0] ?? headings.current : headings.current;
+  let start = index;
+  let end = index;
+  for (let i = 0; i < 3; i++) {
+    start = start <= 0 ? -1 : text.lastIndexOf('\n', start - 1);
+    end = end < 0 ? -1 : text.indexOf('\n', end);
+    if (end >= 0) end++;
+  }
+  const nearby = `${text.slice(start + 1, index)}\n${text.slice(index, end < 0 ? text.length : end - 1)}`;
+  const context = `${heading}\n${nearby}`;
+  if (kind === 'exclusion') return /\b(?:ignore[sd]?|exclud\w*|omit)\b|排除|忽略/i.test(context);
+  if (kind === 'ticket-check') return /\bticket\b|工单|票据/i.test(context);
+  return /\bscripts\/check\b|\bcheck(?:s|ers)?\b|检查|MMW[^\n]*(?:工单|ticket)/i.test(context);
 }
 
 function markerFindings(path) {
@@ -271,8 +298,16 @@ function markerFindings(path) {
     const stat = constants.O_NOFOLLOW === undefined ? lstatSync(path) : null;
     if (stat?.isDirectory()) return [];
     try {
-      text = stat?.isSymbolicLink() ? readlinkSync(path) :
-        readFileSync(path, { encoding: 'utf8', flag: constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) });
+      if (stat?.isSymbolicLink()) text = readlinkSync(path);
+      else {
+        const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+        try {
+          const prefix = Buffer.allocUnsafe(8192);
+          const bytes = readSync(fd, prefix, 0, prefix.length, 0);
+          if (prefix.subarray(0, bytes).includes(0)) return [];
+          text = readFileSync(fd, 'utf8');
+        } finally { closeSync(fd); }
+      }
     } catch (error) {
       if (error.code !== 'ELOOP') throw error;
       text = readlinkSync(path);
@@ -284,8 +319,9 @@ function markerFindings(path) {
   if (text.includes('\0') || !anyLegacyMarker.test(text)) return [];
   const findings = [];
   for (const { marker, pattern, context } of legacyMarkers) {
+    const scan = {};
     for (const match of text.matchAll(pattern)) {
-      if (!markerContext(context, path, text, match.index)) continue;
+      if (!markerContext(context, path, text, match.index, scan)) continue;
       findings.push({
         rule: 'legacy-marker', path, marker,
         message: `${JSON.stringify(path)}: legacy marker ${JSON.stringify(marker)} (${JSON.stringify(match[0])})`,
