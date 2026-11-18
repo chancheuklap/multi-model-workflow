@@ -306,7 +306,6 @@ function judgeBody(body, ticket, target) {
 		if (ticket === null) return ref.closing;
 		if (ref.number !== ticket) return false;
 		if (ref.slug === undefined || ref.slug === target.slug) return ref.closing;
-		// Registered cross-repository tickets are also tracked after merge.
 		return isRegistered(ref.slug);
 	};
 	if (references.some(closesTicket)) return "linked";
