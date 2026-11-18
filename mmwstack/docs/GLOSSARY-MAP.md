@@ -14,6 +14,7 @@ Each context defines the words mmwstack uses to make a particular kind of decisi
 | What can a benchmark, live process, or captured trace establish about a regression, leak, or stalled operation? | [Performance](glossary/performance/GLOSSARY.md) |
 | Which artifact settles a visual question, catches the operator up, or sends an action to a bot? | [Design and presentation](glossary/design-and-presentation/GLOSSARY.md) |
 | What claim did a check test, on which product path, and with what evidence? | [Product verification](glossary/product-verification/GLOSSARY.md) |
+| Which repository checks run at commit, push, and the deploy gate, and how does a config correction prevent a miss? | [Repo checks](glossary/repo-checks/GLOSSARY.md) |
 | Which property of the code was checked, under which bounds and assumptions? | [Formal verification](glossary/formal-verification/GLOSSARY.md) |
 | How does a checked model become a reader's chart, and what can a marked state or loop show? | [Statechart](glossary/statechart/GLOSSARY.md) |
 | Who owns the PR, what does its watcher report, and when is a stack or worktree ready for the next action? | [Pull request delivery](glossary/pull-request-delivery/GLOSSARY.md) |

@@ -18,6 +18,7 @@ Invoked at the end of every other playbook.
 - `## Tradeoffs`: only rejected alternatives a reviewer would otherwise ask about. Skip when there was no real choice.
 - `## Blast Radius`: Open with `**Door:** <one-way or two-way>`. You can walk back through two-way doors, but not one-way doors. Changes that involve destructive actions or hard-to-reverse decisions are one-way doors. Then 1–2 sentences on who or what it touches and why that is safe or risky. If main is red, state the cost of leaving it red.
 - `## Verification`: 1–3 bullets, each a real run path and its outcome. Show a before and after. Screenshots are S-tier when the environment is set up for it and the change is visual. Execution-based evidence is A-tier: test results, console output. Show the exact test that failed before and passes now, using pseudocode. Perf: one primary number with its unit, `before → after`, and a link to the arena or swarm directory for the rest. No sample-size methodology, swarm recitals, or metric tables.
+  Use the `SUMMARY` line from `scripts/check` as evidence for the repository's own checks under the [repo-checks moment rules](../../repo-checks/references/checks.md#moment-rules).
 
 After the sections, attach videos or screenshots when they prove a claim. Full SHAs, swarm or arena lane recitals, lever-correction essays, file-by-file checklists, and "CLEAN" verdicts go in a linked artifact, not the body.
 
