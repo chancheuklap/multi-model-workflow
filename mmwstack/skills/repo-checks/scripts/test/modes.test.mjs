@@ -389,13 +389,13 @@ test('selftest names a failed selection assertion on a mutated engine with no te
   assert.match(text.stdout, /SELFTEST FAIL selection/);
 });
 
-test('selftest fails clearly without configured Git identity rather than configuring another author', t => {
+test('selftest succeeds with no user Git configuration and creates none', t => {
   const f = fixture(t);
-  f.env.GIT_CONFIG_GLOBAL = '/dev/null';
+  f.env.GIT_CONFIG_GLOBAL = join(f.home, 'absent.gitconfig');
   f.env.GIT_CONFIG_NOSYSTEM = '1';
-  const facts = json(f, ['selftest'], 1, { cwd: f.home });
-  assert.deepEqual(facts.assertions.map(item => [item.name, item.ok]), [['fixture', false]]);
-  assert.match(facts.assertions[0].message, /identity|user.email|GIT_AUTHOR_IDENT/i);
+  const facts = json(f, ['selftest'], 0, { cwd: f.home });
+  assert.equal(facts.ok, true);
+  assert.equal(existsSync(f.env.GIT_CONFIG_GLOBAL), false);
 });
 
 test('new modes reject extra options as mode-specific JSON facts, and report errors do not assume events', t => {

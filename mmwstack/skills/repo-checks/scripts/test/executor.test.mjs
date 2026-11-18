@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cpus } from 'node:os';
-import { appendFileSync, chmodSync, copyFileSync, existsSync, readFileSync, readdirSync, mkdirSync, rmSync } from 'node:fs';
+import { appendFileSync, chmodSync, copyFileSync, existsSync, readFileSync, readdirSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanConfig, fixture } from './fixture.mjs';
 
@@ -71,9 +71,18 @@ test('timeout fails with reason timeout and kills descendants before finishing',
 
 test('machine locks serialize separate repositories while waiters leave slots available', async t => {
   const lock = `shared-${Date.now()}`;
-  const { f } = setup(t, c => {
+  const { f } = setup(t, (c, f) => {
     c.checks[0].lock = lock;
-    c.checks[0].run = command('console.log("started"); setTimeout(()=>console.log("finished"),1500)');
+    c.checks[0].timeout_s = 40;
+    c.checks[0].run = 'node test/hold-lock.cjs';
+    f.write('test/hold-lock.cjs', `
+      const { existsSync, writeFileSync } = require('node:fs');
+      const { join } = require('node:path');
+      writeFileSync(join(process.env.HOME, 'lock-held'), '');
+      const poll = setInterval(() => {
+        if (existsSync(join(process.env.HOME, 'release-lock'))) clearInterval(poll);
+      }, 20);
+    `);
   });
   const other = setup(t, c => {
     c.checks = [
@@ -82,12 +91,19 @@ test('machine locks serialize separate repositories while waiters leave slots av
     ];
   }).f;
   const first = f.start(['--all']);
-  await first.until(/SELECT unit/);
-  await new Promise(resolve => setTimeout(resolve, 250));
+  const held = join(f.home, 'lock-held');
+  const deadline = Date.now() + 10_000;
+  while (!existsSync(held) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
+  assert.ok(existsSync(held), 'First repository acquired the lock');
   const second = other.start(['--all'], { env: { ...other.env, HOME: f.home, XDG_CACHE_HOME: f.env.XDG_CACHE_HOME } });
-  await second.until(new RegExp(`WAIT ${lock}`));
-  await second.until(/PASS free4/);
-  assert.equal(first.child.exitCode, null, 'Unlocked work must finish while the resource is still held');
+  try {
+    await second.until(new RegExp(`WAIT ${lock}`), 10_000);
+    await second.until(/PASS free4/, 10_000);
+    assert.equal(first.child.exitCode, null, 'Unlocked work must finish while the resource is still held');
+    assert.ok(second.lines.every(line => !line.text.includes('PASS locked')), 'Locked check must still be waiting');
+  } finally {
+    writeFileSync(join(f.home, 'release-lock'), '');
+  }
   const a = await first.done;
   const b = await second.done;
   assert.equal(a.status, 0, a.stdout + a.stderr);

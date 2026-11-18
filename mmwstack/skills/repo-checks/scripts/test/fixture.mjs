@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,7 +31,6 @@ export function fixture(t, nodeArgs = []) {
   const home = join(root, 'home');
   const hooks = join(root, 'hooks');
   for (const dir of [repo, home, hooks]) mkdirSync(dir);
-  copyFileSync(process.env.GIT_CONFIG_GLOBAL ?? join(homedir(), '.gitconfig'), join(home, '.gitconfig'));
   writeFileSync(join(home, 'node'), `#!/bin/sh\nexec ${[process.execPath, ...nodeArgs].map(quote).join(' ')} "$@"\n`);
   chmodSync(join(home, 'node'), 0o755);
   const env = {
@@ -53,8 +52,8 @@ export function fixture(t, nodeArgs = []) {
     assert.equal(result.status, 0, `git ${args.join(' ')}\n${result.stdout}\n${result.stderr}`);
     return result.stdout.trim();
   }
-  git('var', 'GIT_AUTHOR_IDENT');
-  git('var', 'GIT_COMMITTER_IDENT');
+  git('config', '--global', 'user.name', 'Repo Checks Fixture');
+  git('config', '--global', 'user.email', 'fixture@example.invalid');
   git('init', '--bare', '--template=', join(root, 'origin.git'));
   git('--git-dir', join(root, 'origin.git'), 'config', 'core.hooksPath', hooks);
   git('--git-dir', join(root, 'origin.git'), 'symbolic-ref', 'HEAD', 'refs/heads/main');

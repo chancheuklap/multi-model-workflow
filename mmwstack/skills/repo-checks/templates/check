@@ -1,8 +1,14 @@
 #!/bin/sh
 engine=${MMW_REPO_CHECKS_ENGINE:-"$HOME/.agents/skills/repo-checks/scripts/check.mjs"}
 if ! command -v node >/dev/null 2>&1; then echo "repo-checks Node.js unavailable" >&2; [ -n "${MMW_REPO_CHECKS_HOOK:-}" ] && exit 0; exit 70; fi
+# Node returns 1 for both module load errors and a failed repository check.
+load_engine='const { pathToFileURL } = require("node:url");
+import(pathToFileURL(process.argv[1]).href).catch(error => {
+  console.error(error);
+  process.exitCode = 70;
+});'
 if [ -f "$engine" ] && [ -z "${MMW_REPO_CHECKS_HOOK:-}" ]; then
-  exec node "$engine" "$@"
+  exec node -e "$load_engine" -- "$engine" "$@"
 fi
 exec node --input-type=module -e '
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
@@ -14,7 +20,7 @@ import { constants } from "node:os";
 for (const stream of [process.stdout, process.stderr]) stream.on("error", error => {
   if (error.code !== "EPIPE") throw error;
 });
-const [engine, ...args] = process.argv.slice(1);
+const [loadEngine, engine, ...args] = process.argv.slice(1);
 const hook = process.env.MMW_REPO_CHECKS_HOOK;
 const missing = !existsSync(engine);
 function audit(record) {
@@ -54,7 +60,7 @@ if (missing && args[0] !== "--staged") finish(70);
 else if (missing && !existsSync("prek.toml") && !existsSync(".pre-commit-config.yaml")) finish(0);
 else {
   const child = missing ? spawn("prek", ["run"], { stdio: "inherit" })
-    : spawn(process.execPath, [engine, ...args], { stdio: "inherit" });
+    : spawn(process.execPath, ["-e", loadEngine, "--", engine, ...args], { stdio: "inherit" });
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
   child.once("error", error => {
     if (missing && error.code === "ENOENT") {
@@ -67,4 +73,4 @@ else {
   });
   child.once("exit", (code, signal) => finish(missing && code !== null ? (code === 0 ? 0 : 1) : code, signal));
 }
-' "$engine" "$@"
+' "$load_engine" "$engine" "$@"

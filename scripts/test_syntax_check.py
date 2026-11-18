@@ -52,14 +52,6 @@ FILES = {
 }
 
 
-def configured_identity() -> tuple[str, str]:
-    name = subprocess.check_output(["git", "config", "--get", "user.name"], text=True).strip()
-    email = subprocess.check_output(["git", "config", "--get", "user.email"], text=True).strip()
-    if not name or not email:
-        raise RuntimeError("Configured git user.name and user.email are required")
-    return name, email
-
-
 class SyntaxCheckRegressionTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory(prefix="syntax-check-test-")
@@ -71,12 +63,6 @@ class SyntaxCheckRegressionTest(unittest.TestCase):
         self.home.mkdir()
         self.repo.mkdir()
 
-        name, email = configured_identity()
-        gitconfig = self.home / ".gitconfig"
-        git_env = {"PATH": os.environ["PATH"], "HOME": str(self.home)}
-        subprocess.run(["git", "config", "--file", str(gitconfig), "user.name", name], env=git_env, check=True)
-        subprocess.run(["git", "config", "--file", str(gitconfig), "user.email", email], env=git_env, check=True)
-
         self.env = {
             "PATH": os.environ["PATH"],
             "HOME": str(self.home),
@@ -86,6 +72,8 @@ class SyntaxCheckRegressionTest(unittest.TestCase):
         self.git("init", "--bare", "--template=", str(self.remote), cwd=root)
         self.git("--git-dir", str(self.remote), "symbolic-ref", "HEAD", "refs/heads/main", cwd=root)
         self.git("init", "--template=", "-b", "main")
+        self.git("config", "user.name", "Syntax Check Fixture")
+        self.git("config", "user.email", "fixture@example.invalid")
         self.git("remote", "add", "origin", str(self.remote))
 
         for rel in ("scripts/check", "scripts/syntax-check.py", ".githooks/pre-commit", ".githooks/pre-push"):

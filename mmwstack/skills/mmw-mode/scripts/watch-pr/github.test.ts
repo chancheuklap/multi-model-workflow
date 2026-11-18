@@ -22,6 +22,7 @@ import {
   passingCheck,
   pendingCheck,
 } from "./fakes.test-helper.ts";
+import { renderPretty } from "./render.ts";
 import { parsePrNumber } from "./types.ts";
 import type * as T from "./types.ts";
 import type { FakeReaderOptions } from "./fakes.test-helper.ts";
@@ -93,6 +94,15 @@ describe("no-checks confirmation", () => {
     expect(run.sleeps).toEqual([60]);
     expect(reader.calls.filter((call) => call === "pullRequest")).toHaveLength(2);
     expect(reader.calls.filter((call) => call === "commitRollups")).toHaveLength(2);
+  });
+
+  it("reports the confirmation wait and distinguishes empty CI in the status table", async () => {
+    const run = noChecksRun(fakeReader({ fastPath: emptyChecks }));
+    const status = await run.simple([context], "single", true);
+    expect(run.events.map(renderPretty)).toEqual([
+      "RETRY: empty checks require a second CLEAN observation of the same head. Retrying in 60s\n",
+    ]);
+    expect(renderPretty(status)).toContain("| No checks |");
   });
 
   it("retains the one-error budget and one-shot snapshot behavior", async () => {

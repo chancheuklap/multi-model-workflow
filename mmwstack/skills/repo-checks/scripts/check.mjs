@@ -748,25 +748,19 @@ function selftest(facts) {
     for (const dir of [repo, home, hooks]) mkdirSync(dir);
     const env = {
       ...process.env, HOME: home, XDG_CONFIG_HOME: join(home, '.config'), XDG_CACHE_HOME: join(home, '.cache'),
-      GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL ?? join(homedir(), '.gitconfig'),
+      GIT_CONFIG_GLOBAL: join(home, '.gitconfig'),
       MMW_REPO_CHECKS_ENGINE: fileURLToPath(import.meta.url), GIT_TERMINAL_PROMPT: '0',
     };
     for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP', 'MMW_REPO_CHECKS_HOOK']) delete env[key];
     const gitFixture = (...args) => execFileSync('git', ['-c', `core.hooksPath=${hooks}`, ...args], {
       cwd: repo, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000,
     }).trim();
-    try {
-      gitFixture('config', '--get', 'user.name');
-      gitFixture('config', '--get', 'user.email');
-    } catch {
-      throw new Error('Selftest requires configured Git user.name and user.email; no author identity was changed.');
-    }
-    gitFixture('var', 'GIT_AUTHOR_IDENT');
-    gitFixture('var', 'GIT_COMMITTER_IDENT');
     const remote = join(root, 'origin.git');
     gitFixture('init', '--bare', '--template=', remote);
     gitFixture('--git-dir', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main');
     gitFixture('init', '--template=', '-b', 'main');
+    gitFixture('config', 'user.name', 'Repo Checks Selftest');
+    gitFixture('config', 'user.email', 'selftest@example.invalid');
     gitFixture('remote', 'add', 'origin', remote);
     mkdirSync(join(repo, '.agents'));
     mkdirSync(join(repo, 'scripts'));
@@ -1592,7 +1586,7 @@ if (typeof process.send === 'function' && args.length === 0) {
       '--push        Select committed pre-push stdin ranges only; DIRTY disables reuse.',
       'report        Read retained history across worktrees; never run checks or fetch.',
       'replay        Select from a merged PR or local range; never prepare or run checks.',
-      'selftest      Prove this engine with a temporary fixture; requires configured Git identity.',
+      'selftest      Prove this engine with a temporary Git fixture.',
       'Filename interpolation requires a POSIX shell host.',
       '',
       'Exit codes:',
