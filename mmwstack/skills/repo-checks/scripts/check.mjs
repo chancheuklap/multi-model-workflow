@@ -1270,6 +1270,7 @@ function findReuse(facts, check, scope, command) {
 }
 
 async function execute(facts) {
+  const localLockSlots = new Map();
   const slot = executionSlots(Math.max(1, Math.min(4, Math.floor(cpus().length / 2))));
   const settled = await Promise.allSettled(facts.selection.map(async ({ check, scope }) => {
     const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
@@ -1301,7 +1302,17 @@ async function execute(facts) {
       addEvent(facts, { type: 'PASS', ...outcome });
       return outcome;
     }
-    const result = await supervisor({ id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0 }, slot, event => addEvent(facts, event));
+    if (check.lock && !localLockSlots.has(check.lock)) localLockSlots.set(check.lock, executionSlots(1));
+    const release = await localLockSlots.get(check.lock)?.();
+    let result;
+    try {
+      if (interrupted) throw new Error('Run interrupted');
+      result = await supervisor({
+        id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0,
+      }, slot, event => addEvent(facts, event));
+    } finally {
+      release?.();
+    }
     if (result.blocked) {
       const outcome = { id: check.id, status: 'blocked', reason: result.reason, holder: result.holder,
         command, scope, seconds: 0, log: null, tail: [], attempts: [], ci: check.ci, ci_reason: check.ci_reason ?? null };

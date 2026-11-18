@@ -69,6 +69,46 @@ test('timeout fails with reason timeout and kills descendants before finishing',
   assert.equal(existsSync(join(f.home, 'escaped')), false);
 });
 
+test('same-run lock siblings start in order without spending their timeout in the local queue', t => {
+  const shared = ['first', 'second', 'third'];
+  const timeout = 2;
+  const parallel = Math.floor(cpus().length / 2) >= 2;
+  const { f } = setup(t, (config, f) => {
+    f.write('test/lock-job.cjs', `
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const { setTimeout: delay } = require('node:timers/promises');
+      const id = process.argv[2];
+      const started = path.join(process.env.HOME, 'shared-started');
+      (async () => {
+        if (id === 'independent' && ${parallel}) {
+          while (!fs.existsSync(started)) await delay(10);
+        }
+        const start = Date.now();
+        if (id !== 'independent') {
+          fs.writeFileSync(started, '');
+          await delay(1250);
+        }
+        console.log(JSON.stringify({ id, start, end: Date.now() }));
+      })();
+    `);
+    config.checks = [...shared, 'independent'].map(id => ({
+      ...config.checks[0], id, lock: id === 'independent' ? 'other' : 'shared',
+      run: `node test/lock-job.cjs ${id}`, timeout_s: timeout,
+    }));
+  });
+  const facts = json(f);
+  const intervals = facts.results.map(result => JSON.parse(readFileSync(result.log, 'utf8')));
+  const [first, second, third, independent] = intervals;
+  assert.deepEqual(intervals.map(item => item.id), [...shared, 'independent']);
+  assert.ok(first.end <= second.start && second.end <= third.start);
+  assert.ok(third.start - first.start > timeout * 1000);
+  assert.ok(intervals.every(item => item.end - item.start < timeout * 1000));
+  if (parallel) assert.ok(independent.start >= first.start && independent.start < first.end);
+  assert.equal(facts.summary.passed, 4);
+  t.diagnostic(JSON.stringify(intervals));
+});
+
 test('machine locks serialize separate repositories while waiters leave slots available', async t => {
   const lock = `shared-${Date.now()}`;
   const { f } = setup(t, (c, f) => {
@@ -175,6 +215,8 @@ test('SIGINT stops the running check, its process group and its lock', async t =
   const { f } = setup(t, (c, f) => {
     c.checks[0].lock = 'interrupt-lock';
     c.checks[0].run = command(`require('node:fs').writeFileSync(${JSON.stringify(join(f.home,'check-pid'))},String(process.pid));setTimeout(()=>{},30000)`);
+    c.checks.push({ ...c.checks[0], id: 'queued',
+      run: command(`require('node:fs').writeFileSync(${JSON.stringify(join(f.home, 'queued-started'))}, '')`) });
   });
   const active = f.start(['--all']);
   await active.until(/SELECT unit/);
@@ -185,6 +227,7 @@ test('SIGINT stops the running check, its process group and its lock', async t =
   active.child.kill('SIGINT');
   const r = await active.done;
   assert.equal(r.status, 130, r.stdout+r.stderr);
+  assert.equal(existsSync(join(f.home, 'queued-started')), false);
   const cache = process.platform==='darwin' ? join(f.home,'Library/Caches/repo-checks/locks') : join(f.env.XDG_CACHE_HOME,'repo-checks/locks');
   const gone = Date.now()+5000;
   while (Date.now() < gone) {
