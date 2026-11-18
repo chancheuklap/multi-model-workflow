@@ -27,7 +27,7 @@ new here? the [mmwstack guide](./docs/guide/README.md) walks you through a first
 
 the [mmwstack glossary map](./docs/GLOSSARY-MAP.md) takes you to the vocabulary for the part of the run you're working on.
 
-that's it. the other skills are situational, and the mode skill uses them for you as needed. a bundled skill written as `/name` means `skills/<name>/SKILL.md` in this copy. the mode uses the models you chose for code, the hardest changes, prose, judgment, and review panels.
+that's it. the other skills are situational, and the mode skill uses them for you as needed. a bundled skill written as `/name` means `skills/<name>/SKILL.md` in this copy. the mode uses the models you chose for code, prose, judgment, and review panels.
 
 ## usage
 
@@ -35,7 +35,7 @@ use [mmw-mode](./skills/mmw-mode/SKILL.md) at the start of a task. it opens or r
 
 ### just use [mmw-mode](./skills/mmw-mode/SKILL.md)
 
-this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-seven playbooks:
+this skill is the main shortcut. i use it whenever i need the agent to do rigorous engineering work. it comes with twenty-six playbooks:
 
 ```
 /mmw-mode this pr has a subtle bug where the scroll drifts every 750ms even when idle. repro
@@ -48,7 +48,7 @@ morning.
 ```
 
 <details>
-<summary>the twenty-seven playbooks</summary>
+<summary>the twenty-six playbooks</summary>
 
 | playbook | for |
 |---|---|
@@ -71,7 +71,6 @@ morning.
 | [release an install package](./skills/mmw-mode/playbooks/release-an-install-package.md) | build a windows install package from the current branch for each product the change touched, then hand the operator an install test. |
 | [code review](./skills/mmw-mode/playbooks/code-review.md) | one review of a finished project branch on three axes, then one fix pass. |
 | [autonomous run](./skills/mmw-mode/playbooks/autonomous-run.md) | drive a long task to completion without stopping. |
-| [orchestrate](./skills/mmw-mode/playbooks/orchestrate.md) | a standing project handed to one coordinator chat: multi-day, many stacked prs, fleets of subagents. |
 | [autopilot-full](./skills/mmw-mode/playbooks/autopilot-full.md) | run independent prs to merged with one owner per pr. a swarm verifies each code-ready head, and every later change to the patch gets a fresh check. |
 | [autopilot-stack](./skills/mmw-mode/playbooks/autopilot-stack.md) | autopilot-full without the merge. build and verify prs for the operator to review and land, stacking a pr only on a pr it builds on. |
 | [session pickup](./skills/mmw-mode/playbooks/session-pickup.md) | resume or take over a prior agent's in-flight work. |

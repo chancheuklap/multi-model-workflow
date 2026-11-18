@@ -5,20 +5,10 @@ description: "Apply when debugging a symptom or a failing check. Test competing 
 
 # Fix Root Causes
 
-When debugging, fix the fault, not the place where it surfaced. The symptom is where a wrong state became visible. The root cause is the first place the system did something it should not do, or failed to handle a state it should handle.
+Fix the fault, not the place where it surfaced. The root cause is the first place the system did something it should not do, or failed to handle a state it should handle.
 
-**Why:** A symptom fix hides the evidence and leaves the fault free to surface somewhere else. Each one makes the system harder to reason about, because the code now carries a workaround for a bug that nobody named.
-
-**Pattern:**
-- Reproduce first.
-- When several causes could produce the symptom, test predictions that distinguish them. If separate reproductions expose different faults, trace each one.
-- Ask "why" at each step until the answer is a wrong decision in the code, not a consequence of an earlier one. Would removing the suspected cause prevent this reproduction?
-- When stuck, instrument. Read the actual error and the actual state. Do not guess.
-- Ask whether the state that triggered the symptom is legitimate. If the system may be in that state, the code that broke on it is the root cause, and handling the state there is the fix. If the state should never exist, a check where it broke hides the bug. Find what produced the state. Guards, retries, swallowed errors, clamped values, and discarded state are the usual ways to hide a bug.
-- When something fails only after a restart, suspect persisted state first: config files, caches, lock files, serialized state.
-- Check for the pattern, not just the instance. Find every place with the same fault and fix them all.
-- If a workaround needs a paragraph-long comment to justify it, the code is wrong. Fix the code, not the comment.
-- If the deciding fact took a deep dig to find, propose the cheap, always-on signal that would have shown it at first look.
+- Reproduce first. When several causes could produce the symptom, test predictions that distinguish them. If separate reproductions expose different faults, trace each one. Ask "why" until the answer is a wrong decision in the code. When stuck, instrument and read the actual state.
+- Ask whether the state that triggered the symptom is legitimate. If it is, handle it where the code broke. If it should never exist, a check there hides the bug, so find what produced it. Guards, retries, swallowed errors, clamped values, and discarded state are the usual ways to hide a bug.
+- Fix the pattern, not the instance. Find every place with the same fault.
+- If the deciding fact took a deep dig, propose the cheap, always-on signal that would have shown it at first look.
 - A failing check is a symptom too. Fix the implementation if it violates the requirement. If the check is wrong, correct it against the requirement. When the playbook freezes the baseline or harness, report the discrepancy and leave it intact. Never relax a valid check just to turn it green.
-
-When two or more fixes that share one premise fail the same gate, apply [principle-attack-the-premise](../principle-attack-the-premise/SKILL.md) before the next fix.

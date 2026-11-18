@@ -28,7 +28,7 @@ Use one set of instructions across hosts. Specify who acts, the trigger and the 
 
 | Where | What the instruction decides |
 | --- | --- |
-| Mode | **Non-negotiables** gives the main chat the trigger and required action, route or stop, including which route takes precedence. **Principles** names decisions a principle changes, **Autonomy** sets authorization, **Subagents** governs delegation, and **Writing the reply** and **Comments** set shared style. **Playbooks** indexes tasks by requested outcome. |
+| Mode | **Non-negotiables** gives the main chat the trigger and required action, route or stop, including which route takes precedence. **Principles** names decisions a principle changes, **Autonomy** sets authorization, **Subagents** governs delegation, and **Writing the reply** sets shared style. **Playbooks** indexes tasks by requested outcome. |
 | Playbook | How the main chat advances a class of task to delivery. It owns step order, when to call a method and what lets the chat continue, switch, stop or hand off. |
 | Skill | How one method turns given inputs into a result the caller can judge. Its name and description identify when to use it. It can call other skills or direct its own subagents. |
 | Plan or brief | The files, symbols, targets and commands for this particular assignment. Put a fixed command or format in a playbook when its runs depend on that exact form. |

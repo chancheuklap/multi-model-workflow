@@ -58,7 +58,7 @@ A new agent session for an assignment. A replacement gets the original brief, la
 **Worker**:
 A subagent that carries out one assignment and returns a result its parent can inspect. For repository work, the worker's brief identifies its work issue and any existing PR it will work on. In Bug fix, a worker can return investigation findings with runtime evidence or implement the scoped fix. In Feature, a code delegate receives the file scope, named data shape, and success criteria. It produces the code change for the main chat to review and verify. [Bug fix playbook](../../../skills/mmw-mode/playbooks/bug-fix.md) · [Feature playbook](../../../skills/mmw-mode/playbooks/feature.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md)
 
-In Orchestrate, a worker receives a kickoff with its goal, write boundaries, and the evidence it must produce. A worker also assigned as PR owner becomes the sole writer of that PR's branch. [Orchestrate playbook](../../../skills/mmw-mode/playbooks/orchestrate.md) · [PR owner](../pull-request-delivery/GLOSSARY.md#the-pr-and-its-owner)
+The worker's kickoff names its goal, write boundaries and completion evidence. A worker assigned as [PR owner](../pull-request-delivery/GLOSSARY.md#the-pr-and-its-owner) is the sole writer of that PR's branch.
 
 A swarm worker receives one coverage slice or race arm and returns `PASS`, `ISSUES`, or `BLOCKED` with evidence for the coordinator's report. [swarm](../../../skills/swarm/SKILL.md)
 
@@ -71,7 +71,7 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 The operator's saved assignments of models and settings to roles, normally in `~/.agents/mmwstack-models.md`. Each host has its own section. A subagent that will delegate receives that section or the role lines it needs. An assignment that cannot run leaves an unfilled role.
 
 **Model role**:
-A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `hardest tasks` covers especially difficult work, `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`. A single line can supply different briefs. For example, `reflect judgment, divergent, synthesizer` supplies two reviewers and a synthesizer.
+A named kind of assignment in the model rule. Code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`.
 
 **Reasoning budget**:
 The operator's target reasoning level. The targets for `unlimited`, `large`, `medium`, and `small` are `max`, `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
@@ -97,7 +97,7 @@ The stronger model the agent handling the decision consults at a major decision,
 **Reader**:
 The delegate role for an assignment that reads and reports, such as a large artifact, a chat transcript, or an event to watch, when no playbook or skill names a role for it. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
-[setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [reflect](../../../skills/reflect/SKILL.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [arena](../../../skills/arena/SKILL.md)
+[setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [arena](../../../skills/arena/SKILL.md)
 
 ### Swarm coverage and races
 
@@ -142,4 +142,4 @@ The candidate the parent selects as the starting artifact for synthesis. A **gra
 **Synthesis note**:
 The record accompanying the verified Arena artifact. It identifies the base and why it won, the judge's verdict or absence, each graft and its source, rejected alternatives, any convergence or dropouts, and the verification result.
 
-[arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md) · [Architect runner brief](../../../skills/architect/references/runner-prompt.md)
+[arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md) · [Architect interface directions](../../../skills/architect/references/interface-directions.md)

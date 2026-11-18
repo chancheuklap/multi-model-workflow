@@ -55,7 +55,7 @@ Pick something real but small, and describe it the way you'd describe it to a co
 /mmw-mode add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt. If [mmw-mode](../../skills/mmw-mode/SKILL.md) skips a step, the step stays in the list with `skip: <reason>`, so you can see what it chose not to do.
+Watch the todo list. Its first items are the matched playbook's steps copied in, the Feature playbook for this prompt.
 
 From here you can type normal follow-ups. If you want the mode to stay active across turns, keep it in the session's persistent instructions. You can also name `/mmw-mode` at the start of each task.
 

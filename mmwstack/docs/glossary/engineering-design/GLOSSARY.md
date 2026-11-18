@@ -49,10 +49,10 @@ The caller's view of the proposed design, shown by example imports, calls, and r
 The proposed types, function signatures, and module boundaries, with the implementation left open. The sketch makes it possible to trace data from input to output before the bodies are written.
 
 **Design rationale**:
-The record accompanying a sketch. It explains the choice of shape, its tradeoffs, and the alternatives considered. Its *synthesis decision* says which candidate supplied the base, what the chosen design took from other candidates, and what it left out.
+The record accompanying a sketch. It explains the choice of shape, its tradeoffs, and the alternatives considered. When Arena compares the candidates, its synthesis decision says which candidate supplied the base, what the chosen design took from other candidates, and what it left out.
 
-**Agree (opt-in)**:
-The design checkpoint an invoker can request in [architect](../../../skills/architect/SKILL.md). The invoker reviews the synthesized sketch before implementation. By default, implementation starts once the sketch is ready. When the invoker assigns implementation to another agent, architect returns the design package and stops.
+**Design review before implementation**:
+An invoker can ask [architect](../../../skills/architect/SKILL.md) to show its recommended sketch before code. Architect waits for approval. By default, implementation starts once the sketch is ready. When the invoker assigns implementation to another agent, architect returns the design package and stops.
 
 **Architecture vocabulary**:
 The terms module, interface, depth, seam, adapter, leverage, and locality as [codebase-dic](../../../skills/codebase-dic/SKILL.md) defines them. They describe the shape of the code and mean the same in every project.
@@ -213,7 +213,7 @@ The [principles guide](../../guide/08-principles.md) explains how a named princi
 
 The settled decision, shared-premise test, and rerunnable tool come from [principle-baseline-is-the-contract](../../../skills/principle-baseline-is-the-contract/SKILL.md), [principle-attack-the-premise](../../../skills/principle-attack-the-premise/SKILL.md), and [principle-build-the-lever](../../../skills/principle-build-the-lever/SKILL.md).
 
-The [architect](../../../skills/architect/SKILL.md) skill, [candidate brief](../../../skills/architect/references/runner-prompt.md), [design red flags](../../../skills/architect/references/design-red-flags.md), and [rationale template](../../../skills/architect/references/rationale-template.md) define the design package and its supporting decisions. The typed representations appear in [typescript-best-practices](../../../skills/typescript-best-practices/SKILL.md). The [PR watcher's types](../../../skills/mmw-mode/scripts/watch-pr/types.ts) show the validated PR number and the clean CI state.
+The [architect](../../../skills/architect/SKILL.md) skill defines the design package. Its [interface directions](../../../skills/architect/references/interface-directions.md) specify what each runner returns when comparing interfaces to one module. The typed representations appear in [typescript-best-practices](../../../skills/typescript-best-practices/SKILL.md). The [PR watcher's types](../../../skills/mmw-mode/scripts/watch-pr/types.ts) show the validated PR number and the clean CI state.
 
 The [Improve codebase architecture playbook](../../../skills/mmw-mode/playbooks/improve-codebase-architecture.md) uses [codebase-dic](../../../skills/codebase-dic/SKILL.md) to assess deepening opportunities. Its [dependency categories](../../../skills/codebase-dic/references/deepening.md#dependency-categories) explain how the module is tested at its seam. codebase-dic repeats the architecture vocabulary for agents that read only the skill. Change both together.
 

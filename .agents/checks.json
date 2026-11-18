@@ -42,6 +42,7 @@
     "mmwstack/skills/*/SKILL.md",
     "mmwstack/skills/*/LICENSE",
     "mmwstack/skills/mmw-mode/playbooks/*.md",
+    "mmwstack/skills/mmw-mode/worker.md",
     "mmwstack/skills/{advisor,architect,code-review,codebase-dic,correct,create-verification-skill,design-artifact,domain-modeling,exe-release,html,mmw-help,mmw-mode,reflect,repo-checks,setup-mmwstack,to-tickets,typescript-best-practices,write-tests,writing-for-agents}/references/**/*.md",
     "mmwstack/skills/show-me-your-work/references/**"
   ],
