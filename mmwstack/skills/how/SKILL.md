@@ -17,4 +17,4 @@ Start one fresh subagent that explores and explains in one pass, on the `reader`
 
 ## 2. Present
 
-Present the subagent's output. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
+Present the subagent's output. Use [unslop](../unslop/SKILL.md) for light edits to clarity or context. Do not substantially rewrite it.

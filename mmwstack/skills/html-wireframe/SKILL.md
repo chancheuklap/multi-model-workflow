@@ -32,7 +32,7 @@ Before coding, identify:
 - the assumptions that can be made safely;
 - the structural questions the wireframe should help answer.
 
-Use real labels and representative content. Low fidelity is not permission to use anonymous boxes or lorem ipsum where wording affects the layout.
+Use real labels and representative content. Apply [unslop](../unslop/SKILL.md) to newly written copy. Low fidelity is not permission to use anonymous boxes or lorem ipsum where wording affects the layout.
 
 ## Explore structure before style
 

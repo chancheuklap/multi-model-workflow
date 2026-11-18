@@ -79,7 +79,7 @@ Show the draft to the user and take feedback. Expect multiple iterations. Cut ru
 
 ### 6. Land it
 
-Work in a worktree off main. Commit and open a PR. Don't push to main directly.
+Work in a worktree off main. Follow [Opening a PR](../mmw-mode/playbooks/opening-a-pr.md) to commit and submit the skill. Don't push to main directly.
 
 ## Guardrails
 

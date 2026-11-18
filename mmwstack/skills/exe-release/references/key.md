@@ -226,4 +226,4 @@ uv run --with 'pydantic>=2' python scripts/release_script_assembler.py assemble 
 
 Read the generated script. Every step it prints is a step the release manifest asked for, the compile carries every flag you declared and nothing else, and no step refers to a path the repository does not have.
 
-Then commit the release manifest and the repository changes (the build ships `git archive HEAD`), ship it once with step 3 of the [Release an install package](../../mmw-mode/playbooks/release-an-install-package.md) playbook, and read what the build machine says. A release manifest is proven by a package that installs, not by a script that assembles.
+Run [deslop](../../deslop/SKILL.md) on any code changes and write the commit message with [unslop](../../unslop/SKILL.md). Then commit the release manifest and the repository changes (the build ships `git archive HEAD`), ship it once with step 3 of the [Release an install package](../../mmw-mode/playbooks/release-an-install-package.md) playbook, and read what the build machine says. A release manifest is proven by a package that installs, not by a script that assembles.

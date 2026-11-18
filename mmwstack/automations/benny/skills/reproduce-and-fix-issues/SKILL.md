@@ -260,7 +260,7 @@ Fix the root cause with the smallest justified change.
 
 - Invoke mmwstack's `write-tests` skill when there is a cheap local test target. Name the test seam from the confirmed reproduction, and write the failing test before the fix.
 - State why no test was added when the path is expensive, unclear, or integration-heavy.
-- Keep unrelated cleanup out.
+- Run mmwstack's `deslop` on the fix before verifying it. Keep unrelated cleanup out.
 - Stop if the change grows beyond the configured effort or risk budget.
 
 ## 13. Prove the fix
@@ -286,7 +286,7 @@ Only after before-and-after proof:
 
 - Review the final diff for unrelated changes and secrets.
 - Run the repository's required checks.
-- Create small ordered commits when the repository workflow allows it.
+- Create small ordered commits when the repository workflow allows it. Write their messages with mmwstack's `unslop`.
 - Open a draft pull request. Never merge or deploy from this workflow.
 - Link the configured tracker issue using the tracker's supported pull request syntax.
 - Use the configured public URL form, normally `https://github.com/{owner}/{repo}/pull/{number}`.

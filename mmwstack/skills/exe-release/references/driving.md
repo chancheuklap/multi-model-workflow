@@ -29,7 +29,7 @@ After a stage, ask `where` again until the table names a terminal state. **Do no
 
 `PAUSED:needs-context` means the release engine lacks information it cannot judge. **Resolve it yourself when you can.**
 
-Goal: the release loop resumes with the cause gone, or the operator holds the one question only they can answer. The release receipt and the logs it names are the evidence; do not guess past them. Environment causes you act on; code or config causes you fix and commit (the build ships `git archive HEAD`); then `resume`.
+Goal: the release loop resumes with the cause gone, or the operator holds the one question only they can answer. The release receipt and the logs it names are the evidence; do not guess past them. Act on environment causes directly. For a code or config fix, run [deslop](../../deslop/SKILL.md) on the diff and commit it with a message written using [unslop](../../unslop/SKILL.md) (the build ships `git archive HEAD`). Then `resume`.
 
 **Same root cause twice, or the cause is billing, a contract, or a product decision the operator must make: stop and report to the operator.** Do not loop.
 

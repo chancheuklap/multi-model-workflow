@@ -51,7 +51,7 @@ fidelity, state, and interaction completeness.
 
 ## Scope one credible experience
 
-Choose the smallest flow that can answer the review question. Use realistic, internally consistent names, dates, statuses, quantities, and copy.
+Choose the smallest flow that can answer the review question. Use realistic, internally consistent names, dates, statuses, quantities, and copy. Apply [unslop](../unslop/SKILL.md) to newly written copy.
 
 - Make navigation work for the modeled scope.
 - Implement forms with labels, validation, submission feedback, and sensible defaults.

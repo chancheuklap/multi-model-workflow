@@ -48,6 +48,7 @@ Reload the target project or start a fresh agent rooted there in the automation 
 
 - `why`
 - `write-tests`
+- `deslop`
 - `unslop`
 - `principle-separate-before-serializing-shared-state`
 - `principle-minimize-reader-load`

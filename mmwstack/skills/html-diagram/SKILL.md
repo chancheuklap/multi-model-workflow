@@ -34,7 +34,7 @@ Decide what must remain visible together and what can be revealed on demand. Use
 
 Use HTML and CSS, SVG, Canvas, or WebGL according to the information and scale. Do not use SVG merely because the output is a diagram.
 
-- Keep labels, grouping, direction, and connectors legible before adding interaction.
+- Keep labels, grouping, direction, and connectors legible before adding interaction. Apply [unslop](../unslop/SKILL.md) to newly written copy.
 - Use stable node positions when readers must compare states or steps.
 - Keep edge crossings and ambiguous arrowheads to a minimum.
 - Put intentionally broad canvases in a contained pan or scroll region.

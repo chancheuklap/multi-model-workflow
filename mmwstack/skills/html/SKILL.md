@@ -68,6 +68,7 @@ Requests can span forms. Read every reference that materially applies, then give
 ## Build contract
 
 - Produce one `.html` file with its essential CSS and JavaScript inline. It should work when opened directly, without a build step. Do not require a network connection unless the user permits external dependencies.
+- Use [unslop](../unslop/SKILL.md) on headings, labels and explanations you write. Preserve quotations, project terms and existing UI copy.
 - Use real content. Do not fill prominent space with placeholder copy, decorative statistics, or controls that do nothing.
 - Let content determine structure. A sequence should read in order; a comparison should make differences easy to scan; an interface should expose state and actions; a diagram should make relationships legible.
 - Use semantic HTML, responsive layout, accessible contrast, visible keyboard focus, and reduced-motion handling. Make interactive elements work with a keyboard.
