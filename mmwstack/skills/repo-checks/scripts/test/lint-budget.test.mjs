@@ -5,6 +5,32 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { cleanConfig, fixture } from './fixture.mjs';
 
+test('lint skips large binaries and rejects repeated out-of-context markers within 1500ms', t => {
+  const f = fixture(t);
+  const config = cleanConfig();
+  config.inert.push('docs/**', 'assets/**');
+  f.config(config);
+  const binary = Buffer.alloc(128 * 1024 * 1024, 0xff);
+  binary[0] = 0;
+  binary.write('MMW_BASE_REF', 8192);
+  f.write('assets/large.bin', binary);
+  const line = `${'Ordinary reference material. '.repeat(150)}CHECK .mmw/data .worktrees/topic dispatch.sh INPUTS\n`;
+  f.write('docs/large.md', `# Reference\n${line.repeat(2400)}\n# Checks\nscripts/check uses dispatch.sh and INPUTS.\nMMW_BASE_REF\n`);
+  f.commit('Large binary and marker context fixture');
+  const result = f.invoke(['lint', '--json'], { timeout: 120_000 });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.equal(result.stderr, '');
+  assert.deepEqual(JSON.parse(result.stdout), {
+    mode: 'lint', ok: false, exit_code: 1,
+    findings: ['MMW_BASE_REF', 'dispatch.sh', 'INPUTS'].map(marker => ({
+      rule: 'legacy-marker', path: 'docs/large.md', marker,
+      message: `${JSON.stringify('docs/large.md')}: legacy marker ${JSON.stringify(marker)} (${JSON.stringify(marker)})`,
+    })),
+  });
+  console.log(JSON.stringify({ command: 'scripts/check lint --json', elapsed_ms: result.elapsed_ms, budget_ms: 1500 }));
+  assert.ok(result.elapsed_ms <= 1500, `Lint exceeded 1500ms: ${result.elapsed_ms}ms`);
+});
+
 test('lint meets the one-second budget in three fresh processes over 8475 tracked files', t => {
   const f = fixture(t);
   const config = cleanConfig();
