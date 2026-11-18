@@ -18,7 +18,7 @@ Read the [reference](references/checks.md) for Check Config fields, JSON results
 Enter with the target repository and the Home Repo registry. Finish with a valid Check Config, three canonical entry files, a registry entry, and saved probes.
 
 1. Read the repository's instructions, package commands, tests, prek configuration, and workflows. Inventory each check's inputs, test files, environment, and existing runner. Put CI-only, device, and owner-only tests in lanes rather than automatic checks.
-2. Draft `.agents/checks.json` against the [schema](scripts/checks.schema.json) and the [field reference](references/checks.md#check-config). Use language selectors for import dependencies and `inputs` for disk reads the selector cannot see. Classify every tracked path and claim every test through a check, lane, or exclusion. Put lockfiles, tool configuration, and the Check Config in `affects_all`. Keep `inert` limited to paths that cannot affect a check.
+2. Draft `.agents/checks.json` against the [schema](scripts/checks.schema.json) and the [field reference](references/checks.md#check-config). Use language selectors for import dependencies and `inputs` for disk reads the selector cannot see. Classify every tracked path and claim every test through a check, lane, or exclusion. Put lockfiles, tool configuration, the Check Config, `scripts/check`, `.githooks/pre-commit`, and `.githooks/pre-push` in `affects_all`. Keep `inert` limited to paths that cannot affect a check.
 3. Copy the three templates without edits. Set `skill` to this skill's absolute directory and `repo` to the target root.
 
    ```sh
@@ -26,9 +26,10 @@ Enter with the target repository and the Home Repo registry. Finish with a valid
    cp -p "$skill/templates/check" "$repo/scripts/check"
    cp -p "$skill/templates/pre-commit" "$repo/.githooks/pre-commit"
    cp -p "$skill/templates/pre-push" "$repo/.githooks/pre-push"
+   git -C "$repo" add -- .agents/checks.json scripts/check .githooks/pre-commit .githooks/pre-push
    ```
 
-   Preserve other repository-owned hooks. The entry is a small shell wrapper with an inline Node part. The templates carry executable permissions.
+   Preserve other repository-owned hooks. The entry is a small shell wrapper with an inline Node part. The templates carry executable permissions. Staging these files lets `lint` check their classification.
 4. Add or update the repository in the Home Repo's `repos/registry.json`. Match the existing entry shape with `name`, `path`, `remote`, and `integration`, plus `release` when applicable. Keep an existing entry rather than adding a duplicate. Make `integration` agree with the Check Config and an actual `origin` branch.
 5. Run `scripts/check ensure`, `scripts/check lint`, and `scripts/check ensure --check --json`. Require exit 0 from each. Run `ensure` again and require no changes. `ensure` repairs local state; it does not create or overwrite entry files.
 6. Run [Prove a Check Config change](#prove-a-check-config-change). For a repository with a gate, also prove the workflow commands and dependency in the [moment rules](references/checks.md#moment-rules). Save the config, entry-file comparison, registry entry, commands, output, and exit codes on the work issue.

@@ -118,7 +118,7 @@ const linkedLauncher = () => {
   const [first, second] = [path.join(links, "a"), path.join(links, "b")];
   fs.mkdirSync(first);
   fs.mkdirSync(second);
-  fs.symlinkSync(path.relative(second, launcher), path.join(second, "statechart"));
+  fs.symlinkSync(path.relative(fs.realpathSync(second), launcher), path.join(second, "statechart"));
   fs.symlinkSync(path.join(second, "statechart"), path.join(first, "statechart"));
   return path.join(first, "statechart");
 };
@@ -452,18 +452,26 @@ for (const signal of ["SIGINT", "SIGTERM"] satisfies NodeJS.Signals[]) {
     `${signal} while the command writes its files stops it, and it writes nothing`,
     { timeout: 60_000 },
     () =>
-      signalWhile(signal, () => ({
-        dir: gridCase(150),
-        reached: (parent) => {
-          for (const f of fs.readdirSync(parent, { recursive: true, encoding: "utf8" }))
-            if (
-              path.basename(f) === "chart.mmd" &&
-              fs.statSync(path.join(parent, f), { throwIfNoEntry: false })?.size
-            )
-              return true;
-          return false;
-        },
-      })),
+      signalWhile(signal, (fakes) => {
+        const dir = gridCase(10);
+        const written = path.join(fakes, "draft-written");
+        fs.writeFileSync(path.join(dir, "view.mjs"), `
+          import fs from "node:fs";
+          import path from "node:path";
+          const write = fs.writeSync;
+          const chart = path.join(process.argv[2], "draft", "chart.mmd");
+          fs.writeSync = (...args) => {
+            const bytes = write(...args);
+            if (fs.existsSync(chart)) {
+              fs.writeSync = write;
+              fs.writeFileSync(${JSON.stringify(written)}, "");
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30_000);
+            }
+            return bytes;
+          };
+        `);
+        return { dir, reached: () => fs.existsSync(written) };
+      }),
   );
 }
 

@@ -300,7 +300,7 @@ test('the CLI advertises implemented modes and refuses unsupported requests', t 
   assert.match(help.stdout, /lint.*--json/);
   assert.ok(help.stdout.split('\n').length <= 40);
   for (const flag of ['--all', '--only', '--base', '--json', '--help', '--push', '--staged']) assert.ok(help.stdout.includes(flag));
-  for (const code of [0, 1, 2, 70]) assert.match(help.stdout, new RegExp(`\\b${code}\\b`));
+  for (const code of [0, 1, 2, 70, 130, 143]) assert.match(help.stdout, new RegExp(`\\b${code}\\b`));
   assert.match(help.stdout, /ensure.*--check.*--json/);
   for (const mode of ['report', 'selftest', 'replay']) assert.ok(help.stdout.includes(mode));
   for (const args of [['report', 'extra'], ['selftest', '--all'], ['replay'], ['--push', '--all'], ['lint', '--typo'], ['lint', 'extra']]) {

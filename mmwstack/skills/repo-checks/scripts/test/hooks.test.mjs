@@ -400,6 +400,16 @@ test('MMW_CHECKS_SKIP prints the exact reason and appends one JSON line per real
   }
 });
 
+test('the manual entry reports an incomplete engine module installation as exit 70', t => {
+  const f = fixture(t);
+  const engine = join(f.home, 'incomplete.mjs');
+  f.write('../home/incomplete.mjs', 'import "./absent-dependency.mjs";\n');
+  f.env.MMW_REPO_CHECKS_ENGINE = engine;
+  const result = f.cli('--help');
+  assert.equal(result.status, 70, output(result));
+  assert.match(result.stderr, /absent-dependency/);
+});
+
 test('internal engine error returns 70 directly; the real push reports, allows and audits once', t => {
   const { f } = setup(t);
   const engine = join(f.home, 'broken.mjs');

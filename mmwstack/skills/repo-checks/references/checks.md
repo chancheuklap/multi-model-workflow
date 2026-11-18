@@ -115,7 +115,7 @@ The shared fields also appear. `report` reads retained history without fetching 
 
 ### Selftest
 
-`assertions` contains `{name, ok}` objects with `message` on failure. The names are `fixture`, `engine-run`, `selection`, `check-pass`, and `check-log`. The shared fields also appear. The test uses a temporary repository and the canonical entry, then removes its fixture. It needs the configured Git identity and never sets another author.
+`assertions` contains `{name, ok}` objects with `message` on failure. The names are `fixture`, `engine-run`, `selection`, `check-pass`, and `check-log`. The shared fields also appear. The test uses a temporary repository and the canonical entry, then removes its fixture. Its commits use an author configured inside the temporary repository.
 
 Exit 0 means passed, 1 means a failed self-test, and 2 means invalid usage.
 
