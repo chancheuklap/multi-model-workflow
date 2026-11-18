@@ -52,7 +52,7 @@ Tests alone are not sufficient verification. Check each applicable unit, live, a
 
 - [ ] Use the spec's execution tickets that link to this plan. If the tickets have yet to be published, use `to-tickets` to split the checked plan and publish the approved tickets.
 - [ ] On the operator's go, assign a PR owner to each code ticket that can start. Give the owner the ticket URL, its acceptance criteria and the relevant plan material. Include the existing PR URL if work has already started on that PR.
-- [ ] Follow the tickets' direct blockers. Independent changes branch from `project/<slug>` (`scripts/worktree start ... --base project/<slug>`). When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
+- [ ] Follow the tickets' direct blockers. Branch independent changes from `project/<slug>` in the assigned workspace. For a local Home Repo worktree use `scripts/worktree start ... --base project/<slug>`. When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
 - [ ] Hold the file boundaries and the operator's review gates for the assigned work.
 
 ### PR mechanics, for every PR
@@ -78,9 +78,9 @@ For each code ticket, use its acceptance criteria and the relevant phase checks 
 
 ### Boot recipe, for each PR
 
-Start the verification environment at the PR head. Use the skill named in **Verify** for each affected surface.
+Run the PR verifier at the head under review in a separate local worktree or cloud workspace according to the task's execution environment. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
 
-- [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.
+- [ ] In the verifier's assigned worktree or cloud workspace, run `git fetch origin <head-branch> && git checkout <head SHA>`.
 - [ ] <Start the backend and the surface. Wait for ready.>
 - [ ] <Deliver input only through the user-facing driver named in Verify. Name the read-only diagnostics.>
 - [ ] Save the evidence for each scenario at the location named in the ticket or plan and return links or paths the operator can open.

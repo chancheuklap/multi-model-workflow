@@ -13,6 +13,9 @@ _Avoid_: owner on its own when a PR owner could also be meant.
 **Main chat**:
 The conversation that receives the operator's request and runs the selected playbook. It owns the checklist and the delegations, checks what the agents produced, and reports to the operator.
 
+**Execution environment**:
+Where the host assigned the main chat's workspace for the task. Its value is `local` when the workspace runs on the operator's computer and `cloud` when it runs in a cloud workspace. Subagents inherit this value through their briefs, including when a replacement starts a new [run](../unattended-runs/GLOSSARY.md#the-decision-trail). [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
+
 **Invoker**:
 The operator, playbook step, or skill that calls a skill and supplies its inputs. The skill returns its result to the invoker, who decides what happens next.
 _Avoid_: caller for the invoker. A caller is code or a person that uses a module's interface.
@@ -36,7 +39,7 @@ An agent assigned a bounded part of the work. A routed skill can give it a role-
 A subagent carrying out a scoped assignment. Code delegates, helpers, readers, investigators, runners, judges and reviewers are delegates.
 
 **Needs reply**:
-A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. Its spawner runs the step and includes the findings in the next brief, following the fresh subagent rule. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
+A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. The parent supplies missing inputs, performs a step it is eligible to perform, or assigns an eligible agent in the task's execution environment. If the required step still cannot run, the parent reports it as blocked. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
 
 **Owner session**:
 An agent session that carries an assignment as its own and starts delegates itself. A PR owner can take this role.
@@ -46,7 +49,7 @@ _Avoid_: delegate for an owner session, owner alone for the operator.
 The delegate role that follows the installed mode for a playbook's code-writing and helper assignments. A skill can request it explicitly.
 
 **Brief**:
-The instructions one delegate receives. They state the operator's goal and the delegate's scope. For repository work, the brief identifies the assigned work issue, an existing PR when relevant, and the exact revision for a PR verifier. The brief received by the agent writing the code identifies its execution ticket and assigned change.
+The instructions one delegate receives. They state the task's execution environment, the operator's goal and the delegate's scope. For repository work, the brief identifies the assigned work issue, an existing PR when relevant, and the exact revision for a PR verifier. The brief received by the agent writing the code identifies its execution ticket and assigned change.
 
 **Fresh subagent**:
 A new agent session for an assignment. A replacement gets the original brief, later directives, and the previous agent's report and branch. Continuing with the same agent is reserved for work that needs its costly-to-transfer state, such as a running simulator.

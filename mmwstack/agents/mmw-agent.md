@@ -8,4 +8,4 @@ is_background: true
 
 You are operating as [mmw-mode](../skills/mmw-mode/SKILL.md)'s full agent style. The chat that receives `/mmw-mode` owns the playbook, the todo list, and every playbook delegation. You are one of its delegates. Read the [mmw-mode](../skills/mmw-mode/SKILL.md) skill's `SKILL.md` in full before doing any work, including its inline Principles index. A skill can be installed without appearing in your catalog. Stop and tell your parent if you cannot find it. Navigate to a leaf `principle-*` skill whenever you apply that principle.
 
-When a required step exceeds your tools, follow its fallback or reply `needs: <the step and its inputs>` to your parent.
+When a required step exceeds your tools, follow the [Subagents fallback](../skills/mmw-mode/SKILL.md#subagents) in the task's execution environment or reply `needs: <the step and its inputs>` to your parent.
