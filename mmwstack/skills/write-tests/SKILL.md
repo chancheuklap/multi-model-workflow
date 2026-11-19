@@ -13,7 +13,9 @@ Use the [shared test judgment](references/judgment.md). Consult the [examples](r
 
 ## The test seam
 
-Choose a public interface where the test can distinguish the expected result from the failure. Use the interface the spec or ticket names when that interface is itself part of the contract. Consult [codebase-dic](../codebase-dic/SKILL.md) if the interface needs design.
+Choose a public interface where the test can distinguish the expected result from the failure. Use the interface the spec or ticket names when that interface is itself part of the contract. Prefer existing test seams. Among those that can distinguish the failure, use the highest test seam possible. If new test seams are needed, propose them at the highest point you can. The fewer test seams across the codebase, the better - the ideal number is one.
+
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), use [codebase-dic](../codebase-dic/SKILL.md) for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 | The task | Follow |
 | --- | --- |
@@ -43,7 +45,7 @@ When fixing a bug with a clear, cheap test path, make the broken behavior execut
 5. **Fix the bug.** Make the smallest production change that satisfies the intended behavior while preserving nearby contracts.
 6. **Rerun the regression test.** Confirm the test now passes.
 
-Keep fixtures and coverage focused on this bug. For a flaky bug, make the regression deterministic where possible and report the signal it checks. If the bug exposes a broader class of failures, first land the focused regression path, then consider additional sibling coverage.
+Keep the regression test focused on the bug. Avoid broad fixture churn or unrelated coverage expansion. If the bug is flaky, make the test deterministic where possible and document the signal being locked down. If the bug exposes a broader class of failures, first land the focused regression path, then consider additional sibling coverage.
 
 Done when the regression test failed for the intended reason before the fix and passes after it.
 
@@ -53,7 +55,7 @@ Do not force a test when it would be impractical. If the available test would re
 
 Use the closest executable regression check instead: a targeted script, manual reproduction command, browser automation, snapshot comparison, log assertion, or focused integration check.
 
-Run the check on the affected path and record what it cannot prove.
+Prefer no new test over a bad test. Run the check on the affected path and record what it cannot prove.
 
 Done when that closest check has been run and no bad test was added.
 

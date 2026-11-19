@@ -172,7 +172,7 @@ The rule for replacing an internal interface when all callers can move together 
 The test or executable check that fails for the intended reason before the change and passes after it. A bug fix needs it. A specified behavior gets it from the red step of its cycle. When a local test would need brittle mocks or unrelated setup, the closest executable check supplies it. [write-tests](../../../skills/write-tests/SKILL.md)
 _Avoid_: TDD, TDD Bug Fix
 
-**Test review questions**:
+**Authoring gate**:
 The Tests reviewer asks what behavior a test protects, what regression makes it fail, why existing proof misses it, and whether it needs a test-only hook with no production caller. [Tests reviewer](../../../skills/code-review/references/tests-reviewer.md#the-changes-tests)
 
 **Retention bar**:

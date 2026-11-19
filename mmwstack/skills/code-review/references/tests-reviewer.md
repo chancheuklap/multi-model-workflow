@@ -16,7 +16,7 @@ Create an isolated copy of the reviewed commit in this checkout for a reproducti
 
 Check whether the chosen interface distinguishes the expected result from the failure. Require a particular interface only when the agreed behavior names that interface as part of the contract.
 
-Scripts and feature files in the project-local `verify-<app>` skill are the project's verification skill. That skill drives the real app and asserts a sentence copied from the spec. Those files are not tests at a test seam. This axis judges the tests that exercise the changed behavior. The verifier runs the skill's scripts and checks that asserted sentence. A missing script is the verifier's result. This axis does not run those scripts, does not ask them for a failing-before run, and does not report them as a test seam finding.
+Scripts and feature files in the project-local `verify-<app>` skill are the project's verification skill. That skill drives the real app and asserts a sentence copied from the spec. Those files are not tests at a test seam. This axis judges the tests in the assigned change and any existing proof the change relies on. The verifier runs the skill's scripts and checks that asserted sentence. A missing script is the verifier's result. This axis does not run those scripts, does not ask them for a failing-before run, and does not report them as a test seam finding.
 
 When you need the words for that finding, use [codebase-dic](../../codebase-dic/SKILL.md). It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
@@ -24,10 +24,10 @@ When you need the words for that finding, use [codebase-dic](../../codebase-dic/
 
 For each added or changed test, answer:
 
-1. What observable behavior, invariant, or independent contract does it protect?
-2. What credible regression would make it fail?
-3. What does existing proof miss? A second layer needs a distinct risk, such as transport or lifecycle behavior.
-4. Does the test require an export, flag, wrapper, or injection hook with no production caller?
+1. Protected observable behavior, invariant, or independent contract?
+2. Credible regression that makes it fail?
+3. Why existing proof misses it? Each contract: one primary owner at strongest boundary. Another layer needs distinct transport/lifecycle risk. Extend tables/shared fixtures; consolidate repeated setup.
+4. Export, flag, wrapper, injection hook with no production caller needed? Move proof to real boundary instead.
 
 Report new matches in this change as findings unless the [retention bar](#removal-or-consolidation) identifies an independent contract. Audit existing matches in this change:
 
@@ -41,7 +41,7 @@ Report new matches in this change as findings unless the [retention bar](#remova
 - Negative controls passing on unrelated guard or unreachable rejection.
 - Names promising behavior inputs/assertions never exercise.
 
-Do not ask for a brittle mock or expensive new harness when a focused executable check exercises the bug. State which required proof remains unavailable, and name the closest check the change used.
+Prefer no new test over a bad test. A bad test is one that mostly tests mocks, encodes current implementation details, depends on timing or unrelated global state, needs expensive infrastructure for a small fix, or would be deleted immediately after proving the fix. State which required proof remains unavailable, and name the closest check the change used.
 
 ## Regression evidence
 
@@ -51,9 +51,9 @@ For a behavior-preserving move, check that the same behavior passed before and a
 
 ## Removal or consolidation
 
-Retain independent API, SDK, protocol, config, migration, storage, security, platform, default, prompt-byte, generated-language, package, release, architecture, and observable-ordering contracts. Static or slow is not a reason to delete a test. A baseline failure can be a product defect.
-
-Inspecting file contents can prove a promised key, byte, or path in the delivered file. A source check must guard an independent contract and survive identifier-only refactoring. Finding a timeout key does not prove that a request times out.
+- Keep independent public API, SDK, protocol, config, migration, storage, security, platform, default, prompt-byte, generated cross-language, package, release, architecture contracts. Keep observable ordering + credible regressions.
+- Source inspection valid when cheapest independent guard of user-facing key, byte, path, and survives identifier-only refactoring.
+- Static/slow ≠ deletion reason. Baseline failure may be product bug: reproduce it and report the repair needed in the production owner; never delete the test for it.
 
 Recommend removal or consolidation only with the record below. Missing evidence: no deletion.
 
