@@ -22,6 +22,7 @@ def target_paths(args: list[str]) -> list[str]:
             "--others",
             "--exclude-standard",
             "--",
+            ".githooks",
             "mmwstack",
             "scripts",
         ],
@@ -53,17 +54,21 @@ def check_file(rel: str) -> str | None:
         result = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True)
         if result.returncode != 0:
             return result.stderr.strip() or f"{rel}: node --check exited {result.returncode}"
-    return None
+    else:
+        return None
+    return ""
 
 
 def main(argv: list[str]) -> int:
     paths = target_paths(argv)
-    errors = [err for rel in paths if (err := check_file(rel))]
+    results = [result for rel in paths if (result := check_file(rel)) is not None]
+    errors = list(filter(None, results))
     if errors:
         for err in errors:
             print(err, file=sys.stderr)
         return 1
-    print(f"PASS syntax ({len(paths)} files)")
+    verdict = "PASS" if results else "SKIP"
+    print(f"{verdict} syntax ({len(results)} parsed, {len(paths) - len(results)} skipped)")
     return 0
 
 
