@@ -35,7 +35,6 @@ fresh_repo() {
   git init -q -b main "$repo"
   git -C "$repo" config user.name "MMW Guardrails"
   git -C "$repo" config user.email "guardrails@example.invalid"
-  # 与 mmw init 写的 gitignore 保持一致（见 lib/init.sh 的 mmw_init_gitignore）。
   # 少写 .scratch/ 会让这些一次性仓库跟真实目标仓库行为不同：派发往 scratch 写进度
   # 日志和句柄文件，那时工作区会被判成不干净，下一次派发被护栏拒掉。
   printf '%s\n' '.worktrees/' '.scratch/' '.reviews/' '.release/' > "$repo/.gitignore"

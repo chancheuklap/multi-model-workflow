@@ -113,11 +113,6 @@ check "doctor --help 退出码" "0" "$LAST_STATUS"
 absent "doctor --help 不跑体检" "CLI      :" "$(cat "$LAST_OUT")$(cat "$LAST_ERR")"
 contains "doctor --help 写出命令" "mmw doctor" "$(cat "$LAST_ERR")"
 
-capture "init --help" "$MMW" init --help
-check "init --help 退出码" "0" "$LAST_STATUS"
-absent "init --help 不跑配置" "配置     :" "$(cat "$LAST_OUT")$(cat "$LAST_ERR")"
-contains "init --help 写出命令" "mmw init" "$(cat "$LAST_ERR")"
-
 capture "worktree --help" env MMW_HOST=cursor "$MMW" worktree --help
 check "worktree --help 退出码" "0" "$LAST_STATUS"
 absent "worktree --help 不因宿主失败" "Cursor 负责创建和回收" "$(cat "$LAST_ERR")"

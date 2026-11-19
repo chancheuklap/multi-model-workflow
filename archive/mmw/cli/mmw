@@ -35,8 +35,6 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/graph.sh"
 # shellcheck source=lib/toolchain.sh
 . "$MMW_ROOT/cli/lib/toolchain.sh"
-# shellcheck source=lib/init.sh
-. "$MMW_ROOT/cli/lib/init.sh"
 # shellcheck source=lib/artifact.sh
 . "$MMW_ROOT/cli/lib/artifact.sh"
 
@@ -108,12 +106,11 @@ EOF
   release     出包状态机（/mmw-release）
 
 安装：
-  init        配置当前仓库（幂等）
   doctor      检查这台机器
   agents      物化原生 subagent
 
 查某一个命令：mmw <命令> --help
-除 doctor 与 init 外，无参只显示用法。doctor 与 init 无参就是执行。
+除 doctor 外，无参只显示用法。
 EOF
 
   case "$host" in
@@ -773,7 +770,7 @@ detect 与 check 只读。detect 有缺失时退出码 1；check 有问题时退
 install 跑的是规则表里每个条目自己的 install 命令。默认只列不装——这些命令会往全局或
 工作区装东西，不该在没人点头时发生。
 
-apply 会写文件，`mmw init` 里已经调过一次。MMW 拥有的那几份配置每次都比对重写，仓库
+apply 会写文件。MMW 拥有的那几份配置每次都比对重写，仓库
 自己拥有的（持续集成工作流、pyproject.toml 的规则集）只在缺失时生成一份。
 
 规则表在 config/toolchain-rules.json，模板在 toolchain/templates/。四个宿主的编辑后
@@ -829,19 +826,6 @@ EOF
   return 2
 }
 
-usage_init() {
-  cat >&2 <<'EOF'
-mmw init
-
-把当前仓库配置成能跑这套工作流的样子。幂等。不收参数。查用法用 --help，不要拿跑一次当查用法。
-
-Examples:
-  mmw init
-  mmw init --help
-EOF
-  return 2
-}
-
 cmd_doctor() {
   local host status=0 domain_ready=0 repair repo_root="" config_path="" legacy_path legacy_spec key
   repair="$(mmw_install_repair_command)"
@@ -860,7 +844,7 @@ cmd_doctor() {
       echo "配置     : $config_path"
       domain_ready=1
     else
-      echo "配置     : 缺 .mmw.json，跑 mmw init"
+      echo "配置     : 缺 .mmw.json"
       status=1
     fi
   else
@@ -1110,13 +1094,6 @@ cmd_doctor_entry() {
   fi
 }
 
-cmd_init_entry() {
-  if mmw_is_help "$@"; then mmw_help usage_init
-  elif [ $# -gt 0 ]; then mmw_need "init 不收参数" "mmw init"
-  else mmw_init "$@"
-  fi
-}
-
 case "${1:-}" in
   -h|--help) mmw_help usage ;;
   -v|--version) jq -er .version "$MMW_ROOT/package.json" ;;
@@ -1134,6 +1111,5 @@ case "${1:-}" in
   toolchain) shift; cmd_toolchain "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor_entry "$@" ;;
-  init) shift; cmd_init_entry "$@" ;;
   *) usage ;;
 esac
