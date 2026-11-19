@@ -81,21 +81,6 @@ mmw_init_config() {
   fi
 }
 
-# TESTING.md 铺的是骨架，不是填好的事实。通用测试方法随插件走，
-# 这一份留空位给本仓库的目录分层、外部 seam、权威源和跑法。
-mmw_init_testing() {
-  local root target
-  root="$(mmw_repo_root)"
-  target="$root/TESTING.md"
-  if [ -f "$target" ]; then
-    mmw_init_say "TESTING  : 已有 ${target}，不覆盖"
-  else
-    cp "$MMW_ROOT/cli/seeds/TESTING.md" "$target"
-    mmw_init_touch "TESTING.md"
-    mmw_init_say "TESTING  : 已铺骨架 ${target}，空位要人或后续技能填"
-  fi
-}
-
 # 同步器已经完成整轮 marker 与 Git 状态预检。init 只消费稳定的四列结果，
 # 并把确实变化的仓库路径交给现有按路径提交机制。
 mmw_init_domain_context() {
@@ -251,7 +236,6 @@ mmw_init() {
   local status=0
   mmw_init_config
   mmw_init_domain_context || status=1
-  mmw_init_testing
   mmw_init_labels
   mmw_init_gitignore
   # 提交排在最后：上面各步骤都登记完了，一个提交装下这一轮的全部配置改动。

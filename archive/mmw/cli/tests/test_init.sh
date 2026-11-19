@@ -73,9 +73,6 @@ check "生成了 .mmw.json" "yes" "$([ -f .mmw.json ] && echo yes || echo no)"
 check "新配置的 paths 只有四个工作目录根" "release,reviews,scratch,worktrees" \
   "$(jq -r '.paths | keys | join(",")' .mmw.json)"
 check "新配置没有顶层 wiki" "false" "$(jq 'has("wiki")' .mmw.json)"
-check "铺了 TESTING.md 骨架" "yes" "$([ -f TESTING.md ] && echo yes || echo no)"
-check "TESTING.md 是骨架不是填好的" "yes" \
-  "$(grep -q '例如' TESTING.md && echo yes || echo no)"
 # 守:随 worktree 死的过程材料不能进版本库——把任务 worktree、审查记录或出包状态提交
 # 上去,别人拉下来就是一堆跟他无关的中间产物。清单从 .mmw.json 读出来比对,不在这里
 # 手抄第二份:抄一份的话,加一个路径就得改两处,漏改的那天测试还是绿的。
@@ -106,7 +103,7 @@ check "建的标签里没有 bug" 0 \
 # worktree 里每条 mmw 命令都报没配置;.gitignore 缺席时过程材料变成未跟踪文件,
 # mmw worktree remove 被它们挡住,git 报的却是「contains untracked files」,看不出真因。
 check "配置文件都进了分支，工作区不留" "" "$(git status --porcelain)"
-for f in .mmw.json TESTING.md .gitignore CLAUDE.md; do
+for f in .mmw.json .gitignore CLAUDE.md; do
   check "$f 在分支上" "yes" \
     "$(git cat-file -e "HEAD:$f" 2>/dev/null && echo yes || echo no)"
 done
@@ -136,13 +133,10 @@ git branch -q -D task-x
 echo
 echo "重跑"
 
-printf '本仓库的事实\n' >> TESTING.md
 : > "$MMW_TEST_CREATED"
 "$MMW" init > "$WORK/out2" 2>&1
 
 check "配置不覆盖" 1 "$(grep -c '已有.*\.mmw\.json' "$WORK/out2")"
-check "TESTING.md 不覆盖，人填的内容还在" "yes" \
-  "$(grep -q '本仓库的事实' TESTING.md && echo yes || echo no)"
 # 守:重跑 init 是常事(换机器、加了新配置),每跑一次就往 .gitignore 里追加一遍同样的行,
 # 那个文件会越滚越长。断有没有重复行,不断总行数——总行数会随配置增删而变,那不是合同。
 check "gitignore 不重复追加" "" "$(sort .gitignore | uniq -d | tr '\n' ' ' | sed 's/ $//')"
