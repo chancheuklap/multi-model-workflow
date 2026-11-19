@@ -15,6 +15,8 @@ Use the [shared test judgment](references/judgment.md). Consult the [examples](r
 
 Choose a public interface where the test can distinguish the expected result from the failure. Use the interface the spec or ticket names when that interface is itself part of the contract. Prefer existing test seams. Among those that can distinguish the failure, use the highest test seam possible. If new test seams are needed, propose them at the highest point you can. The fewer test seams across the codebase, the better - the ideal number is one.
 
+For each test seam the task names, state what a test there catches and what it misses.
+
 When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), use [codebase-dic](../codebase-dic/SKILL.md) for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 | The task | Follow |
