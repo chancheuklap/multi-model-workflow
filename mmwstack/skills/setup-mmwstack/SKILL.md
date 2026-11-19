@@ -1,23 +1,19 @@
 ---
 name: setup-mmwstack
-description: Configure which models mmwstack uses per role and at what reasoning budget. Detects your available models and saves the user's choices for future tasks. Use for /setup-mmwstack, "configure mmwstack models", "mmwstack budget", or changing mmwstack's model choices.
+description: Configure which models mmwstack uses per role and at what reasoning budget. Detects your available models and saves the user's choices for future tasks. Use for /setup-mmwstack or when the user asks to configure mmwstack models or change the reasoning budget.
 ---
 
 # Setup mmwstack
-
-## Model rule
-
-Before the first delegation, identify the host from the session environment (for example, `codex`, `cursor` or `claude-code`). If the host is unclear, ask the user once. Read that host's `## <host>` section in `~/.agents/mmwstack-models.md` or the rule the user supplies. For each delegation, use its model and settings for the role, in the listed order for panel seats. Give a subagent that will delegate in turn the host and a readable path to the same rule, or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. Check the host's dispatch record when available. If the host substitutes a different model or fixed setting, report the role as unfilled and leave its result unused. Report a missing host section or role assignment. If an assignment cannot run, report the unfilled role.
 
 ## Steps
 
 ### 1. Detect available models
 
-Identify the current host as in Model rule. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
+Identify the current host from the session environment. If it is unclear, ask the user once. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
 
 ### 2. Load current state
 
-Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. When upgrading this host, carry the model, reasoning and speed from its old `swarm workers` line to `verifier` if no `verifier` value exists. Remove the old line when saving the confirmed section. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
+Read the current host section's budget and role assignments in `~/.agents/mmwstack-models.md` or the rule file the user supplies. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. When upgrading this host, carry the model, reasoning and speed from its old `swarm workers` line to `verifier` if no `verifier` value exists. Remove the old line when saving the confirmed section. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
 
 ### 3. Budget, map, and confirm
 

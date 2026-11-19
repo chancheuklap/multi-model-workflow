@@ -40,7 +40,7 @@ flowchart LR
     H --> I[Verify]
 ```
 
-The panel comes from your [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) configuration, and you can adjust it per task. Ask for more candidates when the decision matters, fewer when it doesn't:
+The panel comes from the `arena runners` line in your saved model rule, and you can adjust it per task. Ask for more candidates when the decision matters, fewer when it doesn't:
 
 ```text
 /arena this, 5 candidates. the cache key format is expensive to change later.

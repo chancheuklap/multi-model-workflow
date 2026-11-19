@@ -7,9 +7,9 @@ description: Investigate a question against high-trust primary sources and captu
 
 When another agent assigns you this question, investigate it and return the report and its attachments. That work is below.
 
-When the assignment calls for parallel independent research, launch one researcher per configured `arena runners` entry, including repeats. Give them the same question or their assigned directions, the work issue, and separate report paths. Each receives this skill and investigates directly. Compare their primary sources and consolidate the reports into the requested deliverable.
+When the assignment calls for parallel independent research, launch one researcher per configured seat, including repeats. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Give them the same question or their assigned directions, the work issue, and separate report paths. Each receives this skill and investigates directly. Compare their primary sources and consolidate the reports into the requested deliverable.
 
-For a single research assignment, spawn one fresh general-purpose subagent. Give it the question, its work issue URL, known sources, the report location and a readable path to this skill. Use the `judgment and prose` role from the [setup-mmwstack](../setup-mmwstack/SKILL.md#model-rule) model rule. Continue your own work while the researcher runs.
+For a single research assignment, spawn one fresh general-purpose subagent. Give it the question, its work issue URL, known sources, the report location and a readable path to this skill. Use the model and settings from the current host’s `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Continue your own work while the researcher runs.
 
 ## Investigate
 

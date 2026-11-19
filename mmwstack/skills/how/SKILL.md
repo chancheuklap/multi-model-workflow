@@ -9,10 +9,4 @@ Explore the codebase to answer "how does X work?" questions.
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-## 1. Explain
-
-Start one fresh subagent that explores and explains in one pass, on the `reader` role from the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule). It is read-only. Give it the user's question and the relevant audience instructions. Ask it to answer that reader directly from the code.
-
-## 2. Present
-
-Present the subagent's output. Use [unslop](../unslop/SKILL.md) for light edits to clarity or context. Do not substantially rewrite it.
+Read the code and answer the user's question directly, following their audience instructions. Use [unslop](../unslop/SKILL.md) for light edits to clarity or context.

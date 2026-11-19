@@ -23,30 +23,25 @@ Infer the need from the message and the conversation. A named situation, such as
 
 Check the state that changes the answer, and mention it only when it does:
 
-- When the question depends on which model runs, read the assigned role in the [mmwstack model rule](../setup-mmwstack/SKILL.md#model-rule).
+- When the question depends on which model runs, read the assigned role in the current host's section in the supplied rule file or `~/.agents/mmwstack-models.md`. If the host section or role is missing, say which one.
 - For proof of app behavior, use the project's `verify-<app>` for the target surface, or [verify-this](../verify-this/SKILL.md) if none matches. For a reusable project harness, point to [create-verification-skill](../create-verification-skill/SKILL.md).
 - No formal verification skill in the project means no property is checked past what tests reach. Mention [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md) when the question is about a race, an invariant, or another case tests rarely hit. When one exists and the code it covers changed after the commit it records as last in sync, mention [maintain-formal-verification-skill](../maintain-formal-verification-skill/SKILL.md) if the question touches that code.
-
-When the model rule is missing and it matters, ask whether the user wants to pick a model for each role and a reasoning budget now. It matters when the user is new, the question is about setup or cost, or the answer depends on which models run. Ask at most once per chat. If the need is also unclear, ask both questions together. Offer two choices:
-
-- Now: give them `/setup-mmwstack` to type, and answer their question too.
-- Later: answer their question. They can choose models with [setup-mmwstack](../setup-mmwstack/SKILL.md) when they need delegation.
 
 ## Get set up
 
 1. Open the local skill or use your environment's local plugin or skill installation.
-2. Run [setup-mmwstack](../setup-mmwstack/SKILL.md). It asks for a reasoning budget, maps a model to each role, and writes a rule. The rule applies to new chats. Then it offers once each to generate a verification skill and a formal verification skill for the project, unless the project already has one.
+2. [Pick a reasoning budget and a model for each role](../../docs/guide/01-setup.md#pick-your-models). The rule applies to new chats.
 3. Start a real task with [mmw-mode](../mmw-mode/SKILL.md), a goal, and a check that can pass or fail.
 
-[setup-mmwstack](../setup-mmwstack/SKILL.md), [to-spec](../to-spec/SKILL.md) and [to-tickets](../to-tickets/SKILL.md) can load from the user's words. The [README](../../README.md) and [guide page 1](../../docs/guide/01-setup.md) have the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
+[to-spec](../to-spec/SKILL.md) and [to-tickets](../to-tickets/SKILL.md) can load from the user's words. The [README](../../README.md) and [guide page 1](../../docs/guide/01-setup.md) have the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, say where the tokens go and how to spend fewer. mmwstack spends extra tokens on subagents and review panels. Rerun [setup-mmwstack](../setup-mmwstack/SKILL.md) and pick a smaller budget or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which saves tokens when the chat runs on Auto or a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save [mmw-mode](../mmw-mode/SKILL.md) for work that needs rigor.
+If cost is the worry, say where the tokens go and how to spend fewer. mmwstack spends extra tokens on subagents and review panels. Pick a smaller budget or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which saves tokens when the chat runs on Auto or a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save [mmw-mode](../mmw-mode/SKILL.md) for work that needs rigor.
 
 ## Start a task with [mmw-mode](../mmw-mode/SKILL.md)
 
 [mmw-mode](../mmw-mode/SKILL.md) matches the task to a playbook, copies the playbook's steps into the todo list, and runs the other skills as the steps need them. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. [Guide page 2](../../docs/guide/02-mmw-mode.md) has examples.
 
-For a whole conversation, keep the mode in the session's persistent instructions if available. You can also name `/mmw-mode` at the start of each task. Mid-chat, "new task" makes the mode match a fresh playbook. [mmw-mode](../mmw-mode/SKILL.md) already uses `mmw-agent` for the subagents its playbook steps spawn. To get the same style from a subagent of your own, give it the [`mmw-agent` role](../../agents/mmw-agent.md).
+For a whole conversation, keep the mode in the session's persistent instructions if available. You can also name `/mmw-mode` at the start of each task. Mid-chat, "new task" makes the mode match a fresh playbook. [mmw-mode](../mmw-mode/SKILL.md) already uses `mmw-agent` for the subagents its playbook steps spawn. To get the same style for your own delegation, spawn `mmw-agent`.
 
 ## Pick a skill
 
@@ -93,14 +88,14 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Investigate a question against primary sources and return a cited report | [research](../research/SKILL.md) |
 | Turn an existing discussion or a Wayfinder map into a published spec | [to-spec](../to-spec/SKILL.md) |
 | Open or update a GitHub work issue, or draft execution tickets from a spec or plan | [to-tickets](../to-tickets/SKILL.md) |
-| Pick a model for each role and a reasoning budget | [setup-mmwstack](../setup-mmwstack/SKILL.md) |
+| Pick a model for each role and a reasoning budget | [Pick your models](../../docs/guide/01-setup.md#pick-your-models) |
 | Turn their own working habits into a personal mode skill | [automate-me](../automate-me/SKILL.md) |
 | Turn what a finished task taught into skill edits | [reflect](../reflect/SKILL.md) |
 | Stop agents from repeating the same mistakes in this repo, or run a retro on a session | [correct](../correct/SKILL.md) |
 | Build a page whose buttons wake a Grok Bot over a webhook | [make-bot-ui](../make-bot-ui/SKILL.md) |
 | Find their way around mmwstack | [mmw-help](SKILL.md) |
 
-If a skill directory next to this one is missing from the table, read its frontmatter and route by its description. The `principle-*` directories are covered under principles below.
+For a task the table does not cover, read the matching skill's frontmatter and route by its description. The `principle-*` directories are covered under principles below.
 
 Close calls:
 
@@ -144,7 +139,7 @@ Principles are one-rule skills that [mmw-mode](../mmw-mode/SKILL.md) reads and c
 |---|---|
 | The mode stopped applying after a few turns | Start each task with [mmw-mode](../mmw-mode/SKILL.md), or use a persistent mode when available. |
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
-| A new model choice had no effect | The rule from [setup-mmwstack](../setup-mmwstack/SKILL.md) applies to new chats. Start one. |
+| A new model choice had no effect | The saved model rule applies to new chats. Start one. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |
 | A skill didn't load on its own | The agent picks a skill from its description. Name the skill, or use a playbook that calls it. |
 | Parallel agents overwrote each other | Give concurrent writers separate worktrees. |
