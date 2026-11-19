@@ -59,11 +59,11 @@ Write just enough to choose the next step and recognize completion. **Opening a 
 
 ## Choose the delegate by who defines the work
 
-**Direct playbook delegation.** The main chat owns the playbook, defines the assignment and checks the result. Give the `mmw-agent` its goal, scope and completion condition. **Feature** delegates scoped implementation this way. **Multi-phase plan** delegates read-only lookup the same way. [Feature](mmwstack/skills/mmw-mode/playbooks/feature.md) · [mmw-agent role](mmwstack/agents/mmw-agent.md)
+**Direct playbook delegation.** The main chat owns the playbook, defines the assignment and checks the result. Give the `mmw-agent` its goal, scope and completion condition. **Feature** delegates scoped implementation this way. [Feature](mmwstack/skills/mmw-mode/playbooks/feature.md) · [mmw-agent role](mmwstack/agents/mmw-agent.md)
 
 **Delegation inside a skill.** The skill defines each role, its inputs, its result and how the main chat judges it. **Feature** uses [arena](mmwstack/skills/arena/SKILL.md) for competing implementations. For Spec, Plan or Ticket review, [ambiguity-scan](mmwstack/skills/ambiguity-scan/SKILL.md) briefs one fresh, read-only general-purpose reviewer. It checks the draft against its sources and the stage's writing requirements. It reviews a ticket batch as a whole.
 
-In mmwstack delegation prompts, assign new work to a fresh subagent. Resume one when the assignment needs state costly to transfer, such as uncommitted changes. Keep delegation within the assignment and follow the skill's fallback when the host cannot spawn. Name the work role in the prompt. Use only the model assigned to that role in the operator's model rule, including an explicit choice to inherit. [mmw-mode](mmwstack/skills/mmw-mode/SKILL.md#subagents) · [setup-mmwstack](mmwstack/skills/setup-mmwstack/SKILL.md#model-rule)
+In mmwstack delegation prompts, assign new work to a fresh subagent. Resume one when the assignment needs state costly to transfer, such as uncommitted changes. Keep delegation within the assignment and follow the skill's fallback when the host cannot spawn. Name the work role in the prompt. Use only the model assigned to that role in the operator's model rule, including an explicit choice to inherit. [mmw-mode](mmwstack/skills/mmw-mode/SKILL.md#subagents)
 
 ## Connect a new workflow to the existing skills
 

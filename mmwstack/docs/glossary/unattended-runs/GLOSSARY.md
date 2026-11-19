@@ -22,7 +22,7 @@ A playbook that drives one task to its exit condition. Each iteration checks the
 The checkable predicate that defines completion before an autonomous run starts, such as zero remaining callers of an old API. A plateau calls for a change of approach. The original condition still determines success. [Autonomous run playbook](../../../skills/mmw-mode/playbooks/autonomous-run.md)
 
 **Watcher**:
-A subagent that wakes the coordinator when a named event occurs, such as a PR merge. A **heartbeat** is the timed check that backs up a watcher or supplies the next check when there is no event to watch. Continued work after disconnection requires a wake-up that survives it. [Autonomous run playbook](../../../skills/mmw-mode/playbooks/autonomous-run.md)
+A mechanism that wakes the coordinator when a named event occurs, such as a PR merge. A **heartbeat** is the timed check that backs up a watcher or supplies the next check when there is no event to watch. Continued work after disconnection requires a wake-up that survives it. [Autonomous run playbook](../../../skills/mmw-mode/playbooks/autonomous-run.md)
 
 **Autopilot-full**:
 The playbook for a queue of independent PRs built from trunk. The root coordinator owns the independent verification. Within the operator's grant, each PR owner carries its change through merge once the required verdict and checks hold. [Autopilot-full playbook](../../../skills/mmw-mode/playbooks/autopilot-full.md)

@@ -63,7 +63,7 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Independent review of the trail
 
-Before handing back, spawn a fresh read-only agent that did none of the work. Select its model using [Arena’s cross-judge rule](../arena/SKILL.md#phase-c-cross-judge). The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before handing back, spawn a fresh read-only agent that did none of the work. Use the model and settings from the current host’s `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Pick from the pool per [Arena’s cross-judge rule](../arena/SKILL.md#phase-c-cross-judge). The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.

@@ -5,7 +5,7 @@ description: Review a draft spec, plan, or execution ticket when its author call
 
 # Ambiguity scan
 
-The main chat spawns one fresh, read-only general-purpose subagent for the stage under review. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the `judgment and prose` model role from the operator's [model rule](../setup-mmwstack/SKILL.md#model-rule).
+The main chat spawns one fresh, read-only general-purpose subagent for the stage under review. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host’s `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file).
 
 Give the reviewer the operator's goal, the work issue, the draft and its sources. Send only the matching stage brief below. For a set of tickets drafted together, send the whole set to one reviewer. Have the reviewer return its findings to the main chat. Wait for the report, then resume the calling step.
 
