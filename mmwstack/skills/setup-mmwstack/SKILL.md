@@ -9,6 +9,8 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 Before the first delegation, identify the host from the session environment (for example, `codex`, `cursor` or `claude-code`). If the host is unclear, ask the user once. Read that host's `## <host>` section in `~/.agents/mmwstack-models.md` or the rule the user supplies. For each delegation, use its model and settings for the role, in the listed order for panel seats. Give a subagent that will delegate in turn the host and a readable path to the same rule, or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. Check the host's dispatch record when available. If the host substitutes a different model or fixed setting, report the role as unfilled and leave its result unused. Report a missing host section or role assignment. If an assignment cannot run, report the unfilled role.
 
+**Factory Droid (`## droid`).** For a model-only role or panel seat, read the effective model IDs assigned to Droid's `light`, `medium` and `heavy` subagent tiers (locally, `subagentModelSettings` in `~/.factory/settings.json`). Pass the matching tier as `Task.complexity` on a built-in subagent; choose its type by the required tools. A tier selects the model, not the difficulty of this task. Keep repeated seats and their order. Reasoning comes from Droid's tier settings. If no tier matches the requested model ID, treat that entry as unavailable; do not substitute the parent or a nearby tier. Check the dispatched model when the host reports it.
+
 ## Steps
 
 ### 1. Detect available models
@@ -20,6 +22,8 @@ Identify the current host as in Model rule. List the models, reasoning levels, a
 Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. When upgrading this host, carry the model, reasoning and speed from its old `swarm workers` line to `verifier` if no `verifier` value exists. Remove the old line when saving the confirmed section. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
 
 ### 3. Budget, map, and confirm
+
+For Droid model-only assignments, skip the budget choice and record each selected model's configured ID without per-role reasoning. When copying another host's roles, match the actual models to Droid's inventory, including the provider for custom IDs. Keep every panel seat and judge preference in order. Validate against the configured tiers without changing them.
 
 **(a) Ask for a budget.** Prefer a structured choice when available. Offer these four options with these exact labels, and name the current budget when the rule records one.
 
