@@ -13,7 +13,7 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 1. State the artifact each candidate is producing. For an implementation, include the execution ticket URL in the task each candidate receives.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
-3. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use exactly two entries, one per runner, including repeats. If more design directions are proposed, choose the two that best distinguish the alternatives; do not add runners.
+3. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use exactly two entries, one per runner, including repeats. If more design directions are proposed, choose the two that best distinguish the alternatives; do not add runners. On Factory Droid, use [Droid tier dispatch](../setup-mmwstack/SKILL.md#factory-droid-dispatch) for both runners and the judge.
 4. Give each candidate its own output location that the parent and judge can read (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill.
 
 ## Phase B: Fan out

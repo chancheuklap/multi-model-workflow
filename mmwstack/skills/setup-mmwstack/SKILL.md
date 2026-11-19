@@ -5,7 +5,9 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 # Setup mmwstack
 
-**Factory Droid (`## droid`).** Each role or panel entry is a `Task.complexity` value: `light`, `medium` or `heavy`. Pass it unchanged when spawning a built-in subagent; choose `worker` or `explorer` by the tools the role needs. Droid's tier settings supply the model and reasoning. Do not look up a model to choose a tier at dispatch. Preserve runner seats, including repeats, and judge preference order. If the role's tools and tier cannot both be honored, report the entry as unavailable rather than dispatching with a default.
+## Factory Droid dispatch
+
+In `## droid`, each role or panel entry is a `Task.complexity` value: `light`, `medium` or `heavy`. Pass it unchanged when spawning a built-in subagent; choose `worker` or `explorer` by the tools the role needs. Droid's tier settings supply the model and reasoning. Do not look up a model to choose a tier at dispatch. Preserve runner seats, including repeats, and judge preference order. If the role's tools and tier cannot both be honored, report the entry as unavailable rather than dispatching with a default.
 ## Steps
 
 ### 1. Detect available models
