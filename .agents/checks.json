@@ -12,23 +12,13 @@
   "inert": [
     ".agents/plugins/marketplace.json",
     ".cursor-plugin/marketplace.json",
-    ".github/workflows/release-mmw-v5.yml",
     "AGENTS.md",
     "CLAUDE.md",
-    "DESIGN.md",
-    "GLOSSARY-MAP.md",
     "README.md",
     "archive/**",
     "deprecated/**",
-    "docs/glossary/**",
     "docs/research/**",
-    "mmw-v2/**",
-    "mmw-v3/**",
-    "mmw-v4/**",
-    "mmw-v5/**",
-    "mmw-v5-cloud/**",
     "upstream/**",
-    "scripts/dev/board-fixtures/**",
     "mmwstack/.cursor-plugin/plugin.json",
     "mmwstack/.gitignore",
     "mmwstack/LICENSE",
@@ -61,13 +51,7 @@
   "marker_exempt": [
     "archive/**",
     "deprecated/**",
-    "docs/glossary/**",
     "docs/research/**",
-    "mmw-v2/**",
-    "mmw-v3/**",
-    "mmw-v4/**",
-    "mmw-v5/**",
-    "mmw-v5-cloud/**",
     "README.md",
     "upstream/**",
     "mmwstack/skills/repo-checks/scripts/check.mjs",
@@ -197,14 +181,9 @@
         "archive/**",
         "deprecated/**",
         "docs/research/**",
-        "mmw-v2/**",
-        "mmw-v3/**",
-        "mmw-v4/**",
-        "mmw-v5/**",
-        "mmw-v5-cloud/**",
         "upstream/**"
       ],
-      "reason": "Retired v2-v5 editions, archive, deprecated, research snapshots, and vendored upstream directories; inert and exempt from legacy-marker scanning."
+      "reason": "Reference material outside the maintained tools and plugin."
     }
   ]
 }
