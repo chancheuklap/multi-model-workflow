@@ -5,7 +5,7 @@ description: "Consult an independent advisor at a major decision or when stuck, 
 
 # Advisor
 
-The advisor is a fresh read-only agent using the configured `advisor` model. If the operator specifically requests a stronger model, check that the configured choice meets the request before dispatch. It reads your brief and the repository, returns a verdict and edits nothing. You keep doing the work and own the decision.
+The advisor is a fresh read-only agent. If the operator specifically requests a stronger model, check that the configured choice meets the request before dispatch. It reads your brief and the repository, returns a verdict and edits nothing. You keep doing the work and own the decision.
 
 ## When to consult
 
@@ -24,7 +24,7 @@ Each consult starts a separate agent. Go on without one when reading the sources
 ## How to consult
 
 1. Write the brief from the [briefing template](references/briefing-template.md).
-2. Give a fresh read-only subagent the [advisor role](../../agents/advisor.md) and the brief, on the `advisor` role from the [model rule](../setup-mmwstack/SKILL.md#model-rule). Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
+2. Start a fresh read-only `advisor` with the brief. Use the model and settings from the current host’s `advisor` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
 3. When the advisor asks for missing input, supply it once by resuming the advisor (a fresh one with the input added when the host cannot resume). Give a later checkpoint a fresh advisor.
 4. Act on the verdict.
    - `proceed`: go.

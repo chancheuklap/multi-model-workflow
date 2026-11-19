@@ -22,7 +22,7 @@ When the cause is unclear, ask for findings, not a fix:
 /how do we dedupe notifications? is there an n+1 when we look up subscribers?
 ```
 
-Ask the question you actually have. [how](../../skills/how/SKILL.md) reads the code and answers at the depth your question and audience need, with the runtime flow, the key types, and the non-obvious parts. It starts one read-only subagent that explores the code and writes the explanation.
+Ask the question you actually have. [how](../../skills/how/SKILL.md) reads the code and answers at the depth your question and audience need, with the runtime flow, the key types, and the non-obvious parts.
 
 ## Dig up history with [why](../../skills/why/SKILL.md)
 

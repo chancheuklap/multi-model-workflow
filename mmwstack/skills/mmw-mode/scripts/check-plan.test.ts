@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -78,6 +79,13 @@ test("plan requirements must appear outside fenced examples and comments", () =>
 test("a fenced example still counts towards the intro length", () => {
 	const longIntro = validPlan.replace("## How to read this", `~~~text\n${"example\n".repeat(8)}~~~\n\n## How to read this`);
 	expect(runPlan("", 1, longIntro).stderr).toContain("intro is 10 lines, under ten required");
+});
+
+test("accepts the multi-phase plan template", () => {
+	const playbook = readFileSync(join(import.meta.dir, "../playbooks/multi-phase-plan.md"), "utf8");
+	const template = playbook.match(/^````markdown\n([\s\S]*?)^````$/m);
+	assert(template, "multi-phase plan template is missing");
+	expect(runPlan("", 0, template[1]).stdout).toContain("1 phase, 0 problems");
 });
 
 test("checks the phases before tickets or PRs exist", () => {

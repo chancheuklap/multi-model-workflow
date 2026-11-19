@@ -20,7 +20,7 @@ use the local plugin installation available in your agent environment and select
 
 two steps:
 
-1. run [setup-mmwstack](./skills/setup-mmwstack/SKILL.md), pick a reasoning budget, and choose which models you want.
+1. [pick a reasoning budget and choose your models](./docs/guide/01-setup.md#pick-your-models).
 2. use [mmw-mode](./skills/mmw-mode/SKILL.md) whenever you're doing anything that requires rigor.
 
 new here? the [mmwstack guide](./docs/guide/README.md) walks you through a first real task, from setup and prompting through verification and overnight runs. stuck, or unsure which skill fits? ask [mmw-help](./skills/mmw-help/SKILL.md).
@@ -118,7 +118,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [blast-radius](./skills/blast-radius/SKILL.md) | you have a small-looking change and want to know what else it could break, with the one fact it's safe because of proven by running code, not asserted. |
 | [architect](./skills/architect/SKILL.md) | you're about to write code that crosses a function boundary and want the caller's usage, types, and module shape settled first. |
 | [codebase-dic](./skills/codebase-dic/SKILL.md) | look up the shared vocabulary for deep modules, dependency seams, and tests at the interface. |
-| [arena](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
+| [arena](./skills/arena/SKILL.md) | you want two parallel attempts at the same thing, then to grab the best parts of each. |
 | [advisor](./skills/advisor/SKILL.md) | you want an independent advisor's verdict before a major decision or when the agent is stuck. ask once, or say `advisor on` to consult it at those points for the conversation. |
 | [code-review](./skills/code-review/SKILL.md) | a project branch is finished and you want one review of it on three axes: standards, spec and tests. the code review playbook repairs once and stops. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |
@@ -131,7 +131,6 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) | explain a subject with large visuals and enough text to understand the details. |
 | [html](./skills/html/SKILL.md) | build a self-contained HTML artifact. use [html-wireframe](./skills/html-wireframe/SKILL.md) for layout, [html-prototype](./skills/html-prototype/SKILL.md) for a mockup or interactive prototype, [html-plan](./skills/html-plan/SKILL.md) for an HTML plan, or [html-diagram](./skills/html-diagram/SKILL.md) for relationships. |
 | [design-artifact](./skills/design-artifact/SKILL.md) | choose the visual direction of an HTML artifact. |
-| [setup-mmwstack](./skills/setup-mmwstack/SKILL.md) | you want to pick which models mmwstack uses per role. detects your models and writes a config rule. |
 | [reflect](./skills/reflect/SKILL.md) | a long task landed and you want the recipe captured as a skill edit. |
 | [correct](./skills/correct/SKILL.md) | you keep correcting agents for the same mistakes, or want a retro of a session. mines history and the session you name for mistake classes, looks for navigation, check, standards, tooling, and information gaps, fixes each class at the highest level that works (architecture, then types, lint, and ci, then tests, with docs last), and keeps a table pairing each rule with what enforces it. |
 | [teach](./skills/teach/SKILL.md) | you want to actually understand a change or subsystem, not just have it summarized. runs how + why and weaves one plain explanation, built up diagram by diagram. |
@@ -261,11 +260,11 @@ thirty-two short skills, one principle each. [mmw-mode](skills/mmw-mode/SKILL.md
 Each link opens the instructions bundled with this copy.
 
 - From [Cursor Team Kit](https://github.com/cursor/plugins/tree/5866df557357d005b3c0c9d3da0d9e739b4bdde3/cursor-team-kit), [control-cli](./skills/control-cli/SKILL.md) drives CLIs and TUIs, [control-ui](./skills/control-ui/SKILL.md) drives browser and Electron UIs, and [deslop](./skills/deslop/SKILL.md) cleans the diff before commit. [Team Kit license](./licenses/cursor-team-kit.txt)
-- From [Cursor's advisor plugin](https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/advisor), [advisor](./skills/advisor/SKILL.md) takes its checkpoints, brief template and response format. The advisor's duties come from MMW v5 Cloud's advisor skill. The plugin's hooks, state files and manifest are left out. [Advisor license](./licenses/cursor-advisor.txt)
-- [Wayfinder](./skills/mmw-mode/playbooks/wayfinder.md), [Improve codebase architecture](./skills/mmw-mode/playbooks/improve-codebase-architecture.md), [codebase-dic](./skills/codebase-dic/SKILL.md), the [Prototype methods](./skills/mmw-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md), [to-tickets](./skills/to-tickets/SKILL.md), [writing-for-agents](./skills/writing-for-agents/SKILL.md) and [wizard](./skills/wizard/SKILL.md) adapt Matt Pocock's skills through MMW v5 Cloud. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
-- The [PR visuals](./skills/mmw-mode/references/opening-a-pr/visuals.md) in the [Opening a PR playbook](./skills/mmw-mode/playbooks/opening-a-pr.md) adapt Matt Pocock's `pr` skill through MMW v5 Cloud. Its menu of visuals comes from Dex Horthy's `show-me` skill. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
+- From [Cursor's advisor plugin](https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/advisor), [advisor](./skills/advisor/SKILL.md) takes its checkpoints, brief template and response format. The plugin's hooks, state files and manifest are left out. [Advisor license](./licenses/cursor-advisor.txt)
+- [Wayfinder](./skills/mmw-mode/playbooks/wayfinder.md), [Improve codebase architecture](./skills/mmw-mode/playbooks/improve-codebase-architecture.md), [codebase-dic](./skills/codebase-dic/SKILL.md), the [Prototype methods](./skills/mmw-mode/playbooks/prototype.md), [grilling](./skills/grilling/SKILL.md), [domain-modeling](./skills/domain-modeling/SKILL.md), [research](./skills/research/SKILL.md), [to-spec](./skills/to-spec/SKILL.md), [to-tickets](./skills/to-tickets/SKILL.md), [writing-for-agents](./skills/writing-for-agents/SKILL.md) and [wizard](./skills/wizard/SKILL.md) adapt Matt Pocock's skills. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
+- The [PR visuals](./skills/mmw-mode/references/opening-a-pr/visuals.md) in the [Opening a PR playbook](./skills/mmw-mode/playbooks/opening-a-pr.md) adapt Matt Pocock's `pr` skill. Its menu of visuals comes from Dex Horthy's `show-me` skill. [Matt Pocock skills license](./licenses/mattpocock-skills.txt)
 - From Cursor's built-in skills, [create-skill](./skills/create-skill/SKILL.md) authors skills.
-- The HTML skills come from MMW v5 Cloud. [to-spec](./skills/to-spec/SKILL.md) uses [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) to present the whole spec in HTML. [ketchup](./skills/ketchup/SKILL.md) uses [html](./skills/html/SKILL.md) for charts. [Plannotator license](./skills/html/LICENSE)
+- [to-spec](./skills/to-spec/SKILL.md) uses [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) to present the whole spec in HTML. [ketchup](./skills/ketchup/SKILL.md) uses [html](./skills/html/SKILL.md) for charts. [Plannotator license](./skills/html/LICENSE)
 
 Overnight runs need a watcher or timer that can wake the agent. Inside [mmw-mode](skills/mmw-mode/SKILL.md), PR-status requests go to the [Babysit playbook](./skills/mmw-mode/playbooks/babysit.md). For app verification, use the project's `verify-<app>` for the target surface. Use [verify-this](./skills/verify-this/SKILL.md) only when no project verification skill matches.
 
@@ -283,9 +282,9 @@ for a standalone problem with one outcome, reuse the original issue as the ticke
 
 type [automate-me](./skills/automate-me/SKILL.md). it mines your recent transcripts, drafts a `<your-name>-mode` skill from how you've actually worked, and routes through mmwstack underneath. you keep mmwstack as the base and end up with your own routing skill alongside [mmw-mode](skills/mmw-mode/SKILL.md).
 
-models are configurable too. type [setup-mmwstack](./skills/setup-mmwstack/SKILL.md). it detects the models you have access to and saves a section for the current host in the user-level rule, mapping each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
+models are configurable too. the current host's section in the user-level rule maps each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
 
-rerun [setup-mmwstack](skills/setup-mmwstack/SKILL.md) to change a role or your reasoning budget. the rule applies to new sessions.
+change a role or your reasoning budget in `~/.agents/mmwstack-models.md` or your own rule file. the rule applies to new sessions.
 
 ## automations
 

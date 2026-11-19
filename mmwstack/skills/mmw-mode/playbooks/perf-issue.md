@@ -14,7 +14,7 @@
    7. Do it cheaper.
 
    When an earlier mantra meets the target, stop.
-3. Plan the fix from the trace. If it crosses a function boundary, [architect](../../architect/SKILL.md) first. Delegate implementation to a subagent using your configured perf-issue model. Review the diff. Capture a post-fix trace.
+3. Plan the fix from the trace. If it crosses a function boundary, [architect](../../architect/SKILL.md) first. Delegate implementation to a subagent. Use the model and settings from the current host’s `perf-issue` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). On Factory Droid, set `subagent_type` to `mmw-agent-<tier>`, replacing `<tier>` with the tier from this step’s model entry. Review the diff. Capture a post-fix trace.
    Apply the [principle-sequence-verifiable-units](../../principle-sequence-verifiable-units/SKILL.md) principle skill, verifying each attempt before trying the next.
 4. Parse and compare the artifacts (JSON to sqlite, diff). "Inconclusive" or wrong-surface is not a pass. Flag it.
 5. Cite the measurement in the PR.

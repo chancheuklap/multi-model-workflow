@@ -1,25 +1,23 @@
 ---
 name: setup-mmwstack
-description: Configure which models mmwstack uses per role and at what reasoning budget. Detects your available models and saves the user's choices for future tasks. Use for /setup-mmwstack, "configure mmwstack models", "mmwstack budget", or changing mmwstack's model choices.
+description: Configure which models mmwstack uses per role and at what reasoning budget. Detects your available models and saves the user's choices for future tasks. Use for /setup-mmwstack or when the user asks to configure mmwstack models or change the reasoning budget.
 ---
 
 # Setup mmwstack
-
-## Model rule
-
-Before the first delegation, identify the host from the session environment (for example, `codex`, `cursor` or `claude-code`). If the host is unclear, ask the user once. Read that host's `## <host>` section in `~/.agents/mmwstack-models.md` or the rule the user supplies. For each delegation, use its model and settings for the role, in the listed order for panel seats. Give a subagent that will delegate in turn the host and a readable path to the same rule, or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. Check the host's dispatch record when available. If the host substitutes a different model or fixed setting, report the role as unfilled and leave its result unused. Report a missing host section or role assignment. If an assignment cannot run, report the unfilled role.
 
 ## Steps
 
 ### 1. Detect available models
 
-Identify the current host as in Model rule. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
+Identify the current host from the session environment. If it is unclear, ask the user once. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices. On Factory Droid, list the effective model and reasoning for each tier (`light`, `medium`, and `heavy`).
 
 ### 2. Load current state
 
-Read the current host section's budget and role assignments. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. When upgrading this host, carry the model, reasoning and speed from its old `swarm workers` line to `verifier` if no `verifier` value exists. Remove the old line when saving the confirmed section. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
+Read the current host section's budget and role assignments in `~/.agents/mmwstack-models.md` or the rule file the user supplies. If the rule has older unsectioned assignments, offer those choices for confirmation against this host's inventory. On first setup, use the roles in step 5. A line named `how explorer` is the earlier name of `reader`, so its model and settings carry over to `reader`. When upgrading this host, carry the model, reasoning and speed from its old `swarm workers` line to `verifier` if no `verifier` value exists. Remove the old line when saving the confirmed section. Drop retired role names from this host section, including `how critics`, `how explainer`, `why investigators`, `why synthesizer`, `interrogate reviewers`, `hardest tasks`, `reflect tooling`, and `reflect judgment, divergent, synthesizer`.
 
 ### 3. Budget, map, and confirm
+
+For Droid, confirm tiers instead of a budget or per-role reasoning. When copying another host, use the user's current tier-to-model bindings once to translate each source model to a tier; flag any model without a unique match. Save only tier names in `## droid`, one per role or panel entry, preserving order and repetitions. Leave Droid settings and the source host section unchanged. Skip the model-and-budget template below.
 
 **(a) Ask for a budget.** Prefer a structured choice when available. Offer these four options with these exact labels, and name the current budget when the rule records one.
 
@@ -30,11 +28,11 @@ Read the current host section's budget and role assignments. If the rule has old
 
 **(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, speeds and explicitly chosen per-role reasoning levels. Apply the budget to settings the user leaves to the budget. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
+**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. Require exactly two ordered entries for each runner list (`arena runners`, `architect runners`), including repeats. Confirm a pair before saving a list of any other size. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
 
 ### 4. Validate
 
-Confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
+On Factory Droid, confirm each selected tier is available with the model and reasoning shown in step 1. On other hosts, confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
 
 ### 5. Write the rule
 
@@ -53,11 +51,13 @@ judgment and prose: <model and settings>
 advisor: <model and settings>
 reader: <model and settings>
 code review: <model and settings>
-arena runners: <one model and its settings per seat, comma-separated>
+arena runners: <first seat>, <second seat>
 arena cross-judge pool: <judge models in preference order>
 verifier: <model and settings>
-architect runners: <one model and its settings per seat, comma-separated>
+architect runners: <first seat>, <second seat>
 ```
+
+On Factory Droid, sync the project's native registrations in `.factory/droids/` before starting the next session. Bind `mmw-agent-light`, `mmw-agent-medium`, and `mmw-agent-heavy` to their Factory tier models and reasoning settings. Bind `advisor` and `comment-sicko` to the tiers from the `advisor` and `judgment and prose` entries in the rule file for that session. Sync again after a Factory tier binding changes or a model rule, including a supplied rule file, changes the tier of either specialist.
 
 ### 6. Confirm
 
