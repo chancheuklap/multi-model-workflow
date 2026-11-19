@@ -20,7 +20,7 @@ use the local plugin installation available in your agent environment and select
 
 two steps:
 
-1. run [setup-mmwstack](./skills/setup-mmwstack/SKILL.md), pick a reasoning budget, and choose which models you want.
+1. [pick a reasoning budget and choose your models](./docs/guide/01-setup.md#pick-your-models).
 2. use [mmw-mode](./skills/mmw-mode/SKILL.md) whenever you're doing anything that requires rigor.
 
 new here? the [mmwstack guide](./docs/guide/README.md) walks you through a first real task, from setup and prompting through verification and overnight runs. stuck, or unsure which skill fits? ask [mmw-help](./skills/mmw-help/SKILL.md).
@@ -131,7 +131,6 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) | explain a subject with large visuals and enough text to understand the details. |
 | [html](./skills/html/SKILL.md) | build a self-contained HTML artifact. use [html-wireframe](./skills/html-wireframe/SKILL.md) for layout, [html-prototype](./skills/html-prototype/SKILL.md) for a mockup or interactive prototype, [html-plan](./skills/html-plan/SKILL.md) for an HTML plan, or [html-diagram](./skills/html-diagram/SKILL.md) for relationships. |
 | [design-artifact](./skills/design-artifact/SKILL.md) | choose the visual direction of an HTML artifact. |
-| [setup-mmwstack](./skills/setup-mmwstack/SKILL.md) | you want to pick which models mmwstack uses per role. detects your models and writes a config rule. |
 | [reflect](./skills/reflect/SKILL.md) | a long task landed and you want the recipe captured as a skill edit. |
 | [correct](./skills/correct/SKILL.md) | you keep correcting agents for the same mistakes, or want a retro of a session. mines history and the session you name for mistake classes, looks for navigation, check, standards, tooling, and information gaps, fixes each class at the highest level that works (architecture, then types, lint, and ci, then tests, with docs last), and keeps a table pairing each rule with what enforces it. |
 | [teach](./skills/teach/SKILL.md) | you want to actually understand a change or subsystem, not just have it summarized. runs how + why and weaves one plain explanation, built up diagram by diagram. |
@@ -283,9 +282,9 @@ for a standalone problem with one outcome, reuse the original issue as the ticke
 
 type [automate-me](./skills/automate-me/SKILL.md). it mines your recent transcripts, drafts a `<your-name>-mode` skill from how you've actually worked, and routes through mmwstack underneath. you keep mmwstack as the base and end up with your own routing skill alongside [mmw-mode](skills/mmw-mode/SKILL.md).
 
-models are configurable too. type [setup-mmwstack](./skills/setup-mmwstack/SKILL.md). it detects the models you have access to and saves a section for the current host in the user-level rule, mapping each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
+models are configurable too. the current host's section in the user-level rule maps each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
 
-rerun [setup-mmwstack](skills/setup-mmwstack/SKILL.md) to change a role or your reasoning budget. the rule applies to new sessions.
+change a role or your reasoning budget in `~/.agents/mmwstack-models.md` or your own rule file. the rule applies to new sessions.
 
 ## automations
 

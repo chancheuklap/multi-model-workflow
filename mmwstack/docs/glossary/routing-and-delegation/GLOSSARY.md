@@ -39,7 +39,7 @@ An agent assigned a bounded part of the work. A routed skill can give it a role-
 A subagent carrying out a scoped assignment. Code delegates, helpers, readers, investigators, runners, judges and reviewers are delegates.
 
 **Needs reply**:
-A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback. The parent supplies missing inputs, performs a step it is eligible to perform, or assigns an eligible agent in the task's execution environment. If the required step still cannot run, the parent reports it as blocked. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
+A delegate's reply `needs: <skill or step, and the inputs it needs>`, sent when a required step exceeds its tools and the skill has no applicable fallback.
 
 **Owner session**:
 An agent session that carries an assignment as its own and starts delegates itself. A PR owner can take this role.
@@ -69,7 +69,7 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 ### Model assignments
 
 **mmwstack model rule**:
-The operator's saved assignments of models and settings to roles, normally in `~/.agents/mmwstack-models.md`. Each host has its own section. A subagent that will delegate receives that section or the role lines it needs. An assignment that cannot run leaves an unfilled role.
+The operator's saved assignments of models and settings to roles, in `~/.agents/mmwstack-models.md` or the rule file the operator supplies. Each dispatcher reads the section for its host. A subagent that will delegate receives that section or the role lines it needs. An assignment that cannot run leaves an unfilled role.
 
 **Model role**:
 A named kind of assignment in the model rule. Autopilot starts its PR owner on `coder`. Autopilot and Shipping assign independent PR checks to `verifier`. Scoped code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A single-agent [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`.
@@ -84,7 +84,7 @@ The choice of standard or fast execution for a delegate. Unless the operator fix
 The operator's explicit choice of `inherit-parent` or `auto`. Both values run the delegate on the parent's model with its inherited settings.
 
 **Panel role**:
-A two-seat assignment from `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Architect applies Arena's runner rules to its own list. [setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
+A two-seat assignment from `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Architect applies Arena's runner rules to its own list. [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
 
 **Arena cross-judge pool**:
 The operator's ordered list for one independent read-only judge. Arena uses the first available entry, including an explicitly inherited model. A candidate author cannot judge the submissions.
@@ -96,9 +96,9 @@ An answer from a fresh agent given the same question.
 The independent agent a decision owner consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)
 
 **Reader**:
-The delegate role for an assignment that reads and reports, such as a large artifact, a chat transcript, or an event to watch, when no playbook or skill names a role for it. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense. [mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents)
+The delegate role for an assignment that reads and reports, such as a large artifact or a chat transcript. A reader is read-only and returns its findings with their sources. The `reader` role supplies its model. A **source reader** is one reader that a verification skill's [source wave](../product-verification/GLOSSARY.md#verification-skill-maintenance) assigns a single feature. A delegate that judges or writes uses `judgment and prose`. A person who reads a document, as in [reader load](../engineering-design/GLOSSARY.md#the-design-seen-by-its-callers), is a different sense.
 
-[setup-mmwstack](../../../skills/setup-mmwstack/SKILL.md) · [mmw-mode](../../../skills/mmw-mode/SKILL.md) · [arena](../../../skills/arena/SKILL.md)
+[mmw-mode](../../../skills/mmw-mode/SKILL.md#subagents) · [arena](../../../skills/arena/SKILL.md)
 
 ### Arena candidates and synthesis
 

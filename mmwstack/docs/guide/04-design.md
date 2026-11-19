@@ -38,7 +38,7 @@ flowchart LR
     H --> I[Verify]
 ```
 
-Choose the two runner seats in [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md). To compare specific approaches, name both in the brief:
+Choose the two seats in your saved `arena runners` list. To compare specific approaches, name both in the brief:
 
 ```text
 /arena compare a readable cache key with a compact hashed key.
