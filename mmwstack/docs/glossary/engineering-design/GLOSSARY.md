@@ -172,11 +172,11 @@ The rule for replacing an internal interface when all callers can move together 
 The test or executable check that fails for the intended reason before the change and passes after it. A bug fix needs it. A specified behavior gets it from the red step of its cycle. When a local test would need brittle mocks or unrelated setup, the closest executable check supplies it. [write-tests](../../../skills/write-tests/SKILL.md)
 _Avoid_: TDD, TDD Bug Fix
 
-**Authoring gate**:
-The four questions answered before a test is added: what behavior it protects, what regression makes it fail, why existing proof misses it, and whether it needs a test-only hook with no production caller. [write-tests judgment](../../../skills/write-tests/references/judgment.md)
+**Test review questions**:
+The Tests reviewer asks what behavior a test protects, what regression makes it fail, why existing proof misses it, and whether it needs a test-only hook with no production caller. [Tests reviewer](../../../skills/code-review/references/tests-reviewer.md#the-changes-tests)
 
 **Retention bar**:
-The contracts a test may keep even when it looks static or slow, such as a public API, a migration or a package contract. A test that is only static or slow is not deleted for that reason. [write-tests judgment](../../../skills/write-tests/references/judgment.md)
+The contracts a test may keep even when it looks static or slow, such as a public API, a migration or a package contract. A test that is only static or slow is not deleted for that reason. [Tests reviewer](../../../skills/code-review/references/tests-reviewer.md#removal-or-consolidation)
 
 ### Code cleanup and comment review
 
@@ -202,7 +202,7 @@ One review of a project branch after the tickets of its spec have landed on it, 
 _Avoid_: review alone for any of these. A forge check named Code Review Gate is a separate thing.
 
 **Review axis**:
-One of the three questions a code review asks, each answered by its own fresh reviewer. Standards compares the diff with the repository's documented standards and a fixed smell baseline. Spec compares it with the spec and the landed tickets, and tries to break it. Tests audits the tests against the write-tests judgment. A stage belongs to an ambiguity scan, an axis to a code review.
+One of the three questions a code review asks, each answered by its own fresh reviewer. Standards compares the diff with the repository's documented standards and a fixed smell baseline. Spec compares it with the spec and the landed tickets, and tries to break it. Tests independently judges test quality and the evidence for the changed behavior. A stage belongs to an ambiguity scan, an axis to a code review.
 
 **Hard finding**:
 A documented-standard breach, a spec finding, or a test finding that the main chat kept after checking it against the reviewed commit. The Code review playbook repairs it when it is in scope. A smell from the baseline is a **judgement call**. It is reported under its axis and not repaired.

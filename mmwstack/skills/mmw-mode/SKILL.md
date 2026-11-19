@@ -11,6 +11,8 @@ Bundled skills live at `../<name>/SKILL.md` from this file. Resolve `playbooks/`
 
 ## Non-negotiables
 
+- Writing or changing tests → invoke [write-tests](../write-tests/SKILL.md) before editing them. When delegating that work, put “Invoke `write-tests`” and the expected behavior in the writer's brief.
+
 In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
 - First message → restate the user's goal, the problem they are solving, and the smallest change that meets it, then proceed. If the evidence rules out the requested change, show it and stop. Open each PR's `## Why` and final report with the goal, except the reply to a fully specified one-line edit.
