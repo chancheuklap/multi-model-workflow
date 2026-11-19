@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -59,6 +60,13 @@ test("accepts ticket-specific verification and plans already in progress", () =>
 	expect(runPlan("", 0, validPlan.replace(rule, current)).stdout).toContain("0 problems");
 	expect(runPlan("", 0, validPlan).stdout).toContain("0 problems");
 	expect(runPlan("", 1, validPlan.replace(rule, "")).stderr).toContain("How to read this lacks");
+});
+
+test("accepts the multi-phase plan template", () => {
+	const playbook = readFileSync(join(import.meta.dir, "../playbooks/multi-phase-plan.md"), "utf8");
+	const template = playbook.match(/^````markdown\n([\s\S]*?)^````$/m);
+	assert(template, "multi-phase plan template is missing");
+	expect(runPlan("", 0, template[1]).stdout).toContain("1 phase, 0 problems");
 });
 
 test("checks the phases before tickets or PRs exist", () => {

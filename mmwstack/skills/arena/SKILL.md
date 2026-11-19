@@ -13,18 +13,18 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 1. State the artifact each candidate is producing. For an implementation, include the execution ticket URL in the task each candidate receives.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
-3. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use exactly two entries, one per runner, including repeats. If more design directions are proposed, choose the two that best distinguish the alternatives; do not add runners. On Factory Droid, use [Droid tier dispatch](../setup-mmwstack/SKILL.md#factory-droid-dispatch) for both runners and the judge.
+3. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use exactly two entries, one per runner, including repeats. If more design directions are proposed, choose the two that best distinguish the alternatives; do not add runners.
 4. Give each candidate its own output location that the parent and judge can read (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill.
 
 ## Phase B: Fan out
 
-Spawn both runners in parallel, each in a fresh context. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
+Spawn both runners in parallel, each in a fresh context. On Factory Droid, choose the built-in `worker` or `explorer` by the tools the runner needs and pass its tier as `Task.complexity`. Report a Droid seat as unavailable if neither built-in can honor its tools and tier. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
 
 If a candidate produces no output, continue with the remaining candidate and note the dropout.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, spawn one read-only judge. Use the model and settings from the current host’s `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use the first available entry in pool order, including an explicitly inherited model. Start a fresh agent that produced none of the candidates. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
+After all Phase B candidates complete, spawn one read-only judge. Use the model and settings from the current host’s `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). On Factory Droid, use the built-in `explorer` and pass the entry’s tier as `Task.complexity`. Treat an entry as unavailable if the tools or tier cannot be honored. Use the first available entry in pool order, including an explicitly inherited model. Start a fresh agent that produced none of the candidates. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
 
 ## Phase D: Pick a base
 
