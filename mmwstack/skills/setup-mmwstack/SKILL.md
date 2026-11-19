@@ -5,14 +5,11 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 # Setup mmwstack
 
-## Factory Droid dispatch
-
-In `## droid`, each role or panel entry is a `Task.complexity` value: `light`, `medium` or `heavy`. Pass it unchanged when spawning a built-in subagent; choose `worker` or `explorer` by the tools the role needs. Droid's tier settings supply the model and reasoning. Do not look up a model to choose a tier at dispatch. Preserve runner seats, including repeats, and judge preference order. If the role's tools and tier cannot both be honored, report the entry as unavailable rather than dispatching with a default.
 ## Steps
 
 ### 1. Detect available models
 
-Identify the current host from the session environment. If it is unclear, ask the user once. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices.
+Identify the current host from the session environment. If it is unclear, ask the user once. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices. On Factory Droid, list the effective model and reasoning for each tier (`light`, `medium`, and `heavy`).
 
 ### 2. Load current state
 
@@ -35,7 +32,7 @@ For Droid, confirm tiers instead of a budget or per-role reasoning. When copying
 
 ### 4. Validate
 
-Confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
+On Factory Droid, confirm each selected tier is available with the model and reasoning shown in step 1. On other hosts, confirm each selected model and setting is available before saving it. For `inherit-parent` or `auto`, confirm the session supports running the role on the parent model. If a choice is unavailable, ask for another.
 
 ### 5. Write the rule
 
@@ -59,6 +56,8 @@ arena cross-judge pool: <judge models in preference order>
 verifier: <model and settings>
 architect runners: <first seat>, <second seat>
 ```
+
+On Factory Droid, sync the project's native registrations in `.factory/droids/` before starting the next session. Bind `mmw-agent-light`, `mmw-agent-medium`, and `mmw-agent-heavy` to their Factory tier models and reasoning settings. Bind `advisor` and `comment-sicko` to the tiers from the `advisor` and `judgment and prose` entries in the rule file for that session. Sync again after a Factory tier binding changes or a model rule, including a supplied rule file, changes the tier of either specialist.
 
 ### 6. Confirm
 

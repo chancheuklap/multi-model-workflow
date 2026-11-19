@@ -4,7 +4,7 @@ In this page you install the plugin, pick which models mmwstack uses, and run yo
 
 ## Install the plugin
 
-Install this copy with the local plugin or skill installation your environment provides. Keep the bundle together so relative links resolve. For project installs, expose the bundled `agents/` directory through `.claude/agents/` for Claude Code or `.cursor/agents/` for Cursor. For Codex, register each bundled agent by name in `.codex/agents/<name>.toml` and point its instructions to the installed definition. The Cursor plugin manifest already registers `agents/`. To use it directly, give your agent [mmw-mode](../../skills/mmw-mode/SKILL.md) and your task. In this guide, `/name` refers to the skill of that name in the bundle.
+Install this copy with the local plugin or skill installation your environment provides. Keep the bundle together so relative links resolve. For project installs, expose the bundled `agents/` directory through `.claude/agents/` for Claude Code or `.cursor/agents/` for Cursor. For Codex, register each bundled agent by name in `.codex/agents/<name>.toml`. Embed the complete role instructions in `developer_instructions` and resolve skill links relative to the checkout that supplies the installed skills. The Cursor plugin manifest already registers `agents/`. To use it directly, give your agent [mmw-mode](../../skills/mmw-mode/SKILL.md) and your task. In this guide, `/name` refers to the skill of that name in the bundle.
 
 ## Pick your models
 
@@ -13,6 +13,8 @@ Choose from the models your host can assign to each role (code delegates, judgme
 The `large` budget requests `xhigh` reasoning. `unlimited` lifts each model to its highest tier, up to `max`. `medium` and `small` lower the reasoning and spend fewer tokens.
 
 The same role can use a different model in another host.
+
+On Factory Droid, choose `light`, `medium`, or `heavy` for each role and panel entry. Factory's tier settings supply the model and reasoning. Sync the project's native Droid registrations before launching a session, including when a different model rule changes the advisor or Comment Sicko tier. [Droid registration in setup-mmwstack](../../skills/setup-mmwstack/SKILL.md#5-write-the-rule)
 
 You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. Each runner panel has two seats. The entries can name the same model or tier. Autopilot starts PR owners on `coder`. Autopilot and Shipping use `verifier` for independent PR checks. For a model race, choose a configured model for each arm.
 

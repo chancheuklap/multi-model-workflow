@@ -51,7 +51,7 @@ Tests alone are not sufficient verification. Check each applicable unit, live, a
 ### Spawn owners
 
 - [ ] Use the spec's execution tickets that link to this plan. If the tickets have yet to be published, use `to-tickets` to split the checked plan and publish the approved tickets.
-- [ ] On the operator's go, assign a PR owner to each code ticket that can start. Give the owner the ticket URL, its acceptance criteria and the relevant plan material. Include the existing PR URL if work has already started on that PR.
+- [ ] On the operator's go, assign a PR owner to each code ticket that can start. Use the model and settings from the current host's `coder` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). On Factory Droid, set `subagent_type` to `mmw-agent-<tier>`, replacing `<tier>` with the tier from this step's model entry. Give the owner the ticket URL, its acceptance criteria and the relevant plan material. Include the existing PR URL if work has already started on that PR.
 - [ ] Follow the tickets' direct blockers. Branch independent changes from `project/<slug>` in the assigned workspace. For a local Home Repo worktree use `scripts/worktree start ... --base project/<slug>`. When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
 - [ ] Hold the file boundaries and the operator's review gates for the assigned work.
 
@@ -69,7 +69,7 @@ Tests alone are not sufficient verification. Check each applicable unit, live, a
 For each code ticket, use its acceptance criteria and the relevant phase checks to fill the unit, live and perf boxes in the decision trail for its actual PR. Give the verifier the PR URL and the commit it must check. Record why a check is inapplicable.
 
 - [ ] Unit. Run the named tests at the committed head and save the results.
-- [ ] Give one independent verifier the code-ready PR head and ticket. Apply the execution playbook's rules for later heads. The root checks the receipts before the verdict. Project-wide Code review follows once the spec's PRs land.
+- [ ] Give one independent verifier the code-ready PR head and ticket. Use the model and settings from the current host's `verifier` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). On Factory Droid, set `subagent_type` to `mmw-agent-<tier>`, replacing `<tier>` with the tier from this step's model entry. Apply the execution playbook's rules for later heads. The root checks the receipts before the verdict. Project-wide Code review follows once the spec's PRs land.
 - [ ] Live. For each scenario in the ticket, record the user action, pass condition and evidence location. Compare the load-bearing regression scenario on trunk and head. If trunk lacks the feature, record that and verify the new behavior and the end state the user waits for.
 - [ ] Perf. Record the metric, interleaved probe, trunk baseline and failure rule. Measure both sides when comparable. Otherwise set absolute budgets for the new work and the user-visible end state.
 - [ ] For an interaction change, post the screenshots and a 30 to 60 second video in chat. Stop at merge-ready and wait for the operator's approval.

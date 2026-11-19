@@ -96,7 +96,7 @@ Read the linked leaf skill in full for any principle you apply. Each entry names
 
 ## Subagents
 
-**When a playbook step tells you to start a subagent, spawn `mmw-agent`.** The chat that receives `/mmw-mode` runs the playbook. A skill that spawns its own subagents gives them role-specific briefs. Respect what the skill prescribes. On Factory Droid, use the [built-in subagent and tier](../setup-mmwstack/SKILL.md#factory-droid-dispatch) for the assigned role instead of requesting a named custom droid.
+**When a playbook step tells you to start a subagent, spawn `mmw-agent`.** The chat that receives `/mmw-mode` runs the playbook. A skill that spawns its own subagents gives them role-specific briefs. Respect what the skill prescribes.
 
 **Execution environment.** At task start, the main chat determines the [execution environment](../../docs/glossary/routing-and-delegation/GLOSSARY.md#people-and-instructions) (`local` or `cloud`) from the workspace its host assigned. Every skill, including one invoked directly, uses that value. Before starting a subagent, the dispatcher confirms the host runs the route in the task's execution environment. This includes replacements and nested dispatch.
 
