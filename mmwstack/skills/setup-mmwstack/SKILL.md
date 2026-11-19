@@ -9,7 +9,7 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 Before the first delegation, identify the host from the session environment (for example, `codex`, `cursor` or `claude-code`). If the host is unclear, ask the user once. Read that host's `## <host>` section in `~/.agents/mmwstack-models.md` or the rule the user supplies. For each delegation, use its model and settings for the role, in the listed order for panel seats. Give a subagent that will delegate in turn the host and a readable path to the same rule, or the relevant role lines in its brief. `inherit-parent` and `auto` run a role on the parent model when the user selects them. Check the host's dispatch record when available. If the host substitutes a different model or fixed setting, report the role as unfilled and leave its result unused. Report a missing host section or role assignment. If an assignment cannot run, report the unfilled role.
 
-**Factory Droid (`## droid`).** For a model-only role or panel seat, read the effective model IDs assigned to Droid's `light`, `medium` and `heavy` subagent tiers (locally, `subagentModelSettings` in `~/.factory/settings.json`). Pass the matching tier as `Task.complexity` on a built-in subagent; choose its type by the required tools. A tier selects the model, not the difficulty of this task. Keep repeated seats and their order. Reasoning comes from Droid's tier settings. If no tier matches the requested model ID, treat that entry as unavailable; do not substitute the parent or a nearby tier. Check the dispatched model when the host reports it.
+**Factory Droid (`## droid`).** Each role or panel entry is a `Task.complexity` value: `light`, `medium` or `heavy`. Pass it unchanged when spawning a built-in subagent; choose `worker` or `explorer` by the tools the role needs. Droid's tier settings supply the model and reasoning. Do not look up a model to choose a tier at dispatch. Preserve runner seats, including repeats, and judge preference order. If the role's tools and tier cannot both be honored, report the entry as unavailable rather than dispatching with a default.
 
 ## Steps
 
@@ -23,7 +23,7 @@ Read the current host section's budget and role assignments. If the rule has old
 
 ### 3. Budget, map, and confirm
 
-For Droid model-only assignments, skip the budget choice and record each selected model's configured ID without per-role reasoning. When copying another host's roles, match the actual models to Droid's inventory, including the provider for custom IDs. Keep every panel seat and judge preference in order. Validate against the configured tiers without changing them.
+For Droid, confirm tiers instead of a budget or per-role reasoning. When copying another host, use the user's current tier-to-model bindings once to translate each source model to a tier; flag any model without a unique match. Save only tier names in `## droid`, one per role or panel entry, preserving order and repetitions. Leave Droid settings and the source host section unchanged. Skip the model-and-budget template below.
 
 **(a) Ask for a budget.** Prefer a structured choice when available. Offer these four options with these exact labels, and name the current budget when the rule records one.
 
