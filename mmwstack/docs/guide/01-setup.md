@@ -22,7 +22,7 @@ Choose a model for each role. Rerun [setup-mmwstack](../../skills/setup-mmwstack
 
 Setup updates the section for the current host. The same role can use a different model in another host.
 
-You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Autopilot starts PR owners on `coder`. Autopilot and Shipping use `verifier` for independent PR checks. For a model race, choose a configured model for each arm.
+You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. Each runner panel has two seats. The entries can name the same model or tier. Autopilot starts PR owners on `coder`. Autopilot and Shipping use `verifier` for independent PR checks. For a model race, choose a configured model for each arm.
 
 ## Accept the verification offers, or don't
 
@@ -44,7 +44,7 @@ mmwstack spends extra tokens on subagents and review panels. That's the price of
 
 - Rerun [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) and pick a smaller reasoning budget or cheaper models. A strong model in the main chat with cheaper, faster models in the code roles is a good split.
 - Set a role to `auto` or `inherit-parent` so it runs on the chat's own model.
-- Shorten a panel list. Each entry runs one subagent.
+- Use a less expensive assignment for either runner seat.
 - Save [mmw-mode](../../skills/mmw-mode/SKILL.md) for work that needs rigor. A small, obvious edit doesn't.
 
 ## Run your first task

@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs several attempts at the same brief and merges the best parts.
+One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs two attempts at the same brief and merges the best parts.
 
 The two most common design mistakes are taking the agent's first design and polishing a plan that no code has tested. This page fixes both. You plan through code. Prototypes answer the open questions, a README or tutorial sets the target, and the written plan comes last.
 
@@ -24,26 +24,24 @@ To find modules worth deepening, ask for [Improve codebase architecture](../../s
 /arena take my prompt to the arena verbatim. i want to compare their proposals with yours.
 ```
 
-[arena](../../skills/arena/SKILL.md) is the general tool underneath. N subagents attempt the same design or code brief in parallel, each writing to its own worktree or directory. A fresh read-only judge from the configured pool scores every candidate against a rubric. When no configured judge can run, the coordinator skips the judge and picks the base itself. The coordinator reads each candidate end to end, picks a base, grafts in the best ideas from the losers, and verifies the result.
+[arena](../../skills/arena/SKILL.md) is the general tool underneath. Two runners attempt the same design or code brief in parallel, each writing to its own worktree or directory. A fresh read-only judge from the configured pool scores every candidate against a rubric. When no configured judge can run, the coordinator skips the judge and picks the base itself. The coordinator reads each candidate end to end, picks a base, grafts in the best ideas from the losers, and verifies the result.
 
 ```mermaid
 flowchart LR
     A[One task] --> B[Configured panel]
     B --> C[Candidate 1]
     B --> D[Candidate 2]
-    B --> E[Candidate N]
     C --> F[Cross-judge]
     D --> F
-    E --> F
     F --> G[Pick a base]
     G --> H[Graft the best parts]
     H --> I[Verify]
 ```
 
-The panel comes from your [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) configuration, and you can adjust it per task. Ask for more candidates when the decision matters, fewer when it doesn't:
+Choose the two runner seats in [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md). To compare specific approaches, name both in the brief:
 
 ```text
-/arena this, 5 candidates. the cache key format is expensive to change later.
+/arena compare a readable cache key with a compact hashed key.
 ```
 
 ## Research in parallel

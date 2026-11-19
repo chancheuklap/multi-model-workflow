@@ -118,7 +118,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [blast-radius](./skills/blast-radius/SKILL.md) | you have a small-looking change and want to know what else it could break, with the one fact it's safe because of proven by running code, not asserted. |
 | [architect](./skills/architect/SKILL.md) | you're about to write code that crosses a function boundary and want the caller's usage, types, and module shape settled first. |
 | [codebase-dic](./skills/codebase-dic/SKILL.md) | look up the shared vocabulary for deep modules, dependency seams, and tests at the interface. |
-| [arena](./skills/arena/SKILL.md) | you want N parallel attempts at the same thing, then to grab the best parts of each. |
+| [arena](./skills/arena/SKILL.md) | you want two parallel attempts at the same thing, then to grab the best parts of each. |
 | [advisor](./skills/advisor/SKILL.md) | you want an independent advisor's verdict before a major decision or when the agent is stuck. ask once, or say `advisor on` to consult it at those points for the conversation. |
 | [code-review](./skills/code-review/SKILL.md) | a project branch is finished and you want one review of it on three axes: standards, spec and tests. the code review playbook repairs once and stops. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |

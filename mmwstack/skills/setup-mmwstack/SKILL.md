@@ -34,7 +34,7 @@ For Droid, confirm tiers instead of a budget or per-role reasoning. When copying
 
 **(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, speeds and explicitly chosen per-role reasoning levels. Apply the budget to settings the user leaves to the budget. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
+**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. Require exactly two ordered entries for each runner list (`arena runners`, `architect runners`), including repeats. Confirm a pair before saving a list of any other size. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
 
 ### 4. Validate
 
@@ -57,10 +57,10 @@ judgment and prose: <model and settings>
 advisor: <model and settings>
 reader: <model and settings>
 code review: <model and settings>
-arena runners: <one model and its settings per seat, comma-separated>
+arena runners: <first seat>, <second seat>
 arena cross-judge pool: <judge models in preference order>
 verifier: <model and settings>
-architect runners: <one model and its settings per seat, comma-separated>
+architect runners: <first seat>, <second seat>
 ```
 
 ### 6. Confirm
