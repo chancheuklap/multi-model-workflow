@@ -18,7 +18,7 @@ Redact every secret from each command, output and captured artifact you show, in
    - A test seam is correct when a test there exercises the real bug pattern as it occurs at the call site. A seam too shallow for that, such as a single-caller test for a bug that needs several callers, gives false confidence. When none is correct, report that as a finding and have the delegate follow "When a failing test is impractical".
 4. Verify on the same surface. The original repro now passes. "Inconclusive" or wrong-surface is not a pass. Flag it. Unit tests show branch behavior, not bug absence.
    Before you organize commits, run `scripts/check` for repository checks under the [repo-checks moment rules](../../repo-checks/references/checks.md#moment-rules), without replacing verification on the real surface.
-5. Stage the commits so the failing repro lands before the fix in git history. Use the failing-before evidence collected in step 3.
+5. Stage the commits so the failing repro lands before the fix in git history.
    This is the canonical [principle-sequence-verifiable-units](../../principle-sequence-verifiable-units/SKILL.md) principle skill, the failing test first and the fix on top.
    - Before staging, search for the debug prefix and remove every tagged probe and throwaway prototype. If you forced the red by mutating code or a fixture, `diff` against a pristine copy to prove the mutation landed before you trust it. Put the hypothesis that held in the fix commit message so the next debugger learns.
 6. Run **Opening a PR**.
