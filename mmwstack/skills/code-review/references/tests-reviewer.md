@@ -29,7 +29,7 @@ For each added or changed test, answer:
 3. What does existing proof miss? A second layer needs a distinct risk, such as transport or lifecycle behavior.
 4. Does the test require an export, flag, wrapper, or injection hook with no production caller?
 
-Inspect the actual assertions and the paths they exercise for:
+Report new matches in this change as findings unless the [retention bar](#removal-or-consolidation) identifies an independent contract. Audit existing matches in this change:
 
 - Missing or loose assertions (a positive refund is not necessarily the promised amount), self-comparisons, identity copiers, subject-generated expected values.
 - Copied inventories/manifests/export lists; source, import, or string searches that do not prove an independent contract.

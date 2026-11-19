@@ -5,7 +5,7 @@ description: Write tests while landing code for a specified behavior, a cheap bu
 
 # Write tests
 
-You are the agent landing this ticket's code.
+You are the agent landing this ticket's code. Apply this during that implementation. Reviewing these tests is not a step of this cycle.
 
 Use the expected behavior, acceptance criteria and test precedent supplied by the spec's Testing Decisions, the ticket, or the brief. Use [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md) for those decisions. Use [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md) for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
 
@@ -67,6 +67,10 @@ Done when the same tests pass after the move that passed before it. In the evide
 
 ## Evidence
 
-For a new behavior or bug fix, name the test or executable check, its intended failure before the change, and its passing run afterward. If the before run is unavailable, say why and report the closest check you ran.
+For a new behavior or bug fix:
+
+- Name the failing-before test or executable check and the failure it produced.
+- Name the passing-after test run and any nearby validation performed.
+- If failing-before evidence could not be demonstrated, state why and describe the closest regression check used instead.
 
 For a behavior-preserving move, name the same check and its passing results before and after the move.
