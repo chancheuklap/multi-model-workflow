@@ -139,7 +139,7 @@ Principles are one-rule skills that [mmw-mode](../mmw-mode/SKILL.md) reads and c
 |---|---|
 | The mode stopped applying after a few turns | Start each task with [mmw-mode](../mmw-mode/SKILL.md), or use a persistent mode when available. |
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
-| A new model choice had no effect | The saved model rule applies to new chats. Start one. |
+| A new model choice had no effect | Start a new chat. On Factory Droid, [sync the native registrations](../setup-mmwstack/SKILL.md#5-write-the-rule) before launch if a Factory tier binding or the `advisor` or `judgment and prose` tier changed. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |
 | A skill didn't load on its own | The agent picks a skill from its description. Name the skill, or use a playbook that calls it. |
 | Parallel agents overwrote each other | Give concurrent writers separate worktrees. |
