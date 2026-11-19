@@ -1,10 +1,29 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { inspect } from "node:util";
+import {
+  type Identifier,
+  isBindingElement,
+  isCallExpression,
+  isExportDeclaration,
+  isExpressionWithTypeArguments,
+  isHeritageClause,
+  isIdentifier,
+  isImportDeclaration,
+  isImportTypeNode,
+  isInterfaceDeclaration,
+  isShorthandPropertyAssignment,
+  isTypeNode,
+  type Node,
+  NodeFlags,
+  SyntaxKind,
+} from "typescript/unstable/ast";
+import { API, SymbolFlags } from "typescript/unstable/sync";
 import { checkView } from "../frontends/view.ts";
 import {
   type CheckResult,
@@ -56,8 +75,59 @@ const COMMENT =
 const codeOf = (file: string) =>
   fs.readFileSync(path.join(scripts, file), "utf8").replace(COMMENT, (_, text) => text ?? " ");
 
-const RUNTIME =
-  /\b(?:process|require|globalThis|global|Deno|Bun|Buffer|setImmediate|clearImmediate|fetch)\b|\bimport\s*\(/g;
+const runtimeGlobals = new Set([
+  "process", "require", "globalThis", "global", "Deno", "Bun", "Buffer",
+  "setImmediate", "clearImmediate", "fetch",
+]);
+const isReference = (node: Identifier) => {
+  const parent = node.parent;
+  if (!parent) return false;
+  if ("label" in parent && parent.label === node) return false;
+  if (isBindingElement(parent) && parent.propertyName === node) return false;
+  return !("name" in parent && parent.name === node) || isShorthandPropertyAssignment(parent);
+};
+
+const forbiddenUses = (root: string, files: string[]) => {
+  const api = new API({ cwd: root });
+  try {
+    const config = path.join(root, "tsconfig.json");
+    const snapshot = api.updateSnapshot({ openProjects: [config] });
+    const project = snapshot.getProject(config);
+    assert.ok(project, `TypeScript did not load ${config}`);
+    const uses: string[] = [];
+    for (const file of files) {
+      const source = project.program.getSourceFile(path.join(root, file));
+      assert.ok(source, `TypeScript did not load ${file}`);
+      const walk = (node: Node, runtime: boolean): void => {
+        if (isImportDeclaration(node) || isExportDeclaration(node)) return;
+        if (isImportTypeNode(node)) {
+          uses.push(`${file} uses type import()`);
+          return;
+        }
+        const hasRuntime = runtime
+          && !(node.flags & NodeFlags.Ambient)
+          && !isInterfaceDeclaration(node)
+          && !(isHeritageClause(node) && node.token === SyntaxKind.ImplementsKeyword)
+          && !(isTypeNode(node) && !isExpressionWithTypeArguments(node));
+        if (hasRuntime && isCallExpression(node) && node.expression.kind === SyntaxKind.ImportKeyword) {
+          uses.push(`${file} uses import()`);
+        }
+        if (hasRuntime && isIdentifier(node) && runtimeGlobals.has(node.text) && isReference(node)) {
+          const local = project.checker.resolveName(node.text, SymbolFlags.Value, node, true);
+          const declaration = (local?.valueDeclaration ?? local?.declarations[0])?.resolve();
+          if (!declaration || declaration.flags & NodeFlags.Ambient)
+            uses.push(`${file} uses ${node.text}`);
+        }
+        node.forEachChild((child) => walk(child, hasRuntime));
+      };
+      walk(source, true);
+    }
+    return uses;
+  } finally {
+    api.close();
+  }
+};
+
 const TYPE_IMPORT =
   /\b(?:import|export)\s+type\b\s*(?:[\w$]+|\*(?:\s*as\s+[\w$]+)?|\{[^}]*\})\s*from\s*["']([^"']*)["']/g;
 const typeImports = (file: string) =>
@@ -91,7 +161,7 @@ test("pipeline.ts reaches no node: module", () => {
     assert.equal(to, "ir.ts", `pipeline.ts imports types from ${to}`);
 });
 
-test("ir.ts, the passes, pipeline.ts, the frontends, the backends, and every file they load are .ts files that name no listed runtime global and call no import()", () => {
+test("ir.ts, the passes, pipeline.ts, the frontends, the backends, and every file they load are .ts files that use no listed runtime global or import()", () => {
   const targets = ["ir.ts", "passes", "pipeline.ts", "frontends", "backends"];
   const reached = loads(...targets).flatMap(([, to]) => (to.startsWith("node:") ? [] : [to]));
   const files = [...new Set([...targets.flatMap(sources), ...reached])];
@@ -99,7 +169,7 @@ test("ir.ts, the passes, pipeline.ts, the frontends, the backends, and every fil
     files.filter((file) => !file.endsWith(".ts")),
     [],
   );
-  for (const file of files) assert.deepEqual(codeOf(file).match(RUNTIME), null, file);
+  assert.deepEqual(forbiddenUses(scripts, files), []);
 });
 
 test("no frontend or backend loads a node: module when imported, even through another file", () => {
@@ -112,6 +182,28 @@ test("no frontend or backend loads a node: module when imported, even through an
       for (const [, to] of loads(path.join(folder, f)))
         assert.ok(!to.startsWith("node:"), `${folder}/${f} reaches ${to}`);
   }
+});
+
+test("the portability guard judges runtime references, not matching words", (t) => {
+  const fixture = fs.mkdtempSync(path.join(tmpdir(), "statechart-portability-"));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(fixture, "tsconfig.json"), '{"include": ["*.ts"]}');
+  fs.writeFileSync(path.join(fixture, "portable.ts"), `
+    const record = { process: "process the graph", fetch: /process/ };
+    export const render = (process: string) => [record.process, record.fetch, process];
+  `);
+  fs.writeFileSync(path.join(fixture, "alias.ts"), `
+    import { render as process } from "./portable.ts";
+    export const probe = () => process("input");
+  `);
+  fs.writeFileSync(path.join(fixture, "bound.ts"), `
+    export const probe = () => [process.pid, { fetch }, import("./portable.ts")];
+    export type Probe = typeof import("./portable.ts");
+  `);
+  assert.deepEqual(forbiddenUses(fixture, ["portable.ts", "alias.ts"]), []);
+  assert.deepEqual(forbiddenUses(fixture, ["bound.ts"]), [
+    "bound.ts uses process", "bound.ts uses fetch", "bound.ts uses import()", "bound.ts uses type import()",
+  ]);
 });
 
 const small: Rule = { kind: "invariant", name: "Small" };

@@ -52,29 +52,86 @@ const closingFence = (text, opening) => {
 		match[1].length >= opening.length,
 	);
 };
-for (let i = start; i < raw.length; i++) {
-	const text = raw[i];
-	const n = i + 1;
-	let code = Boolean(fence);
-	if (fence && closingFence(text, fence)) {
-		code = false;
-		fence = null;
-	} else if (!fence) {
-		fence = openingFence(text);
-		code = Boolean(fence);
+const startsBlock = (text) =>
+	!text.trim() || openingFence(text) || /^ {0,3}(?:#{1,6}(?:\s|$)|>|<!--|(?:[-+*]|\d+[.)])\s)/.test(text);
+const inlineEnd = (line, offset, endOf) => {
+	for (let i = line; i < raw.length; i++) {
+		if (i !== line && startsBlock(raw[i])) break;
+		const from = i === line ? offset : 0;
+		const end = endOf(raw[i].slice(from));
+		if (end !== null) return { line: i, offset: from + end };
 	}
-	lines.push({ n, text, code });
-	if (code) continue;
-	const prose = text
-		.replace(/(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/g, "`")
+	return null;
+};
+const closingTicks = (text, delimiter) => {
+	for (const match of text.matchAll(/`+/g)) {
+		if (match[0] === delimiter) return match.index + delimiter.length;
+	}
+	return null;
+};
+const closingComment = (text) => {
+	const end = text.indexOf("-->");
+	return end === -1 ? null : end + 3;
+};
+
+let comment = false;
+let codeEnd = null;
+const inlineToken = /\\[\\`<]|`+|<!--/g;
+for (let i = start; i < raw.length; i++) {
+	const input = raw[i];
+	const n = i + 1;
+	if (fence) {
+		if (closingFence(input, fence)) fence = null;
+		continue;
+	}
+	if (!comment && !codeEnd && (fence = openingFence(input))) continue;
+
+	let text = "";
+	let prose = "";
+	let offset = 0;
+	while (offset < input.length) {
+		if (comment) {
+			const end = closingComment(input.slice(offset));
+			if (end === null) break;
+			offset += end;
+			comment = false;
+			continue;
+		}
+		if (codeEnd) {
+			const end = codeEnd.line === i ? codeEnd.offset : input.length;
+			text += input.slice(offset, end);
+			prose += "`";
+			offset = end;
+			if (codeEnd.line === i) codeEnd = null;
+			continue;
+		}
+		inlineToken.lastIndex = offset;
+		const match = inlineToken.exec(input);
+		const plain = input.slice(offset, match?.index ?? input.length);
+		text += plain;
+		prose += plain;
+		if (!match) break;
+		offset = inlineToken.lastIndex;
+		const token = match[0];
+		if (token === "<!--" && (/^ {0,3}$/.test(input.slice(0, match.index)) || inlineEnd(i, offset, closingComment))) {
+			comment = true;
+		} else if (token.startsWith("`") && (codeEnd = inlineEnd(i, offset, (rest) => closingTicks(rest, token)))) {
+			offset = match.index;
+		} else {
+			text += token;
+			prose += token;
+		}
+	}
+	prose = prose
 		.replace(/!\[[^\]]*\]\([^)]*\)/g, "")
 		.replace(/\]\([^)]*\)/g, "]");
+	lines.push({ n, text, prose });
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
 	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
 	if (/: \S/.test(prose)) fail(n, "mid-sentence colon");
 }
 
-const h2 = (l) => (!l.code && l.text.startsWith("## ") ? l.text.slice(3).trim() : null);
+const h2 = (l) => (l.prose.startsWith("## ") ? l.text.slice(3).trim() : null);
 const sections = [];
 for (const l of lines) {
 	const title = h2(l);
@@ -83,16 +140,17 @@ for (const l of lines) {
 }
 const find = (title) => sections.find((s) => s.title === title);
 const bodyText = (s) => s.body.map((l) => l.text).join("\n");
-const boxCount = (ls) => ls.filter((l) => !l.code && BOX.test(l.text)).length;
+const boxCount = (ls) => ls.filter((l) => BOX.test(l.prose)).length;
 
-const h1 = lines.findIndex((l) => !l.code && l.text.startsWith("# "));
+const h1 = lines.findIndex((l) => l.prose.startsWith("# "));
 if (h1 === -1) fail(1, "no H1 title");
 const howToRead = find("How to read this");
 if (!howToRead) fail(1, 'no "## How to read this" section');
 if (h1 !== -1 && howToRead) {
-	const intro = lines.slice(h1 + 1).filter((l) => l.n < howToRead.n && l.text.trim() !== "");
+	const intro = raw.slice(lines[h1].n, howToRead.n - 1).filter((text) => text.trim() !== "");
 	if (intro.length >= 10) fail(lines[h1].n, `intro is ${intro.length} lines, under ten required`);
-	if (![RULE, LEGACY_RULE].some((rule) => bodyText(howToRead).includes(rule))) fail(howToRead.n, `How to read this lacks "${RULE}"`);
+	const guidance = howToRead.body.map((l) => l.prose).join("\n");
+	if (![RULE, LEGACY_RULE].some((rule) => guidance.includes(rule))) fail(howToRead.n, `How to read this lacks "${RULE}"`);
 	for (const marker of HOW_TO_READ_MARKERS) {
 		if (!bodyText(howToRead).includes(marker)) fail(howToRead.n, `How to read this lacks "${marker}"`);
 	}
@@ -101,7 +159,7 @@ if (h1 !== -1 && howToRead) {
 const program = find("Program checklist");
 if (!program) fail(1, 'no "## Program checklist" section');
 else {
-	const h3s = program.body.filter((l) => !l.code && l.text.startsWith("### ")).map((l) => l.text.slice(4).trim());
+	const h3s = program.body.filter((l) => l.prose.startsWith("### ")).map((l) => l.text.slice(4).trim());
 	let cursor = 0;
 	for (const name of PROGRAM_H3) {
 		const at = h3s.findIndex((t, i) => i >= cursor && t.startsWith(name));
@@ -126,8 +184,7 @@ for (const phase of phases) {
 	if (!/^Phase \d+\. \S/.test(phase.title)) fail(phase.n, `expected a phase goal, got "${phase.title}"`);
 	const heads = [];
 	for (const l of phase.body) {
-		if (l.code) continue;
-		const m = l.text.match(/^\*\*([^*]+)\*\*(.*)$/);
+		const m = l.prose.match(/^\*\*([^*]+)\*\*(.*)$/);
 		if (m && SUB_BLOCKS.includes(m[1])) heads.push({ name: m[1], n: l.n, rest: m[2].trim(), lines: [] });
 		else if (heads.length) heads.at(-1).lines.push(l);
 	}
