@@ -9,19 +9,13 @@ Use Open in [to-tickets](../to-tickets/SKILL.md#open) to open or reuse the work 
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
-A spec is the text the operator checks before agents build from it unattended: whatever it leaves open, the implementing agent decides alone, and whatever it states is built as written, including what nobody decided. So record decisions rather than make them. An engineering call the sources leave open (a module boundary, a data shape, the choice of test seam) is yours: make it and mark it "this spec's decision". Use [principle-never-block-on-the-human](../principle-never-block-on-the-human/SKILL.md) for the decisions the sources leave open. Before publishing, raise any decision only the operator can make. Read a supplied issue with its full body and comments. When the source is a Wayfinder map, follow `Decisions so far` to the relevant decision tickets and read `Result` in their bodies. Read the original report, evidence, approved prototypes and scope exclusions before drafting.
+A spec is the text the operator checks before agents build from it unattended: whatever it leaves open, the implementing agent decides alone, and whatever it states is built as written, including what nobody decided. So record decisions rather than make them. An engineering call the sources leave open (a module boundary, a data shape) is yours: make it and mark it "this spec's decision". Use [principle-never-block-on-the-human](../principle-never-block-on-the-human/SKILL.md) for the decisions the sources leave open. Before publishing, raise any decision only the operator can make. Read a supplied issue with its full body and comments. When the source is a Wayfinder map, follow `Decisions so far` to the relevant decision tickets and read `Result` in their bodies. Read the original report, evidence, approved prototypes and scope exclusions before drafting.
 
 ## Process
 
 1. If you have not already explored the codebase, use [how](../how/SKILL.md) for the area this spec will cover. Use [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md) throughout the spec, and respect any ADRs in the area you're touching.
 
-2. Use [principle-model-the-domain](../principle-model-the-domain/SKILL.md) for the domain model. Sketch out the test seams for the feature.
-
-A **test seam** is the public interface where a test observes behavior without reaching inside the implementation. Test through that interface.
-
-Existing test seams should be preferred to new ones. Use the highest test seam possible. If new test seams are needed, propose them at the highest point you can. The fewer test seams across the codebase, the better - the ideal number is one.
-
-Choose the test seam yourself.
+2. Use [principle-model-the-domain](../principle-model-the-domain/SKILL.md) for the domain model. State the conditions and observable result for each behavior the spec settles. Name a particular public interface when the promise is about that interface. Otherwise the implementer chooses the test seam that demonstrates the result.
 
 3. Write the spec using the template below. Use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md) and [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md). Use [technical-writing](../technical-writing/SKILL.md) and write the prose through it. The template is the structure. The User Stories section says how an observable result is written for the project's verification skill. [Review and publish the draft](#publish).
 
@@ -79,7 +73,7 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 A list of testing decisions that were made. Include:
 
-- A description of what makes a good test (only test external behavior, not implementation details)
+- The conditions and expected result for each behavior under test
 - Which modules will be tested
 - Prior art for the tests (i.e. similar types of tests in the codebase)
 

@@ -34,6 +34,5 @@ Use [codebase-dic](../SKILL.md) and use the sentences in its Principles for one 
 ## Testing strategy: replace, don't layer
 
 - Once tests at the deepened module's interface cover the same observable behavior, delete the old unit tests they replace.
-- Write new tests at the deepened module's interface. The **interface is the test surface**.
-- Tests assert on observable outcomes through the interface, not internal state.
-- Tests should survive internal refactors, since they describe behaviour, not implementation. If a test has to change when the implementation changes, it's testing past the interface.
+- Invoke [write-tests](../../write-tests/SKILL.md) before writing new tests at the deepened module's interface. The **interface is the test surface**.
+- Judge the replacement tests with [principle-test-behavior-not-implementation](../../principle-test-behavior-not-implementation/SKILL.md).
