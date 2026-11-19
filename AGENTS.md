@@ -2,13 +2,14 @@
 
 When working on mmwstack, follow the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms.
 
-## Import a method into mmwstack
+## Bring upstream changes into mmwstack
 
-Use [Matt Pocock's skills](upstream/mattpocock/skills/) and [pstack](upstream/pstack/) as sources. Make changes in `mmwstack/`.
+**[pstack](upstream/pstack/) updates.** Diff the upstream snapshots first. Compare each changed method with its mmwstack counterpart, accounting for renamed skills and playbooks. Apply the upstream change where it fits; preserve mmwstack's routing, model choices and handoffs.
 
-1. Pick one method. Read the upstream instructions, any corresponding mmwstack skill or playbook, and the caller that needs the result.
-2. Compare what triggers the method, who makes each decision, and what the caller needs back. Keep existing steps that already produce that result.
-3. Add the missing behavior where the decision belongs. Follow the route from the caller to the result and check that each handoff supplies what the next step needs.
+**[Matt Pocock's skills](upstream/mattpocock/skills/).** Read the source method and find the mmwstack step that needs its result. Extend that step if it already owns the decision. Add a separate skill only when a caller needs a distinct method and can judge its result.
+
+For either source, trace the changed method from its trigger to the caller that uses its result.
+
 For investigations, report findings. For proposals, state the decision rule and give an example that distinguishes the proposed behavior from the current one.
 
 ## Write instructions for agents
