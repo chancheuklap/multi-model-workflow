@@ -1,6 +1,6 @@
 ---
 name: arena
-description: "Spawn N parallel candidates at the same task, pick a base, graft the strongest parts of the losers into it. Use for /arena, 'arena this', 'throw it in the arena', or when one attempt at a non-trivial artifact would lock in the wrong shape."
+description: "Spawn two parallel candidates for the same task, pick a base, graft the strongest parts of the losers into it. Use for /arena, 'arena this', 'throw it in the arena', or when one attempt at a non-trivial artifact would lock in the wrong shape."
 ---
 
 # Arena
@@ -13,14 +13,14 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 1. State the artifact each candidate is producing. For an implementation, include the execution ticket URL in the task each candidate receives.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
-3. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Spawn one runner per entry, including repeated models and explicit `auto` or `inherit-parent` entries. For multiple design directions, assign additional runners to the configured models.
+3. Use the model and settings from the current host’s `arena runners` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use exactly two entries, one per runner, including repeats. If more design directions are proposed, choose the two that best distinguish the alternatives; do not add runners. On Factory Droid, use [Droid tier dispatch](../setup-mmwstack/SKILL.md#factory-droid-dispatch) for both runners and the judge.
 4. Give each candidate its own output location that the parent and judge can read (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill.
 
 ## Phase B: Fan out
 
-Spawn all N subagents in parallel, each in a fresh context. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
+Spawn both runners in parallel, each in a fresh context. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
 
-If a candidate produces no output, proceed with N-1 and note the dropout.
+If a candidate produces no output, continue with the remaining candidate and note the dropout.
 
 ## Phase C: Cross-judge
 

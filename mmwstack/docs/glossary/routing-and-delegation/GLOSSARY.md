@@ -84,7 +84,7 @@ The choice of standard or fast execution for a delegate. Unless the operator fix
 The operator's explicit choice of `inherit-parent` or `auto`. Both values run the delegate on the parent's model with its inherited settings.
 
 **Panel role**:
-An assignment with one seat per entry in `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Arena can add runners for multiple design directions using the configured models. Architect applies Arena's runner rules to its own list. [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
+A two-seat assignment from `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Architect applies Arena's runner rules to its own list. [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
 
 **Arena cross-judge pool**:
 The operator's ordered list for one independent read-only judge. Arena uses the first available entry, including an explicitly inherited model. A candidate author cannot judge the submissions.
@@ -109,7 +109,7 @@ A comparison of independent attempts at one artifact. Each runner receives the s
 The agent that produces one independent answer to the Arena brief. Its **candidate** is the artifact it submits with a short rationale explaining alternatives it considered and rejected. An architect runner submits a design package under the same arrangement.
 
 **Design direction**:
-A distinct approach to the same brief, such as a different structure or trade-off. By default every runner receives the same brief and chooses its own direction. When the task asks for alternative interfaces to one module, each runner is assigned one of architect's [interface directions](../../../skills/architect/references/interface-directions.md) and the rest of its prompt stays identical. Arena adds runners when the task spans several directions. The wireframe sense is [layout direction](../design-and-presentation/GLOSSARY.md#visual-and-interaction-design).
+A distinct approach to the same brief, such as a different structure or trade-off. By default every runner receives the same brief and chooses its own direction. When the task asks for alternative interfaces to one module, each runner is assigned one of architect's [interface directions](../../../skills/architect/references/interface-directions.md) and the rest of its prompt stays identical. The wireframe sense is [layout direction](../design-and-presentation/GLOSSARY.md#visual-and-interaction-design).
 _Avoid_: direction for a constraint that every runner receives.
 
 **Arena rubric**:
