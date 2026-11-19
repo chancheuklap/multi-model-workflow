@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pydantic>=2"]
+# dependencies = ["pydantic>=2", "ruamel.yaml>=0.18,<0.20"]
 # ///
 """出包前把钥匙对着仓库核一遍。
 
@@ -19,6 +19,9 @@ import json
 import re
 import sys
 from pathlib import Path
+
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -81,33 +84,19 @@ def _iter_argvs(manifest: ReleaseAdapterManifest) -> list[tuple[str, list[str]]]
 
 
 class UnreadableElectronBuilderConfig(Exception):
-    """行级解析器在这份 electron-builder.yml 里拿不出 directories.output。"""
+    """The config does not supply a readable directories.output value."""
 
 
 def _electron_builder_output_dir(config: Path) -> str:
-    """从 electron-builder.yml 读 directories.output。
-
-    行级解析：只认顶层 `directories:` 块，以及缩进在它下面的 `output:` 一行。
-    别的合法写法——流式、带锚点、`directories` 嵌在别的键下面——这里读不出来，
-    抛 UnreadableElectronBuilderConfig，不当作一个值。
-    """
     try:
-        lines = config.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise UnreadableElectronBuilderConfig(f"the file will not open: {exc}") from exc
-    in_directories = False
-    for line in lines:
-        stripped = line.split("#", 1)[0].rstrip()
-        if not stripped.strip():
-            continue
-        if not stripped.startswith((" ", "\t")):
-            in_directories = stripped.strip() == "directories:"
-            continue
-        if in_directories and stripped.strip().startswith("output:"):
-            return stripped.split(":", 1)[1].strip().strip("'\"").rstrip("/")
-    raise UnreadableElectronBuilderConfig(
-        "no top-level `directories:` block with an `output:` line indented under it"
-    )
+        doc = YAML(typ="safe").load(config.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, YAMLError) as exc:
+        raise UnreadableElectronBuilderConfig(str(exc)) from exc
+    directories = doc.get("directories") if isinstance(doc, dict) else None
+    output = directories.get("output") if isinstance(directories, dict) else None
+    if not isinstance(output, str) or not output:
+        raise UnreadableElectronBuilderConfig("directories.output is missing or is not a non-empty string")
+    return output.rstrip("/")
 
 
 def _expand(manifest: ReleaseAdapterManifest, value: str) -> str | None:
@@ -317,12 +306,11 @@ def verify(manifest: ReleaseAdapterManifest, repo_root: Path, adapter: Path) -> 
                         "electron",
                         "electron_builder_output_unreadable",
                         locator,
-                        f"this check reads directories.output line by line and got nothing "
-                        f"out of this file ({exc}); whether it agrees with electron.dist_dir "
+                        f"this check could not read directories.output ({exc}); "
+                        f"whether it agrees with electron.dist_dir "
                         f"{declared!r} is unknown",
-                        "read directories.output out of the file yourself and compare it with "
-                        "electron.dist_dir; writing it as a top-level `directories:` block with "
-                        "`output:` indented under it puts it back within reach of this check",
+                        "make sure the YAML provides a top-level directories.output string "
+                        "and compare that value with electron.dist_dir",
                     )
                 )
             else:

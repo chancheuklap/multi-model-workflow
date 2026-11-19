@@ -209,7 +209,7 @@ Patterns only this product's build produces, matched **before** the skill's gene
 Check the release manifest against the repository first. It is seconds, and it catches the class of mistake whose alternative is finding out forty minutes into a compile.
 
 ```bash
-uv run --with 'pydantic>=2' python scripts/verify_key.py --adapter <manifest> --repo-root <repo>
+uv run --script scripts/verify_key.py --adapter <manifest> --repo-root <repo>
 ```
 
 Then assemble and read the script:

@@ -39,13 +39,15 @@ const install = (name: string, ...packages: string[]) => {
 let render: Render;
 let mermaid: Mermaid;
 let html: Html;
+let document: Document;
 before(async () => {
   const pele = install("test-pele-1.9.0", "pele@1.9.0");
   ({ render } = await import(pathToFileURL(pele.resolve("pele")).href));
 
   const parser = install("test-mermaid-11.16.0", "mermaid@11.16.0", "jsdom@26.1.0");
   const { window } = new (parser("jsdom").JSDOM)("");
-  Object.assign(globalThis, { window, document: window.document, DOMParser: window.DOMParser });
+  document = window.document;
+  Object.assign(globalThis, { window, document, DOMParser: window.DOMParser });
   mermaid = (await import(pathToFileURL(parser.resolve("mermaid")).href)).default;
   html = (markup) => {
     const t = window.document.createElement("template");
@@ -141,5 +143,52 @@ test("an arrow into a parent from its only way in stays out of the parent's titl
 
 test("the theme in references/render.md colors each class that the charts use", () => {
   assert.ok(classes.size > 0);
-  for (const name of classes) assert.match(theme, new RegExp(`\\.pele \\.${name} rect \\{`), name);
+  const style = document.createElement("style");
+  style.textContent = theme;
+  document.head.append(style);
+  try {
+    assert.ok(style.sheet, "the color theme must parse as CSS");
+    const light = [];
+    const dark = [];
+    for (const rule of style.sheet.cssRules) {
+      if (rule instanceof window.CSSStyleRule) light.push(rule);
+      if (rule instanceof window.CSSMediaRule
+        && rule.conditionText.replace(/\s/g, "") === "(prefers-color-scheme:dark)")
+        for (const nested of rule.cssRules)
+          if (nested instanceof window.CSSStyleRule) dark.push(nested);
+    }
+    const color = document.createElement("span").style;
+    for (const mark of classes) {
+      const sample = document.createElement("template");
+      sample.innerHTML = render(`stateDiagram-v2\n  [*] --> s1\n  class s1 ${mark}\n`).svg;
+      const node = sample.content.querySelector(".pele-node[data-id='s1']");
+      assert.ok(node?.classList.contains(mark), mark);
+      const stroke = mark === "breaks" || mark === "mayBreak" || mark === "bugPath" || mark === "repeats";
+      const paint = [
+        ...(stroke ? [["rect", "stroke"]] : []),
+        ...(mark !== "bugPath" && mark !== "repeats" ? [["rect", "fill"]] : []),
+        ...(mark === "breaks" || mark === "mayBreak" ? [["text", "fill"]] : []),
+      ];
+      for (const [scheme, rules] of [["light", light], ["dark", dark]] as const) {
+        for (const [tag, property] of paint) {
+          const element = node.querySelector(tag);
+          assert.ok(element, `${mark} has no rendered ${tag}`);
+          const declaresPaint = rules.some((rule) => {
+            if (!element.matches(rule.selectorText)) return false;
+            node.classList.remove(mark);
+            const matchesWithoutMark = element.matches(rule.selectorText);
+            node.classList.add(mark);
+            if (matchesWithoutMark) return false;
+            color.color = "";
+            color.color = rule.style.getPropertyValue(property);
+            return color.color !== "" && color.color !== "transparent"
+              && (!stroke || rule.style.getPropertyPriority(property) === "important");
+          });
+          assert.ok(declaresPaint, `${scheme} theme: ${mark} requires ${property} on its rendered ${tag}`);
+        }
+      }
+    }
+  } finally {
+    style.remove();
+  }
 });

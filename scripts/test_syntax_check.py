@@ -171,6 +171,23 @@ class SyntaxCheckRegressionTest(unittest.TestCase):
         good_push = self.git("push", "-u", "origin", "feat")
         self.assertEqual(good_push.returncode, 0, good_push.stdout + good_push.stderr)
 
+    def test_syntax_parses_hooks_and_reports_only_files_it_parses(self) -> None:
+        hook = ".githooks/pre-push"
+        self.write_file("mmwstack/note.md", "this is not a script\n")
+        self.write_file(hook, "#!/bin/sh\nif true; then :; fi\n")
+        good = self.run_cmd("python3", "scripts/syntax-check.py", hook, "mmwstack/note.md")
+        self.assertEqual(good.returncode, 0, good.stderr)
+        self.assertEqual(good.stdout.strip(), "PASS syntax (1 parsed, 1 skipped)")
+
+        self.write_file(hook, "#!/bin/sh\nif then\n")
+        bad = self.run_cmd("python3", "scripts/syntax-check.py")
+        self.assertEqual(bad.returncode, 1, bad.stdout + bad.stderr)
+        self.assertIn(hook, bad.stderr)
+
+        skipped = self.run_cmd("python3", "scripts/syntax-check.py", "mmwstack/note.md")
+        self.assertEqual(skipped.returncode, 0, skipped.stderr)
+        self.assertEqual(skipped.stdout.strip(), "SKIP syntax (0 parsed, 1 skipped)")
+
 
 if __name__ == "__main__":
     unittest.main()

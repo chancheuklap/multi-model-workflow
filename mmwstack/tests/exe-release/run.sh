@@ -3,7 +3,7 @@
 #
 #   bash mmwstack/tests/exe-release/run.sh
 #
-# PowerShell 那两条这里都验不了——Mac 上没有 PowerShell。手上有构建机时跑：
+# 本地生成脚本行为测试需要 pwsh 和 POSIX。Windows 那两条在构建机上跑：
 #
 #   bash tests/check-generated-powershell.sh <构建机> <release.ps1>   # 语法
 #   bash tests/check-template-behaviour.sh <构建机>                    # 那几个守卫函数判得对不对
@@ -56,11 +56,11 @@ run "派发:derive 提交、P0 直接 PAUSE、收敛护栏" bash "$HERE/test_rel
 
 if command -v uv >/dev/null 2>&1; then
   run "合同、装配、诊断、派修与最小钥匙" \
-    uv run --quiet --with pytest --with 'pydantic>=2' python -m pytest \
+    uv run --quiet --with pytest --with 'pydantic>=2' --with 'ruamel.yaml>=0.18,<0.20' python -m pytest \
       "$HERE/test_release_contracts.py" \
       "$HERE/test_release_script_assembler.py" "$HERE/test_diagnose_core.py" \
       "$HERE/test_fix_dispatch.py" "$HERE/test_minimal_key.py" \
-      "$HERE/test_verify_key.py" -q
+      "$HERE/test_verify_key.py" -q -rs
 else
   echo
   echo "没装 uv：Python 那几份没跑。引擎本身也要 uv 才能校验 manifest。" >&2

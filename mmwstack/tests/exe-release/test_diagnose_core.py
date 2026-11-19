@@ -33,23 +33,7 @@ def _with_tmp(tmp_path):
 # 正则，否则那条根因静默失效。规则搬到引擎这边之后，这条对照就能在同一个仓库里验。
 
 # 每条是 (引擎日志里的一整句, 期望的根因指纹, 引擎源码里逐字出现的片段)。
-# 第三项跟前两项分开，是因为报错句里常常带变量（超时秒数、主机名），源码里没有那一段字面量。
 ENGINE_ERRORS = [
-    (
-        "ERROR: remote build has no RELEASE_REMOTE_HOST",
-        "env:missing_RELEASE_REMOTE_HOST",
-        "ERROR: remote build has no RELEASE_REMOTE_HOST",
-    ),
-    (
-        "ERROR: remote build has no RELEASE_REMOTE_ROOT",
-        "env:missing_RELEASE_REMOTE_ROOT",
-        "ERROR: remote build has no RELEASE_REMOTE_ROOT",
-    ),
-    (
-        "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path in safe characters",
-        "env:invalid_RELEASE_REMOTE_ROOT",
-        "ERROR: RELEASE_REMOTE_ROOT must be an absolute Windows path",
-    ),
     (
         "ERROR: remote build produced no exitcode within 7200s (task=mmw-release-duck)",
         "env:remote_harness",

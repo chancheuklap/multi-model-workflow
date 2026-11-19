@@ -2,7 +2,6 @@
 """按探测结果，把这个仓库该有的工具链配置写出来。
 
 `mmw toolchain detect` 只回答"该配什么、缺什么"。这一步真的动手写文件，所以换一个仓库、
-换一台电脑，配置不用靠人想起来——跑一次 `mmw init` 就在。
 
 谁拥有哪份内容，由规则表里的 mode 决定：
 
@@ -197,8 +196,7 @@ def main(argv: list[str]) -> int:
     if not plan.writes:
         print("配置已齐，没有要写的。")
 
-    # 写过的路径交给调用方。`mmw init` 用它登记这一轮要提交的文件——配置留在工作区
-    # 没提交，任务 worktree 里就看不到。
+    # Return the paths written to the caller.
     if written_to:
         lines = [f"{p.relative_to(repo)}\n" for p, _c, _r in plan.writes]
         Path(written_to).write_text("".join(lines), encoding="utf-8")
