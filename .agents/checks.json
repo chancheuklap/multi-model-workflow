@@ -131,20 +131,13 @@
     },
     {
       "id": "repo-checks",
-      "run": "npm --prefix mmwstack/skills/repo-checks/scripts run test:unit",
+      "run": "npm --prefix mmwstack/skills/repo-checks/scripts test",
       "inputs": [
         "mmwstack/skills/repo-checks/scripts/**",
         "mmwstack/skills/repo-checks/templates/**"
       ],
       "tests": [
-        "mmwstack/skills/repo-checks/scripts/test/adversarial.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/ensure.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/executor.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/hooks.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/lint.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/modes.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/round1.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/run.test.mjs"
+        "mmwstack/skills/repo-checks/scripts/test/*.test.mjs"
       ],
       "needs": ["cmd:node", "cmd:npm", "cmd:git"],
       "ci": false,
@@ -168,18 +161,6 @@
     }
   ],
   "lanes": [
-    {
-      "id": "perf-budgets",
-      "kind": "owner-only",
-      "reason": "Measures command latency on a quiet machine. Parallel gate load makes the number meaningless.",
-      "run_by": "owner",
-      "tests": [
-        "mmwstack/skills/repo-checks/scripts/test/lint-budget.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/push-budget.test.mjs",
-        "mmwstack/skills/repo-checks/scripts/test/selection-budget.test.mjs"
-      ],
-      "command": "npm --prefix mmwstack/skills/repo-checks/scripts run test:perf"
-    },
     {
       "id": "exe-release-windows",
       "kind": "device",

@@ -3,8 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1 test/*.test.mjs",
-    "test:unit": "node --test --test-concurrency=1 test/adversarial.test.mjs test/ensure.test.mjs test/executor.test.mjs test/hooks.test.mjs test/lint.test.mjs test/modes.test.mjs test/round1.test.mjs test/run.test.mjs",
-    "test:perf": "node --test --test-concurrency=1 test/lint-budget.test.mjs test/push-budget.test.mjs test/selection-budget.test.mjs"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
   }
 }
