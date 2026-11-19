@@ -5,6 +5,9 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 # Setup mmwstack
 
+## Factory Droid dispatch
+
+In `## droid`, each role or panel entry is a `Task.complexity` value: `light`, `medium` or `heavy`. Pass it unchanged when spawning a built-in subagent; choose `worker` or `explorer` by the tools the role needs. Droid's tier settings supply the model and reasoning. Do not look up a model to choose a tier at dispatch. Preserve runner seats, including repeats, and judge preference order. If the role's tools and tier cannot both be honored, report the entry as unavailable rather than dispatching with a default.
 ## Steps
 
 ### 1. Detect available models
@@ -17,6 +20,8 @@ Read the current host section's budget and role assignments in `~/.agents/mmwsta
 
 ### 3. Budget, map, and confirm
 
+For Droid, confirm tiers instead of a budget or per-role reasoning. When copying another host, use the user's current tier-to-model bindings once to translate each source model to a tier; flag any model without a unique match. Save only tier names in `## droid`, one per role or panel entry, preserving order and repetitions. Leave Droid settings and the source host section unchanged. Skip the model-and-budget template below.
+
 **(a) Ask for a budget.** Prefer a structured choice when available. Offer these four options with these exact labels, and name the current budget when the rule records one.
 
 - `unlimited — max reasoning`
@@ -26,7 +31,7 @@ Read the current host section's budget and role assignments in `~/.agents/mmwsta
 
 **(b) Apply it.** Ask the user to choose models for unassigned roles from the inventory in step 1. On a rerun, keep their current models, panel lists, aliases, speeds and explicitly chosen per-role reasoning levels. Apply the budget to settings the user leaves to the budget. `unlimited`, `large`, `medium`, and `small` request `max`, `xhigh`, `high`, and `medium` reasoning respectively, including panel entries. For each chosen model, show the highest supported reasoning level at or below the target. If none fits, flag it for the user. Leave inherited settings unchanged.
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. For panel roles (arena runners, architect runners) the value is a list, and one subagent runs per entry, alias entries included, so the list length sets the count. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
+**(c) Show the roles and confirm.** Show every role with its model, marking any model or setting unavailable to subagents as needing a choice. Also list each line step 2 dropped. Ask whether to accept as-is or change specific roles, offering the detected models plus `inherit-parent` and `auto` as the options. Require exactly two ordered entries for each runner list (`arena runners`, `architect runners`), including repeats. Confirm a pair before saving a list of any other size. `arena cross-judge pool` is also a list, but [arena](../arena/SKILL.md) runs one judge. It uses the first available entry in preference order, including an explicitly inherited model. For a model race, each arm names its model from this configuration.
 
 ### 4. Validate
 
@@ -49,10 +54,10 @@ judgment and prose: <model and settings>
 advisor: <model and settings>
 reader: <model and settings>
 code review: <model and settings>
-arena runners: <one model and its settings per seat, comma-separated>
+arena runners: <first seat>, <second seat>
 arena cross-judge pool: <judge models in preference order>
 verifier: <model and settings>
-architect runners: <one model and its settings per seat, comma-separated>
+architect runners: <first seat>, <second seat>
 ```
 
 ### 6. Confirm
