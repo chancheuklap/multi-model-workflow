@@ -1,14 +1,14 @@
 {
-  "name": "mmw-v5",
+  "name": "mmwstack",
   "interface": {
-    "displayName": "MMW v5"
+    "displayName": "mmwstack"
   },
   "plugins": [
     {
-      "name": "mmw-v5-cloud",
+      "name": "mmwstack",
       "source": {
         "source": "local",
-        "path": "./mmw-v5-cloud"
+        "path": "./mmwstack"
       },
       "policy": {
         "installation": "AVAILABLE",

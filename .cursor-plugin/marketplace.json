@@ -1,13 +1,13 @@
 {
-  "name": "mmw-v5",
+  "name": "mmwstack",
   "owner": {
     "name": "MMW"
   },
   "plugins": [
     {
-      "name": "mmw-v5-cloud",
-      "source": "mmw-v5-cloud",
-      "description": "MMW v5 development skills, native agent dispatch, and task board"
+      "name": "mmwstack",
+      "source": "mmwstack",
+      "description": "mmwstack skills, playbooks, and agents"
     }
   ]
 }

@@ -2,21 +2,21 @@
 
 When working on mmwstack, follow the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms.
 
-## Bring v5 Cloud methods into mmwstack
+## Bring upstream changes into mmwstack
 
-Use this repository's `mmwstack/` as the base. Migrate one v5 Cloud method at a time into mmwstack's routing, playbooks and delegation.
+**[pstack](upstream/pstack/) updates.** Diff the upstream snapshots first. Compare each changed method with its mmwstack counterpart, accounting for renamed skills and playbooks. Apply the upstream change where it fits; preserve mmwstack's routing, model choices and handoffs.
 
-1. Read the v5 skill, its mmwstack counterpart if one exists, and the relevant guide in full. Trace the calls to the agent that uses the result. Distinguish source requirements, agent judgment and operator decisions. Say where the source leaves a choice open. [v5 Cloud skills](mmw-v5-cloud/skills/) · [Routing guide](mmwstack/docs/guide/02-mmw-mode.md) · [Design guide](mmwstack/docs/guide/04-design.md)
-2. For a shared upstream, compare the v5 wording, the mmwstack copy and the original passage. Separate the reusable method from the old v5 routing. Keep mmwstack wording that already does the job. Decide what to supplement, replace or split, and carry applicable v5 instructions over verbatim. [pstack source](upstream/pstack/) · [Matt Pocock's skills](upstream/mattpocock/skills/)
-3. Change only the lines whose responsibility, inputs, route or handoff change. Revisit a previous import or another mmwstack prompt only for a conflict in this call chain. Reuse an existing step when it already covers the requirement.
+**[Matt Pocock's skills](upstream/mattpocock/skills/).** Read the source method and find the mmwstack step that needs its result. Extend that step if it already owns the decision. Add a separate skill only when a caller needs a distinct method and can judge its result.
 
-For an investigation-only request, report findings. In a proposal, state the decision rule, illustrate it with a distinguishing example and identify what is proposed or already implemented. Honor requests to leave edits uncommitted.
+For either source, trace the changed method from its trigger to the caller that uses its result.
+
+For investigations, report findings. For proposals, state the decision rule and give an example that distinguishes the proposed behavior from the current one.
 
 ## Write instructions for agents
 
 Write English prompts with the host's installed `writing-for-agents`. Use mmwstack's authoring guidance for skills and custom modes. Keep one operation's steps together. Use a separate reference for a branch that other callers can skip in full. [Customization guide](mmwstack/docs/guide/09-make-it-yours.md)
 
-Keep a v5 term for a distinct concept. If both editions name the same concept, choose the clearer term for that context. Record each meaning in its domain glossary, qualifying a word that has different meanings across contexts. [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md)
+Record each meaning in its domain glossary, qualifying a word that has different meanings across contexts. [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md)
 
 Use the canonical English names for issues and ticket types in every language, including replies and diagrams. Record discarded translations under `_Avoid_` beside the term they referred to. [Planning and tickets](mmwstack/docs/glossary/planning-and-tickets/GLOSSARY.md)
 
