@@ -1,29 +1,23 @@
 ---
 name: write-tests
-description: Write tests while landing code for a specified behavior, a cheap bug regression, or a behavior-preserving move, at the test seam the task supplies.
+description: Write tests while landing code for a specified behavior, a cheap bug regression, or a behavior-preserving move, through an interface that exposes the expected behavior.
 ---
 
 # Write tests
 
-When the invoker asks for the judgment, the examples, or the mocking guideline, read [the judgment](references/judgment.md), [the examples](references/tests.md), and [mocking.md](references/mocking.md) when a mock is involved. Stop there. The steps below are for landing code.
-
 You are the agent landing this ticket's code. Apply this during that implementation. Reviewing these tests is not a step of this cycle.
 
-Use the behavior, test seam, acceptance criteria and test precedent supplied by the spec's Testing Decisions, the ticket, or the brief. Use [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md) for those decisions. Use [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md) for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
+Use the expected behavior, acceptance criteria and test precedent supplied by the spec's Testing Decisions, the ticket, or the brief. Use [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md) for those decisions. Use [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md) for test names and interface vocabulary, and respect ADRs in the area you're touching. Follow the project's existing test runner and fixture conventions.
 
-Read [the judgment](references/judgment.md) before the loop and apply it on every cycle. See [tests.md](references/tests.md) for examples. Read [mocking.md](references/mocking.md) when a test needs a mock, or when you are implementing a system boundary.
+Use the [shared test judgment](references/judgment.md). Consult the [examples](references/tests.md) for a concrete case and [mocking.md](references/mocking.md) when writing a mock.
 
 ## The test seam
 
-Test only at test seams the task already names. No test is written at a test seam the task did not supply. You can't test everything, so the task's test seams are how testing effort lands on the critical paths and complex logic instead of every edge case.
-
-When the task names no test seam, report that gap to the invoker before any test exists.
+Choose a public interface where the test can distinguish the expected result from the failure. Use the interface the spec or ticket names when that interface is itself part of the contract. Prefer existing test seams. Among those that can distinguish the failure, use the highest test seam possible. If new test seams are needed, propose them at the highest point you can. The fewer test seams across the codebase, the better - the ideal number is one.
 
 For each test seam the task names, state what a test there catches and what it misses.
 
-When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), use [codebase-dic](../codebase-dic/SKILL.md) for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run. The task's named test seam stays.
-
-Done when every test you will add sits on a test seam the task names, and each of those test seams has its note.
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), use [codebase-dic](../codebase-dic/SKILL.md) for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 | The task | Follow |
 | --- | --- |
@@ -34,7 +28,7 @@ Done when every test you will add sits on a test seam the task names, and each o
 
 ## Specified behavior
 
-Answer the authoring gate in the judgment before adding a test. Repeat the cycle for each behavior the task specifies.
+Repeat the cycle for each behavior the task specifies.
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One test seam, one test, one minimal implementation per cycle.
@@ -48,14 +42,14 @@ When fixing a bug with a clear, cheap test path, make the broken behavior execut
 
 1. **Understand the bug.** Identify the intended behavior, current behavior, affected path, and smallest observable reproduction.
 2. **Choose the narrowest executable check.** Prefer the closest unit, component, integration, or regression test already used for that codepath. If no practical test path is obvious, do not create one from scratch just to satisfy the workflow. Follow [When a failing test is impractical](#when-a-failing-test-is-impractical).
-3. **Write the failing test first.** Add the smallest focused test that would have caught the bug. The test should encode intended behavior, not mirror the current implementation.
-4. **Run the new test before fixing.** Confirm it fails for the intended reason. If it passes or fails for an unrelated reason, correct the test or reproduction before editing the implementation.
+3. **Write the failing test first.** Use an existing test that reproduces the bug, extend one, or add a focused case. The test should encode intended behavior, not mirror the current implementation.
+4. **Run the regression test before fixing.** Confirm it fails for the intended reason. If it passes or fails for an unrelated reason, correct the test or reproduction before editing the implementation.
 5. **Fix the bug.** Make the smallest production change that satisfies the intended behavior while preserving nearby contracts.
 6. **Rerun the regression test.** Confirm the test now passes.
 
-Follow the guardrails in the judgment. If the bug exposes a broader class of failures, first land the focused regression path, then consider additional sibling coverage.
+Keep the regression test focused on the bug. Avoid broad fixture churn or unrelated coverage expansion. If the bug is flaky, make the test deterministic where possible and document the signal being locked down. If the bug exposes a broader class of failures, first land the focused regression path, then consider additional sibling coverage.
 
-Done when the new test failed for the intended reason before the fix and passes after it.
+Done when the regression test failed for the intended reason before the fix and passes after it.
 
 ## When a failing test is impractical
 
@@ -63,13 +57,13 @@ Do not force a test when it would be impractical. If the available test would re
 
 Use the closest executable regression check instead: a targeted script, manual reproduction command, browser automation, snapshot comparison, log assertion, or focused integration check.
 
-Prefer no new test over a bad test. The judgment says what a bad test is.
+Prefer no new test over a bad test. Run the check on the affected path and record what it cannot prove.
 
 Done when that closest check has been run and no bad test was added.
 
 ## A behavior-preserving move
 
-When the task moves structure and the behavior stays the same, run the tests already at the task's test seam and keep them green. Leave an existing test in place unless the task tells you to remove it.
+When the task moves structure and the behavior stays the same, run the existing tests that protect the observable behavior. If none covers it, establish a passing check before the move. Keep it green during the move. Leave an existing test in place unless the task tells you to remove it.
 
 The red → green loop is for a behavior the task adds or repairs. Structural cleanup beyond this task is a separate task.
 
@@ -77,10 +71,10 @@ Done when the same tests pass after the move that passed before it. In the evide
 
 ## Evidence
 
-Report the evidence, not just the outcome:
+For a new behavior or bug fix:
 
 - Name the failing-before test or executable check and the failure it produced.
 - Name the passing-after test run and any nearby validation performed.
 - If failing-before evidence could not be demonstrated, state why and describe the closest regression check used instead.
 
-Done when those three points are reported.
+For a behavior-preserving move, name the same check and its passing results before and after the move.
