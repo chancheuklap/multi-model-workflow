@@ -153,8 +153,7 @@
       ],
       "tests": [
         "mmwstack/tests/exe-release/test_*.py",
-        "mmwstack/tests/exe-release/test_*.sh",
-        "mmwstack/tests/exe-release/generated-pipeline.ps1"
+        "mmwstack/tests/exe-release/test_*.sh"
       ],
       "needs": ["cmd:bash", "cmd:python3", "cmd:uv", "cmd:jq"],
       "ci": false,

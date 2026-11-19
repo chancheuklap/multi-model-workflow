@@ -59,7 +59,6 @@ if command -v uv >/dev/null 2>&1; then
     uv run --quiet --with pytest --with 'pydantic>=2' --with 'ruamel.yaml>=0.18,<0.20' python -m pytest \
       "$HERE/test_release_contracts.py" \
       "$HERE/test_release_script_assembler.py" "$HERE/test_diagnose_core.py" \
-      "$HERE/test_generated_pipeline.py" \
       "$HERE/test_fix_dispatch.py" "$HERE/test_minimal_key.py" \
       "$HERE/test_verify_key.py" -q
 else

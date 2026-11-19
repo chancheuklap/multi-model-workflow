@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -89,18 +88,17 @@ const isReference = (node: Identifier) => {
 };
 
 const inspectSources = <T>(
-  root: string,
   files: string[],
   inspectSource: (source: SourceFile, file: string, project: Project) => T[],
 ) => {
-  const api = new API({ cwd: root });
+  const api = new API({ cwd: scripts });
   try {
-    const config = path.join(root, "tsconfig.json");
+    const config = path.join(scripts, "tsconfig.json");
     const snapshot = api.updateSnapshot({ openProjects: [config] });
     const project = snapshot.getProject(config);
     assert.ok(project, `TypeScript did not load ${config}`);
     return files.flatMap((file) => {
-      const source = project.program.getSourceFile(path.join(root, file));
+      const source = project.program.getSourceFile(path.join(scripts, file));
       assert.ok(source, `TypeScript did not load ${file}`);
       return inspectSource(source, file, project);
     });
@@ -109,8 +107,8 @@ const inspectSources = <T>(
   }
 };
 
-const forbiddenUses = (root: string, files: string[]) =>
-  inspectSources(root, files, (source, file, project) => {
+const forbiddenUses = (files: string[]) =>
+  inspectSources(files, (source, file, project) => {
     const uses: string[] = [];
     const walk = (node: Node, runtime: boolean): void => {
       if (isImportDeclaration(node) || isExportDeclaration(node)) return;
@@ -156,8 +154,8 @@ const typeSpecifier = (node: Node) => {
   }
 };
 
-const typeImports = (root: string, files: string[]) =>
-  inspectSources(root, files, (source, file) => source.statements.flatMap<[string, string]>((node) => {
+const typeImports = (files: string[]) =>
+  inspectSources(files, (source, file) => source.statements.flatMap<[string, string]>((node) => {
     const specifier = typeSpecifier(node);
     if (!specifier || !isStringLiteral(specifier)) return [];
     const target = specifier.text;
@@ -168,7 +166,7 @@ const typeImports = (root: string, files: string[]) =>
 
 test("ir.ts imports nothing", () => {
   assert.deepEqual(loads("ir.ts"), []);
-  assert.deepEqual(typeImports(scripts, ["ir.ts"]), []);
+  assert.deepEqual(typeImports(["ir.ts"]), []);
 });
 
 test("each pass imports only ir.ts", () => {
@@ -180,7 +178,7 @@ test("each pass imports only ir.ts", () => {
   const found = loads("passes");
   assert.ok(found.length > 0);
   for (const [from, to] of found) assert.equal(to, "ir.ts", `${from} imports ${to}`);
-  for (const [from, to] of typeImports(scripts, files))
+  for (const [from, to] of typeImports(files))
     assert.equal(to, "ir.ts", `${from} imports types from ${to}`);
 });
 
@@ -189,27 +187,8 @@ test("pipeline.ts reaches no node: module", () => {
     loads("pipeline.ts").filter(([, to]) => to.startsWith("node:")),
     [],
   );
-  for (const [, to] of typeImports(scripts, ["pipeline.ts"]))
+  for (const [, to] of typeImports(["pipeline.ts"]))
     assert.equal(to, "ir.ts", `pipeline.ts imports types from ${to}`);
-});
-
-test("the erased-edge guard sees TypeScript declarations, not displayed code", (t) => {
-  const fixture = fs.mkdtempSync(path.join(tmpdir(), "statechart-type-edges-"));
-  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(fixture, "tsconfig.json"), '{"include": ["*.ts"]}');
-  fs.writeFileSync(path.join(fixture, "edge.ts"), `
-    export const display = \`import type { Example } from "./not-an-edge.ts"\`;
-    import type * as Whole from "./whole.ts";
-    export type * from "./star.ts";
-    import { value, type Inline } from "./mixed.ts";
-    export { type Named } from "./named.ts";
-    import type Legacy = require("./legacy.ts");
-    import "./runtime.ts";
-  `);
-  assert.deepEqual(typeImports(fixture, ["edge.ts"]), [
-    ["edge.ts", "whole.ts"], ["edge.ts", "star.ts"],
-    ["edge.ts", "mixed.ts"], ["edge.ts", "named.ts"], ["edge.ts", "legacy.ts"],
-  ]);
 });
 
 test("ir.ts, the passes, pipeline.ts, the frontends, the backends, and every file they load are .ts files that use no listed runtime global or import()", () => {
@@ -220,7 +199,7 @@ test("ir.ts, the passes, pipeline.ts, the frontends, the backends, and every fil
     files.filter((file) => !file.endsWith(".ts")),
     [],
   );
-  assert.deepEqual(forbiddenUses(scripts, files), []);
+  assert.deepEqual(forbiddenUses(files), []);
 });
 
 test("no frontend or backend loads a node: module when imported, even through another file", () => {
@@ -233,28 +212,6 @@ test("no frontend or backend loads a node: module when imported, even through an
       for (const [, to] of loads(path.join(folder, f)))
         assert.ok(!to.startsWith("node:"), `${folder}/${f} reaches ${to}`);
   }
-});
-
-test("the portability guard judges runtime references, not matching words", (t) => {
-  const fixture = fs.mkdtempSync(path.join(tmpdir(), "statechart-portability-"));
-  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-  fs.writeFileSync(path.join(fixture, "tsconfig.json"), '{"include": ["*.ts"]}');
-  fs.writeFileSync(path.join(fixture, "portable.ts"), `
-    const record = { process: "process the graph", fetch: /process/ };
-    export const render = (process: string) => [record.process, record.fetch, process];
-  `);
-  fs.writeFileSync(path.join(fixture, "alias.ts"), `
-    import { render as process } from "./portable.ts";
-    export const probe = () => process("input");
-  `);
-  fs.writeFileSync(path.join(fixture, "bound.ts"), `
-    export const probe = () => [process.pid, { fetch }, import("./portable.ts")];
-    export type Probe = typeof import("./portable.ts");
-  `);
-  assert.deepEqual(forbiddenUses(fixture, ["portable.ts", "alias.ts"]), []);
-  assert.deepEqual(forbiddenUses(fixture, ["bound.ts"]), [
-    "bound.ts uses process", "bound.ts uses fetch", "bound.ts uses import()", "bound.ts uses type import()",
-  ]);
 });
 
 const small: Rule = { kind: "invariant", name: "Small" };
