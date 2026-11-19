@@ -50,6 +50,19 @@ def check_file(rel: str) -> str | None:
         result = subprocess.run(["sh", "-n", str(path)], capture_output=True, text=True)
         if result.returncode != 0:
             return result.stderr.strip() or f"{rel}: sh -n exited {result.returncode}"
+    elif head.startswith(b"#!/usr/bin/env node") and path.suffix in {".ts", ".mts", ".cts"}:
+        result = subprocess.run(
+            [
+                "node",
+                "--disable-warning=ExperimentalWarning",
+                "-e",
+                "require('node:module').stripTypeScriptTypes(require('node:fs').readFileSync(0, 'utf8'))",
+            ],
+            input=data,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            return f"{rel}: {result.stderr.decode(errors='replace').strip()}"
     elif rel.endswith((".mjs", ".js", ".cjs")) or head.startswith(b"#!/usr/bin/env node"):
         result = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True)
         if result.returncode != 0:

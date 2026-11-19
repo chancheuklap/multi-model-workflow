@@ -19,13 +19,20 @@ $fail = 0
 function ok($m) { Write-Host ("  PASS: " + $m); $script:pass++ }
 function no($m) { Write-Host ("  FAIL: " + $m); $script:fail++ }
 
-# 模板里的函数都从第 0 列开始，到第 0 列的 } 结束。这里只取要验的那几个。
-$text = Get-Content -LiteralPath $Template -Raw
+$tokens = $null
+$parseErrors = $null
+$templateAst = [System.Management.Automation.Language.Parser]::ParseFile(
+  $Template, [ref]$tokens, [ref]$parseErrors
+)
+if ($parseErrors.Count -gt 0) {
+  throw ("Cannot parse the template: " + ($parseErrors -join '; '))
+}
 function Get-TemplateFunction([string]$name) {
-  $pattern = "(?ms)^function\s+$name\s*\{.*?^\}"
-  $m = [regex]::Match($text, $pattern)
-  if (-not $m.Success) { throw "the template holds no function $name" }
-  return $m.Value
+  $matches = @($templateAst.EndBlock.Statements | Where-Object {
+    $_ -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -eq $name
+  })
+  if ($matches.Count -ne 1) { throw "Expected one top-level template function named $name" }
+  return $matches[0].Extent.Text
 }
 
 # 点源在脚本作用域，函数才留得住——在别的函数里 Invoke-Expression，出了那个函数就没了。

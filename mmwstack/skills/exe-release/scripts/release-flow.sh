@@ -385,7 +385,7 @@ _skill_fingerprint() {
 # 于是抄来的一句 assemble 就把引擎的验钥匙整段关掉了，而日志每一步都是绿的。
 _standard_stages() {
   jq -nc --arg mp "$1" '[
-    {name:"verify_key", run:["uv","run","--with","pydantic>=2","python",
+    {name:"verify_key", run:["uv","run","--script",
       "${RELEASE_PLUGIN_DIR}/verify_key.py","--adapter",$mp,"--repo-root","."]},
     {name:"assemble", run:["uv","run","--with","pydantic>=2","python",
       "${RELEASE_PLUGIN_DIR}/release_script_assembler.py","assemble",

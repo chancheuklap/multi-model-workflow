@@ -188,6 +188,23 @@ class SyntaxCheckRegressionTest(unittest.TestCase):
         self.assertEqual(skipped.returncode, 0, skipped.stderr)
         self.assertEqual(skipped.stdout.strip(), "SKIP syntax (0 parsed, 1 skipped)")
 
+    def test_node_checks_erasable_types_without_running_the_script(self) -> None:
+        entry = "scripts/probe.ts"
+        self.write_file(
+            entry,
+            "#!/usr/bin/env node\ninterface Options { size: number }\n"
+            "export const options: Options = { size: 1 };\nthrow new Error('must not run');\n",
+        )
+        good = self.run_cmd("python3", "scripts/syntax-check.py", entry)
+        self.assertEqual(good.returncode, 0, good.stderr)
+        self.assertEqual(good.stdout.strip(), "PASS syntax (1 parsed, 0 skipped)")
+
+        self.write_file(entry, "#!/usr/bin/env node\nexport const options: number = ;\n")
+        bad = self.run_cmd("python3", "scripts/syntax-check.py", entry)
+        self.assertEqual(bad.returncode, 1, bad.stdout)
+        self.assertIn(f"{entry}:", bad.stderr)
+        self.assertIn("ERR_INVALID_TYPESCRIPT_SYNTAX", bad.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

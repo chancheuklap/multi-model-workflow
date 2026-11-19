@@ -12,18 +12,24 @@ import {
   isCallExpression,
   isExportDeclaration,
   isExpressionWithTypeArguments,
+  isExternalModuleReference,
   isHeritageClause,
   isIdentifier,
   isImportDeclaration,
+  isImportEqualsDeclaration,
   isImportTypeNode,
   isInterfaceDeclaration,
+  isNamedExports,
+  isNamedImports,
   isShorthandPropertyAssignment,
+  isStringLiteral,
   isTypeNode,
   type Node,
   NodeFlags,
+  type SourceFile,
   SyntaxKind,
 } from "typescript/unstable/ast";
-import { API, SymbolFlags } from "typescript/unstable/sync";
+import { API, type Project, SymbolFlags } from "typescript/unstable/sync";
 import { checkView } from "../frontends/view.ts";
 import {
   type CheckResult,
@@ -70,11 +76,6 @@ const loads = (...targets: string[]) => {
   return (JSON.parse(out) as string[][]).map(([from, to]) => [name(from), name(to)]);
 };
 
-const COMMENT =
-  /("(?:[^"\\\n]|\\[\s\S])*"|'(?:[^'\\\n]|\\[\s\S])*'|`(?:[^`\\]|\\[\s\S])*`)|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
-const codeOf = (file: string) =>
-  fs.readFileSync(path.join(scripts, file), "utf8").replace(COMMENT, (_, text) => text ?? " ");
-
 const runtimeGlobals = new Set([
   "process", "require", "globalThis", "global", "Deno", "Bun", "Buffer",
   "setImmediate", "clearImmediate", "fetch",
@@ -87,55 +88,87 @@ const isReference = (node: Identifier) => {
   return !("name" in parent && parent.name === node) || isShorthandPropertyAssignment(parent);
 };
 
-const forbiddenUses = (root: string, files: string[]) => {
+const inspectSources = <T>(
+  root: string,
+  files: string[],
+  inspectSource: (source: SourceFile, file: string, project: Project) => T[],
+) => {
   const api = new API({ cwd: root });
   try {
     const config = path.join(root, "tsconfig.json");
     const snapshot = api.updateSnapshot({ openProjects: [config] });
     const project = snapshot.getProject(config);
     assert.ok(project, `TypeScript did not load ${config}`);
-    const uses: string[] = [];
-    for (const file of files) {
+    return files.flatMap((file) => {
       const source = project.program.getSourceFile(path.join(root, file));
       assert.ok(source, `TypeScript did not load ${file}`);
-      const walk = (node: Node, runtime: boolean): void => {
-        if (isImportDeclaration(node) || isExportDeclaration(node)) return;
-        if (isImportTypeNode(node)) {
-          uses.push(`${file} uses type import()`);
-          return;
-        }
-        const hasRuntime = runtime
-          && !(node.flags & NodeFlags.Ambient)
-          && !isInterfaceDeclaration(node)
-          && !(isHeritageClause(node) && node.token === SyntaxKind.ImplementsKeyword)
-          && !(isTypeNode(node) && !isExpressionWithTypeArguments(node));
-        if (hasRuntime && isCallExpression(node) && node.expression.kind === SyntaxKind.ImportKeyword) {
-          uses.push(`${file} uses import()`);
-        }
-        if (hasRuntime && isIdentifier(node) && runtimeGlobals.has(node.text) && isReference(node)) {
-          const local = project.checker.resolveName(node.text, SymbolFlags.Value, node, true);
-          const declaration = (local?.valueDeclaration ?? local?.declarations[0])?.resolve();
-          if (!declaration || declaration.flags & NodeFlags.Ambient)
-            uses.push(`${file} uses ${node.text}`);
-        }
-        node.forEachChild((child) => walk(child, hasRuntime));
-      };
-      walk(source, true);
-    }
-    return uses;
+      return inspectSource(source, file, project);
+    });
   } finally {
     api.close();
   }
 };
 
-const TYPE_IMPORT =
-  /\b(?:import|export)\s+type\b\s*(?:[\w$]+|\*(?:\s*as\s+[\w$]+)?|\{[^}]*\})\s*from\s*["']([^"']*)["']/g;
-const typeImports = (file: string) =>
-  Array.from(codeOf(file).matchAll(TYPE_IMPORT), (m) => path.join(path.dirname(file), m[1]));
+const forbiddenUses = (root: string, files: string[]) =>
+  inspectSources(root, files, (source, file, project) => {
+    const uses: string[] = [];
+    const walk = (node: Node, runtime: boolean): void => {
+      if (isImportDeclaration(node) || isExportDeclaration(node)) return;
+      if (isImportTypeNode(node)) {
+        uses.push(`${file} uses type import()`);
+        return;
+      }
+      const hasRuntime = runtime
+        && !(node.flags & NodeFlags.Ambient)
+        && !isInterfaceDeclaration(node)
+        && !(isHeritageClause(node) && node.token === SyntaxKind.ImplementsKeyword)
+        && !(isTypeNode(node) && !isExpressionWithTypeArguments(node));
+      if (hasRuntime && isCallExpression(node) && node.expression.kind === SyntaxKind.ImportKeyword) {
+        uses.push(`${file} uses import()`);
+      }
+      if (hasRuntime && isIdentifier(node) && runtimeGlobals.has(node.text) && isReference(node)) {
+        const local = project.checker.resolveName(node.text, SymbolFlags.Value, node, true);
+        const declaration = (local?.valueDeclaration ?? local?.declarations[0])?.resolve();
+        if (!declaration || declaration.flags & NodeFlags.Ambient)
+          uses.push(`${file} uses ${node.text}`);
+      }
+      node.forEachChild((child) => walk(child, hasRuntime));
+    };
+    walk(source, true);
+    return uses;
+  });
+
+const typeSpecifier = (node: Node) => {
+  if (isImportDeclaration(node)) {
+    const clause = node.importClause;
+    const named = clause?.namedBindings;
+    if (clause?.phaseModifier === SyntaxKind.TypeKeyword
+      || (named && isNamedImports(named) && named.elements.some((item) => item.isTypeOnly)))
+      return node.moduleSpecifier;
+  } else if (isExportDeclaration(node)) {
+    const named = node.exportClause;
+    if (node.isTypeOnly
+      || (named && isNamedExports(named) && named.elements.some((item) => item.isTypeOnly)))
+      return node.moduleSpecifier;
+  } else if (isImportEqualsDeclaration(node)
+    && node.isTypeOnly && isExternalModuleReference(node.moduleReference)) {
+    return node.moduleReference.expression;
+  }
+};
+
+const typeImports = (root: string, files: string[]) =>
+  inspectSources(root, files, (source, file) => source.statements.flatMap<[string, string]>((node) => {
+    const specifier = typeSpecifier(node);
+    if (!specifier || !isStringLiteral(specifier)) return [];
+    const target = specifier.text;
+    return [[file, target.startsWith("./") || target.startsWith("../")
+      ? path.join(path.dirname(file), target)
+      : `non-relative module ${target}`]];
+  }));
 
 test("ir.ts imports nothing", () => {
   assert.deepEqual(loads("ir.ts"), []);
-  assert.deepEqual(typeImports("ir.ts"), []);
+  assert.deepEqual(typeImports(scripts, ["ir.ts"]), []);
 });
 
 test("each pass imports only ir.ts", () => {
@@ -147,9 +180,8 @@ test("each pass imports only ir.ts", () => {
   const found = loads("passes");
   assert.ok(found.length > 0);
   for (const [from, to] of found) assert.equal(to, "ir.ts", `${from} imports ${to}`);
-  for (const file of files)
-    for (const to of typeImports(file))
-      assert.equal(to, "ir.ts", `${file} imports types from ${to}`);
+  for (const [from, to] of typeImports(scripts, files))
+    assert.equal(to, "ir.ts", `${from} imports types from ${to}`);
 });
 
 test("pipeline.ts reaches no node: module", () => {
@@ -157,8 +189,27 @@ test("pipeline.ts reaches no node: module", () => {
     loads("pipeline.ts").filter(([, to]) => to.startsWith("node:")),
     [],
   );
-  for (const to of typeImports("pipeline.ts"))
+  for (const [, to] of typeImports(scripts, ["pipeline.ts"]))
     assert.equal(to, "ir.ts", `pipeline.ts imports types from ${to}`);
+});
+
+test("the erased-edge guard sees TypeScript declarations, not displayed code", (t) => {
+  const fixture = fs.mkdtempSync(path.join(tmpdir(), "statechart-type-edges-"));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(fixture, "tsconfig.json"), '{"include": ["*.ts"]}');
+  fs.writeFileSync(path.join(fixture, "edge.ts"), `
+    export const display = \`import type { Example } from "./not-an-edge.ts"\`;
+    import type * as Whole from "./whole.ts";
+    export type * from "./star.ts";
+    import { value, type Inline } from "./mixed.ts";
+    export { type Named } from "./named.ts";
+    import type Legacy = require("./legacy.ts");
+    import "./runtime.ts";
+  `);
+  assert.deepEqual(typeImports(fixture, ["edge.ts"]), [
+    ["edge.ts", "whole.ts"], ["edge.ts", "star.ts"],
+    ["edge.ts", "mixed.ts"], ["edge.ts", "named.ts"], ["edge.ts", "legacy.ts"],
+  ]);
 });
 
 test("ir.ts, the passes, pipeline.ts, the frontends, the backends, and every file they load are .ts files that use no listed runtime global or import()", () => {
