@@ -210,7 +210,7 @@ mmwstack also ships the [`mmw-agent` role](./agents/mmw-agent.md) for delegates 
 
 when a playbook calls a skill, that skill assigns its own workers the roles it needs.
 
-mmwstack also ships [Comment Sicko](./agents/comment-sicko.md), a read-only comment reviewer. usually invoke it through [no-comments](./skills/no-comments/SKILL.md), not directly.
+mmwstack also ships [Comment Sicko](./agents/comment-sicko.md), a comment reviewer. usually invoke it through [no-comments](./skills/no-comments/SKILL.md), not directly.
 
 ## principles
 
