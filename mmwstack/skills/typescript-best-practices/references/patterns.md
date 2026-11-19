@@ -75,17 +75,7 @@ Even length, as pairs:
 type Pairs<T> = [T, T][];
 ```
 
-A time range, as start plus duration:
-
-```ts
-// Don't: a comment holds the invariant
-type TimeRange = { start: Date; end: Date }; // start <= end
-
-// Do: a negative range can't be written; derive end when needed
-type TimeRange = { start: Date; durationMs: number };
-```
-
-Keep `durationMs` a plain number. Brand it (per Branded types) only if a raw number could be passed where a duration is expected, not by reflex. Pick the representation that makes the bad state unconstructable, then expose the reading you need on top (`pairs.flat()`, a `rangeEnd()` helper).
+Pick the representation that makes the bad state unconstructable, then expose the reading you need on top (`pairs.flat()`).
 
 ## Simplest total type
 
