@@ -681,16 +681,31 @@ bash "$RF" abort >/dev/null
 
 # 守:构建机是哪一台,不能只活在人的记忆里。两个值都缺时出包停在这一步等人补,
 # 而钥匙旁边放一份 remote-build.json 就没人需要记它。
-remote_reset
-init_for_remote_build
-PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
-  bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-if grep -rq 'ERROR: remote build has no RELEASE_REMOTE_HOST' .release 2>/dev/null; then
-  ok "两处都没有时报错文字不变(诊断的根因指纹靠它)"
-else
-  no "缺构建机的报错文字变了"
-fi
-bash "$RF" abort >/dev/null
+for input in missing_host missing_root invalid_root; do
+  remote_reset
+  init_for_remote_build
+  host="" root=""
+  case "$input" in
+    missing_host) fingerprint=env:missing_RELEASE_REMOTE_HOST ;;
+    missing_root) host="fake@pc"; fingerprint=env:missing_RELEASE_REMOTE_ROOT ;;
+    invalid_root) host="fake@pc"; root="relative/path"; fingerprint=env:invalid_RELEASE_REMOTE_ROOT ;;
+  esac
+  PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
+    RELEASE_REMOTE_HOST="$host" RELEASE_REMOTE_ROOT="$root" \
+    bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+  log="$(find .release/release-artifacts -name 'build.log' -print)"
+  rc=0
+  RELEASE_FAILED_STAGE=build RELEASE_BUILD_LOG= RELEASE_STAGE_LOG="$log" \
+    python3 "$(dirname "$RF")/diagnose_core.py" --adapter remote-build-manifest.json \
+      > "$TMP/settings-findings.json" || rc=$?
+  if [ "$rc" -eq 1 ] && jq -e --arg fp "$fingerprint" \
+    '[.findings[].root_cause_fingerprint] == [$fp]' "$TMP/settings-findings.json" >/dev/null; then
+    ok "build stage diagnostic: $fingerprint"
+  else
+    no "build stage diagnostic did not report $fingerprint"
+  fi
+  bash "$RF" abort >/dev/null
+done
 
 printf '{"host":"fake@pc","root":"C:/from-file","cache_root":"D:/file-cache","delivery_root":"D:/file-delivered","build_env":{"UV_INDEX_URL":"https://mirror.invalid/simple"}}\n' > remote-build.json
 remote_reset

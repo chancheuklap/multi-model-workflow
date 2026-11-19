@@ -80,7 +80,7 @@ These are results for the cited workloads, not universal speedups.
 
 ## Measuring
 
-- State the workload and acceptance rule before measurement. Use the existing [warm-interaction harness](../../control-ui-e2e/references/interaction-performance.md), [cold-load/streaming/session-switch benchmarks](../../../../scripts/bench-control-ui-cold-load.ts), and [retention proof](testing.md). Synthetic fixtures measure renderer cost, not live Gateway or provider latency.
+- State the workload and acceptance rule before measurement. Use the existing [warm-interaction harness](../../control-ui-e2e/references/interaction-performance.md), [cold-load/streaming/session-switch benchmarks](../../../../scripts/bench-control-ui-cold-load.ts), and retention checks. Synthetic fixtures measure renderer cost, not live Gateway or provider latency.
 - Timing claims need at least ten serial interleaved base/head pairs on the same host, with median, p95, min–max, and host load. Separate cold/warm and traced/untraced runs. A timing cell is clean when median regression is at most 5% and p95 is no worse, or ten more pairs confirm that band; sub-1% p95 movement is noise unless repeated pairs confirm it. A regression beyond the performance workflow's 20% rule blocks. A missed numeric target does not block a clean measured win; report the gap.
 - Use an immediately available quiet Testbox when appropriate; cancel queued allocations and measure locally with host load recorded. A single trace identifies costs, not a latency improvement.
 - Count work as well as time: row creation, pane renders, memo recomputations, requests, retained owners. Use existing counters or focused development instrumentation; do not ship diagnostic state just for a benchmark.

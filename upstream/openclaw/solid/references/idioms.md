@@ -440,5 +440,4 @@ blanket `no-module-scope-reactive-primitive` enforcement rejects them.
 
 Before changing a pattern, trace its owner and callers and name the failing
 contract. Remove superseded paths and use one focused behavioral test when the
-change affects identity, cleanup, or async work. [Performance](performance.md)
-and [testing](testing.md) own the bundle and proof choices.
+change affects identity, cleanup, or async work. See [Performance](performance.md) for bundle and measurement choices.

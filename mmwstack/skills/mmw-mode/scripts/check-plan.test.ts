@@ -8,6 +8,8 @@ import { expect, test } from "bun:test";
 const checker = join(import.meta.dir, "check-plan.mjs");
 const rule =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
+const currentRule = "Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.";
+const actions = "Read the execution playbook from trunk. Schedule an hourly audit and send a status message when something changes.";
 
 const validPlan = `# Demo
 
@@ -21,7 +23,7 @@ ${rule}
 ### PR mechanics
 ### Verdict and merge
 ### Boot recipe
-Read the execution playbook from trunk. Schedule an hourly audit and send a status message when something changes.
+${actions}
 
 ## Phase 1. Restore both reading paths
 **Depends on.** None.
@@ -56,10 +58,27 @@ const runPlan = (example: string, expectedExit: number, plan = validPlan) => {
 };
 
 test("accepts ticket-specific verification and plans already in progress", () => {
-	const current = "Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.";
-	expect(runPlan("", 0, validPlan.replace(rule, current)).stdout).toContain("0 problems");
+	expect(runPlan("", 0, validPlan.replace(rule, currentRule)).stdout).toContain("0 problems");
 	expect(runPlan("", 0, validPlan).stdout).toContain("0 problems");
 	expect(runPlan("", 1, validPlan.replace(rule, "")).stderr).toContain("How to read this lacks");
+});
+
+test("plan requirements must appear outside fenced examples and comments", () => {
+	for (const hide of [
+		(text: string) => `~~~text\n${text}\n~~~`,
+		(text: string) => `<!--\n${text}\n-->`,
+	]) {
+		expect(runPlan("", 1, validPlan.replace(rule, hide(currentRule))).stderr).toContain(`How to read this lacks "${currentRule}"`);
+		const missing = runPlan("", 1, validPlan.replace(actions, hide(actions))).stderr;
+		expect(missing).toContain("read from trunk");
+		expect(missing).toContain("scheduled hourly audit");
+		expect(missing).toContain('lacks "status message"');
+	}
+});
+
+test("a fenced example still counts towards the intro length", () => {
+	const longIntro = validPlan.replace("## How to read this", `~~~text\n${"example\n".repeat(8)}~~~\n\n## How to read this`);
+	expect(runPlan("", 1, longIntro).stderr).toContain("intro is 10 lines, under ten required");
 });
 
 test("accepts the multi-phase plan template", () => {
@@ -136,4 +155,16 @@ test("checks prose following a multi-backtick span and unmatched delimiters", ()
 	expect(outside.stderr).toContain("mid-sentence colon");
 	const unmatched = runPlan("Use ``unclosed: bad` here.\n", 1);
 	expect(unmatched.stderr).toContain("mid-sentence colon");
+});
+
+test("skips punctuation inside multiline inline code and HTML comments", () => {
+	runPlan("Run `example:\noutput — “here”`. <!-- Hidden: “punctuation” — draft -->\n", 0);
+	runPlan("<!-- Hidden:\n## Not a section — draft\n```\n-->\n", 0);
+	const outside = runPlan("Run `example:\noutput — here`. Bad: prose.\n", 1);
+	expect(outside.stderr).toContain("mid-sentence colon");
+	expect(outside.stderr).not.toContain("long dash");
+	const unmatched = runPlan("Run `example: bad.\n\nA new paragraph ends with `.\n", 1);
+	expect(unmatched.stderr).toContain("mid-sentence colon");
+	const unclosedComment = runPlan("Draft <!-- visible — this comment has no close.\n", 1);
+	expect(unclosedComment.stderr).toContain("long dash");
 });

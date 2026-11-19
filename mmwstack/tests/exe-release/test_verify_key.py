@@ -243,12 +243,25 @@ def test_electron_builder_writing_somewhere_else_is_caught(repo):
     [
         pytest.param("directories: {output: dist}\n", id="flow-style"),
         pytest.param("directories: &dirs\n  output: dist\n", id="anchored"),
+        pytest.param("shared: &dirs {output: dist}\ndirectories: *dirs\n", id="alias"),
+        pytest.param("directories:\n  output: 'dist/' # same output\n", id="quoted"),
+    ],
+)
+def test_equivalent_electron_builder_yaml_passes(repo, yml):
+    (repo / "desktop-newcomer" / "electron-builder.yml").write_text(yml, encoding="utf-8")
+    assert _verify(MINIMAL_KEY, repo) == []
+
+
+@pytest.mark.parametrize(
+    "yml",
+    [
         pytest.param("build:\n  directories:\n    output: dist\n", id="nested-under-a-parent"),
+        pytest.param("directories: {output: [dist]}\n", id="not-a-string"),
+        pytest.param("directories: {output: dist\n", id="invalid-yaml"),
+        pytest.param("directories: {output: dist, output: other}\n", id="duplicate-key"),
     ],
 )
 def test_an_electron_builder_config_this_check_cannot_read_says_so(repo, yml):
-    """三种写法都合法，行级解析都读不出来。回执要说的是「我读不懂这个输入」，
-    不是「你的两个值漂开了」——后者会把 agent 支去比对两个其实相同的值。"""
     (repo / "desktop-newcomer" / "electron-builder.yml").write_text(yml, encoding="utf-8")
     (finding,) = _verify(MINIMAL_KEY, repo)
     assert finding["name"] == "electron_builder_output_unreadable"

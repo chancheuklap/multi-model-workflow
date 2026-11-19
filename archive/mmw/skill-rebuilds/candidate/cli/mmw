@@ -33,8 +33,6 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/domain.sh"
 # shellcheck source=lib/graph.sh
 . "$MMW_ROOT/cli/lib/graph.sh"
-# shellcheck source=lib/init.sh
-. "$MMW_ROOT/cli/lib/init.sh"
 
 # 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
 # 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
@@ -55,10 +53,8 @@ mmw <命令> [参数]
   mcp         MCP：按唯一服务器定义启动 Codex plugin 的 stdio 进程
   release     出包：起循环、问状态、跑一个阶段、派修、收束
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
-  init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-除 doctor 与 init 外，各命令不带参数运行时只显示该命令的用法。doctor 与 init 不收参数，
-跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
+除 doctor 外，各命令不带参数时只显示用法。
 EOF
   return 2
 }
@@ -509,7 +505,7 @@ cmd_doctor() {
       echo "配置     : $(mmw_config_path)"
       domain_ready=1
     else
-      echo "配置     : 缺 .mmw.json，跑 mmw init"
+      echo "配置     : 缺 .mmw.json"
       status=1
     fi
   else
@@ -674,6 +670,5 @@ case "${1:-}" in
   mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
-  init) shift; mmw_init "$@" ;;
   *) usage ;;
 esac

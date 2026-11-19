@@ -10,6 +10,8 @@ Python 才能过，都会在这里红。
 
 from copy import deepcopy
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +20,7 @@ import pytest
 from pydantic import ValidationError
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "skills" / "exe-release" / "scripts"
+PWSH = shutil.which("pwsh")
 sys.path.insert(0, str(SCRIPTS))
 
 import release_contracts as rc  # noqa: E402
@@ -58,7 +61,21 @@ MINIMAL_KEY = {
 }
 
 
-def test_it_assembles_into_a_build_that_goes_all_the_way_to_an_installer(tmp_path):
+@pytest.mark.skipif(
+    os.name != "posix" or not PWSH,
+    reason="Generated release behavior needs pwsh and POSIX fixture executables",
+)
+@pytest.mark.parametrize(
+    ("missing_output", "error"),
+    [
+        pytest.param("backend", "Compiled backend is missing", id="missing-backend"),
+        pytest.param("installer", "No installer matched", id="unrelated-exe"),
+        pytest.param(None, None, id="declared-outputs"),
+    ],
+)
+def test_generated_release_requires_the_declared_backend_and_installer(
+    tmp_path, missing_output, error
+):
     key = tmp_path / "newcomer.release-adapter.json"
     key.write_text(json.dumps(MINIMAL_KEY), encoding="utf-8")
     script = tmp_path / "release.ps1"
@@ -66,27 +83,48 @@ def test_it_assembles_into_a_build_that_goes_all_the_way_to_an_installer(tmp_pat
 
     assembler.assemble(key, tmp_path, script, context)
 
-    text = script.read_text(encoding="utf-8-sig")
-    # "[0/N] Prepare build machine" is boilerplate the template always carries, guarded by a
-    # runtime `if ($BuildMachine)`: the text is in every generated script whether or not this
-    # key declares build_machine. MINIMAL_KEY does not, so that step never runs; skip it here
-    # the same way the assembler's own step numbering does (its pipeline starts at "[1/N]").
-    titles = [
-        line.strip().split("] ", 1)[1].rstrip('"')
-        for line in text.splitlines()
-        if line.strip().startswith('Step "[') and not line.strip().startswith('Step "[0/')
-    ]
-    assert titles == [
-        "Validate prerequisites",
-        "Install frontend dependencies",
-        "Compile Python backend",
-        "Verify compiled backend",
-        "Build Electron application",
-        "Build win-unpacked",
-        "Scan release artifacts",
-        "Build installer",
-        "Verify package integrity",
-    ]
+    # Only the fixture tools are on PATH. The generated script checks pre-created outputs.
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    for name in ("uv", "pnpm"):
+        tool = tools / name
+        tool.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        tool.chmod(0o755)
+    source = tmp_path / "src/newcomer/__main__.py"
+    source.parent.mkdir(parents=True)
+    source.touch()
+    dist = tmp_path / "desktop-newcomer/dist"
+    (dist / "win-unpacked").mkdir(parents=True)
+    (dist / "unrelated.exe").touch()
+    if missing_output != "installer":
+        (dist / "newcomer-setup.exe").touch()
+    backend = tmp_path / "desktop-newcomer/python-runtime/backend/newcomer-backend.exe"
+    backend.parent.mkdir(parents=True)
+    if missing_output != "backend":
+        backend.write_text(
+            '#!/bin/sh\n[ "$#" -eq 2 ] && [ "$1" = --run-module ] && '
+            '[ "$2" = newcomer._build_smoke ] || exit 1\n'
+            'printf "newcomer smoke ran\\n"\n',
+            encoding="utf-8",
+        )
+        backend.chmod(0o755)
+
+    result = subprocess.run(
+        [PWSH, "-NoProfile", "-NonInteractive", "-File", str(script),
+         "-ReleaseContextPath", str(context)],
+        cwd=tmp_path,
+        env={**os.environ, "PATH": str(tools)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    output = result.stdout + result.stderr
+    if error:
+        assert result.returncode != 0, output
+        assert error in output, output
+    else:
+        assert result.returncode == 0, output
+        assert "newcomer smoke ran" in result.stdout
 
 
 def test_the_key_carries_no_hook_and_the_script_calls_none(tmp_path):
@@ -156,7 +194,6 @@ def test_the_skill_scans_for_shipped_source_without_being_asked(tmp_path):
     text = script.read_text(encoding="utf-8")
     assert "Assert-NoBusinessSource" in text
     assert "-SourceRoots @('src')" in text, "源码根要从编译入口推出来"
-    assert "Assert-InstallerProduced" in text
 
 
 def test_a_key_with_an_installer_step_must_say_where_the_installer_lands():

@@ -99,7 +99,7 @@ More, each with its root cause: [lessons learned](references/lessons.md).
 
 ## Testing
 
-`mountSolid`, `waitForSolid`/`flush`, `renderSolidRef`, and the Solid application-context provider live in `ui/src/test-helpers/`. `.test.tsx` files are discovered. Keep assertions when you replace a harness. Visual changes need inspected, sanitized before/after screenshots. Follow the assigned campaign's compute budget. → [testing](references/testing.md)
+`mountSolid`, `waitForSolid`/`flush`, `renderSolidRef`, and the Solid application-context provider live in `ui/src/test-helpers/`. `.test.tsx` files are discovered. Keep assertions when you replace a harness. Visual changes need inspected, sanitized before/after screenshots. Follow the assigned campaign's compute budget.
 
 ## References
 
@@ -111,7 +111,6 @@ More, each with its root cause: [lessons learned](references/lessons.md).
 | [components](references/components.md)                   | writing components, native custom-element hosts, JSX bindings, events, refs, styles            |
 | [state and ownership](references/state-and-ownership.md) | touching owners, projections, async reads, lifetimes, parking, chat render lifecycle           |
 | [overlays](references/overlays.md)                       | menus, popovers, tooltips, dialogs, focus, positioning, the platform floor                     |
-| [testing](references/testing.md)                         | unit, browser, E2E, WebKit, parity, retention suites                                           |
 | [performance](references/performance.md)                 | startup bundle, lazy loading, render budgets                                                   |
 | [plugins](references/plugins.md)                         | building a plugin's Control UI view in Solid                                                   |
 | [lessons learned](references/lessons.md)                 | before a new kind of change; most entries cost a failed CI run to learn                        |
