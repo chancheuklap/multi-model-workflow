@@ -15,6 +15,6 @@ When working from approved wording, decisions, or designs, use [principle-baseli
 
 Before interpreting or presenting measured results or numerical comparisons, use [principle-explain-the-number](../principle-explain-the-number/SKILL.md) for the numbers.
 
-Use [html](../html/SKILL.md) to help me understand what we're discussing. Show me with big pictures and the words needed to understand them without withholding key details.
+Use [html](../html/SKILL.md) to help me understand what we're discussing. Show me with big pictures and the words needed to understand them without withholding key details. On hosts with a native HTML artifact surface (such as Antigravity's `generative_ui`), deliver full-page explainers as standalone side-pane artifacts with the host's theme tokens so nothing is cropped in a narrow inline frame.
 Use your own taste, avoid lazy design, integrate real-world pictures/icons/visuals as needed but only selectively when it makes sense. A page I review repeatedly keeps the skeleton that [html](../html/SKILL.md#review-pages) sets.
 When you do use prose/detail: Be clear and avoid jargon. Explain things as if the viewer is new here.
