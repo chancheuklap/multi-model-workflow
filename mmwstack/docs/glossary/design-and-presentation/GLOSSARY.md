@@ -24,9 +24,6 @@ An HTML artifact the operator reviews repeatedly, such as a plan or a visual exp
 **Source fidelity**:
 How closely an HTML artifact preserves the source's wording and structure. The presentation preserves the wording and decisions the operator approved. [html](../../../skills/html/SKILL.md#read-the-room-before-designing)
 
-**Public page**:
-A published HTML artifact that anyone with its link can open. The author delivers the artifact first. Publication requires the operator's separate approval. [design-artifact](../../../skills/design-artifact/SKILL.md#after-the-artifact-ships)
-
 ### Visual and interaction design
 
 **Review question**:

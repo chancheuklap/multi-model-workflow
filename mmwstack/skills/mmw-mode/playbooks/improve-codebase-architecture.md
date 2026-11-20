@@ -21,7 +21,7 @@
 
    Apply the **deletion test** to anything you suspect is shallow. Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep. Check the returned findings against the cited code.
 
-2. **Present the deepening opportunities as an HTML report.** Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Show the report to the user and link its HTML file.
+2. **Present the deepening opportunities as an HTML report.** Produce a single self-contained HTML report and deliver it per the operator's and host's HTML artifact rules. Show the report to the user and link it.
 
    Use [big-pics-little-words](../../big-pics-little-words/SKILL.md) with [html](../../html/SKILL.md). Each opportunity gets a **before/after visualisation**. Use the [HTML report format](../references/improve-codebase-architecture/html-report.md) for the scaffold, diagram patterns, and styling guidance. For dependency categories, consult [Deepening](../../codebase-dic/references/deepening.md).
 
