@@ -18,7 +18,7 @@ Two modes. Either way, **never resolve more than one ticket per session**, with 
 
 User invokes with a loose idea.
 
-1. **Name the destination.** Use [grilling](../../grilling/SKILL.md) and [domain-modeling](../../domain-modeling/SKILL.md), to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
+1. **Name the destination.** Use [grilling](../../grilling/SKILL.md) to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. Stop the interview when you can state the destination and the open questions. **If this surfaces no fog** (the way to the destination is already clear, the whole journey small enough for one session), you don't need a map. Stop and ask the user how they'd like to proceed.
 3. **Create the map** (label `mmw:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**. Reuse the work issue for this exploration and retain the original report and evidence in Notes or by link.
 4. **Create the tickets you can specify now** as child issues of the map, then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Write cross-references in that pass too, with real ids: a placeholder `#<n>` auto-links to an unrelated issue. Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog: the **Not yet specified** section.
@@ -31,7 +31,7 @@ User invokes with a map (URL or number) or a decision ticket. Given only the tic
 
 1. Load the **map**: the low-res view, not every ticket body.
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. If the named ticket is blocked or claimed elsewhere, stop and report its status. **Claim it**: assign it to yourself before any work.
-3. Resolve it as the type its `wayfinder:<type>` label names (see [Ticket Types](#ticket-types)). Read the label, not just the body: the body never states the type. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; use whichever skills the `## Notes` block names. If in doubt, use [grilling](../../grilling/SKILL.md) and [domain-modeling](../../domain-modeling/SKILL.md).
+3. Resolve it as the type its `wayfinder:<type>` label names (see [Ticket Types](#ticket-types)). Read the label, not just the body: the body never states the type. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; use whichever skills the `## Notes` block names. If in doubt, use [grilling](../../grilling/SKILL.md).
 4. If the ticket is beyond the destination, [rule it out of scope](#out-of-scope). Otherwise write the answer and its evidence under `Result` in the ticket body, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that another ticket sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or close those tickets.
 
@@ -105,7 +105,7 @@ Every ticket is either **HITL** (human in the loop, worked _with_ a human who sp
 
 - **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. [research](../../research/SKILL.md) assigns the question to a **FRESH AGENT**. Use when knowledge outside the current working directory is required.
 - **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to (an outline, a rough take, a stub, or UI/logic code). For UI or logic code, run the [Prototype playbook](prototype.md) in this chat. Link the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question.
-- **Grilling** (HITL): Conversation. The default case. Always use [grilling](../../grilling/SKILL.md) and [domain-modeling](../../domain-modeling/SKILL.md).
+- **Grilling** (HITL): Conversation. The default case. Always use [grilling](../../grilling/SKILL.md).
 - **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made: nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides, and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
 
 #### Fog of war
