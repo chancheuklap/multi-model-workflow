@@ -35,15 +35,15 @@ Tests alone are not sufficient verification. Check each applicable unit, live, a
 
 ## Execution setup
 
-- [ ] Create and push `project/<slug>` from the repository's integration branch (`git fetch origin && git push origin origin/<integration>:refs/heads/project/<slug>`) before owners start so every PR targets `project/<slug>`.
-- [ ] Run `<mmw-mode-dir>/playbooks/<execution playbook>.md` (`autopilot-full.md` or `autopilot-stack.md`) against `project/<slug>` once the operator gives explicit go.
-- [ ] <Who merges into `project/<slug>`, and which changes or review gates the operator reserves for review. Once every ticket's PR merges into `project/<slug>`, stop for `/code-review project/<slug>` and final integration merge.>
+- [ ] Set the target trunk to `project/<slug>` (`git fetch origin && git push origin origin/<integration>:refs/heads/project/<slug>`) or to `<integration>` directly when running `playbooks/autopilot-stack.md`.
+- [ ] Run `<mmw-mode-dir>/playbooks/<execution playbook>.md` (`autopilot-full.md` or `autopilot-stack.md`) against that trunk once the operator gives explicit go. Under `autopilot-stack.md`, follow `playbooks/autopilot-stack.md` so each dependent phase branches directly off its parent PR's verified branch until the full stack is verified.
+- [ ] <Name the operator review gates and handoff point (`project/<slug>` merge and `/code-review project/<slug>` before integration merge, or handing the verified `autopilot-stack.md` stack to the operator once).>
 
 ### Boot recipe
 
-Run the PR verifier at the head under review in a separate local worktree or cloud workspace according to the task's execution environment. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
+The coordinator dispatches a fresh, read-only PR verifier independent of the author in the task's execution environment. Once the coder has stopped and its worktree is clean at the exact pushed PR head SHA (`git status` empty and `HEAD` matching the PR `headRefOid`), run the verifier in that same worktree; create a separate local worktree or cloud workspace when the coder is still concurrently modifying that worktree or when the cloud environment requires one. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
 
-- [ ] In the verifier's assigned worktree or cloud workspace, run `git fetch origin <head-branch> && git checkout <head SHA>`.
+- [ ] Confirm the verifier's assigned worktree or cloud workspace is clean at `<head SHA>` (or run `git fetch origin <head-branch> && git checkout <head SHA>` in a separate workspace).
 - [ ] <Start the backend and the surface. Wait for ready.>
 - [ ] <Deliver input only through the user-facing driver named in Verify. Name the read-only diagnostics.>
 - [ ] Save the evidence for each scenario at the location named in the ticket or plan and return links or paths the operator can open.
@@ -73,7 +73,7 @@ Run the PR verifier at the head under review in a separate local worktree or clo
 ## Close the program
 
 - [ ] Every box above is checked with its evidence.
-- [ ] Once every ticket's PR has merged into `project/<slug>`, stop and hand `project/<slug>` to the operator for `/code-review project/<slug>` and final merge into the integration branch.
+- [ ] Hand the verified `autopilot-stack.md` stack to the operator once, or stop after every `project/<slug>` PR merges for `/code-review project/<slug>` and final integration merge.
 - [ ] Reply to the operator with the report the execution playbook names.
 
 ## Appendix A. Prototype evidence
