@@ -9,7 +9,7 @@ description: Configure which models mmwstack uses per role and at what reasoning
 
 ### 1. Detect available models
 
-Identify the current host from the session environment. If it is unclear, ask the user once. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices. On Factory Droid, list the effective model and reasoning for each tier (`light`, `medium`, and `heavy`).
+Identify the current host from the session environment. If it is unclear, ask the user once. List the models, reasoning levels, and speeds this session can assign to subagents. Use the user's available-model list when it gives a more complete inventory. If subagents inherit the parent model and offer no model choice, offer `inherit-parent` as an explicit choice. If selection is possible but you cannot list the options, ask the user which models they can select. Save only confirmed choices. On Factory Droid, list the effective model and reasoning for each tier (`light`, `medium`, and `heavy`). On Antigravity (AGY), run `agy models` to list the exact model IDs (each encodes its reasoning level, such as `claude-opus-5-5-high` or `gemini-4-neon-xhigh`) for `## agy`; if `agy` is unavailable, list the four `invoke_subagent` tiers (`inherit`, `pro`, `flash`, `flash_lite`).
 
 ### 2. Load current state
 
@@ -58,6 +58,8 @@ architect runners: <first seat>, <second seat>
 ```
 
 On Factory Droid, sync the project's native registrations in `.factory/droids/` before starting the next session. Bind `mmw-agent-light`, `mmw-agent-medium`, and `mmw-agent-heavy` to their Factory tier models and reasoning settings. Bind `advisor` and `comment-sicko` to the tiers from the `advisor` and `judgment and prose` entries in the rule file for that session. Sync again after a Factory tier binding changes or a model rule, including a supplied rule file, changes the tier of either specialist.
+
+On Antigravity (AGY), sync the project's native registrations in `.agents/agents/` (`mmw-agent`, `advisor`, `comment-sicko`) without a `model` frontmatter field so `scripts/agy-delegate` can pass exact models from `## agy` at dispatch time while preserving each role's instructions and `tools:` allowlist.
 
 ### 6. Confirm
 

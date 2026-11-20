@@ -32,7 +32,7 @@ Walk through what each line buys you:
 - "done means..." turns the goal into checks every iteration can run.
 - "fresh worktree off `<base>`" keeps the run from colliding with anything else you have open.
 - "don't ask me before committing" pre-answers the permission the agent would otherwise block on.
-- The [Autonomous run playbook](../../skills/mmw-mode/playbooks/autonomous-run.md) re-checks the finish condition when an event arrives or a timer wakes the agent. If the run must continue with your computer offline, start the coordinator in a cloud workspace and arrange a cloud wake-up.
+- The [Autonomous run playbook](../../skills/mmw-mode/playbooks/autonomous-run.md) re-checks the finish condition when an event arrives or a timer wakes the agent (for example, Antigravity's native `schedule` one-shot timers and recurring cron jobs). If the run must continue with your computer offline, start the coordinator in a cloud workspace and arrange a cloud wake-up.
 - The escape hatch lets it stop at a genuine dead end and write up why, which beats eight hours of creative goal reinterpretation.
 
 Because you'll review this work after stepping away, [mmw-mode](../../skills/mmw-mode/SKILL.md) routes it through [figure-it-out](../../skills/figure-it-out/SKILL.md), which designs the run's phases before any code and wires in the decision log.

@@ -7,6 +7,8 @@ description: Build or adapt a local browser/CDP harness to drive and inspect a w
 
 Use local browser automation to verify UI behavior with evidence. First reuse the repo's own Playwright, browser, or Electron harness if it exists; otherwise assemble a temporary local harness around the app's dev server or Chromium debug port.
 
+When the host also ships a built-in interactive browser agent (such as Antigravity's `browser` subagent), divide responsibilities by surface: use local Playwright or Electron CDP harnesses for Electron apps, repository regression test suites, deterministic assertions, and console/network/performance traces; use the host's built-in browser agent for interactive visual checks on live web pages or authenticated web apps when no local harness fits.
+
 ## What It Is Used For
 
 - Reproducing UI bugs that depend on real browser focus, keyboard input, scrolling, resizing, or rendering.

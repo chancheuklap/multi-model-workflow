@@ -100,6 +100,8 @@ Read the linked leaf skill in full for any principle you apply. Each entry names
 
 **When a playbook step tells you to start a subagent, spawn `mmw-agent`.** The chat that receives `/mmw-mode` runs the playbook. A skill that spawns its own subagents gives them role-specific briefs. Respect what the skill prescribes.
 
+**Host-specific dispatch.** Before starting any subagent on Factory Droid or Antigravity (AGY), including `mmw-agent`, `advisor`, `comment-sicko`, and `arena`/`eval` runners or judges, read [host-dispatch.md](references/host-dispatch.md) and apply the current host's row. On AGY local sessions, dispatch exact models from `## agy` through `~/.agents/scripts/agy-delegate` rather than `invoke_subagent` (four coarse tiers only) or `swarm` (shared board). Never use AGY `Workspace: "branch"` or `"share"` to isolate a managed repository from a Home Repo session; use a sibling worktree of the target repository instead.
+
 **Execution environment.** At task start, the main chat determines the [execution environment](../../docs/glossary/routing-and-delegation/GLOSSARY.md#people-and-instructions) (`local` or `cloud`) from the workspace its host assigned. Every skill, including one invoked directly, uses that value. Before starting a subagent, the dispatcher confirms the host runs the route in the task's execution environment. This includes replacements and nested dispatch.
 
 Start each brief with `Read <path>/worker.md before anything else.`. Use the absolute path to the [worker.md](worker.md) directory in the receiving workspace. Give the execution environment, goal, scope, completion condition and operator authorization. For nested dispatch, include the host, a readable path to this section, and the model rule file or relevant role lines.

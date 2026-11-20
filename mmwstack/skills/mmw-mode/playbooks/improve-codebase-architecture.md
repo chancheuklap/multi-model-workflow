@@ -9,7 +9,7 @@
    - If the user named a direction (a module, a subsystem, a pain point), take it, and skip the inference below.
    - Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots, the files and areas that keep coming up, and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
 
-   Spawn a fresh `mmw-agent` for the read-only exploration. Give it the work issue URL and scope. Use the model and settings from the current host’s `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). On Factory Droid, set `subagent_type` to `mmw-agent-<tier>`, replacing `<tier>` with the tier from this step’s model entry. Include the relevant glossary, ADRs and [codebase-dic](../../codebase-dic/SKILL.md) in the brief. Ask for real call sites and file paths that show the friction. Include the following questions and the deletion test in the exploration prompt.
+   Spawn a fresh `mmw-agent` for the read-only exploration. Give it the work issue URL and scope. Use the model and settings from the current host’s `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Include the relevant glossary, ADRs and [codebase-dic](../../codebase-dic/SKILL.md) in the brief. Ask for real call sites and file paths that show the friction. Include the following questions and the deletion test in the exploration prompt.
 
    Don't follow rigid heuristics; explore organically and note where you experience friction:
 
