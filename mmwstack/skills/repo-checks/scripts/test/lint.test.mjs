@@ -54,6 +54,20 @@ test('lint exits 1 and identifies invalid schema fields', async t => {
     ['checks[0].timeout_s', c => { c.checks[0].timeout_s = 0; }],
     ['checks[0].retry', c => { c.checks[0].retry = 2; }],
     ['checks[0].lock', c => { c.checks[0].lock = ''; }],
+    ['checks[0].slot', c => { c.checks[0].slot = ''; }],
+    ['checks[0].slot', c => { c.checks[0].slot = 'missing'; }],
+    ['checks[0].slot', c => { c.slots = { db: { max: 2 } }; c.checks[0].lock = 'l'; c.checks[0].slot = 'db'; }],
+    ['slots', c => { c.slots = []; }],
+    ['slots', c => { c.slots = { '': { max: 2 } }; }],
+    ['slots.db.max', c => { c.slots = { db: {} }; }],
+    ['slots.db.max', c => { c.slots = { db: { max: 0 } }; }],
+    ['slots.db.max', c => { c.slots = { db: { max: -1 } }; }],
+    ['slots.db.max', c => { c.slots = { db: { max: 1.5 } }; }],
+    ['slots.db.perRunMax', c => { c.slots = { db: { max: 2, perRunMax: 0 } }; }],
+    ['slots.db.perRunMax', c => { c.slots = { db: { max: 2, perRunMax: -2 } }; }],
+    ['slots.db.perRunMax', c => { c.slots = { db: { max: 2, perRunMax: 1.5 } }; }],
+    ['slots.db.perRunMax', c => { c.slots = { db: { max: 2, perRunMax: 3 } }; }],
+    ['slots.db.typo', c => { c.slots = { db: { max: 2, typo: 1 } }; }],
     ['checks[0].typo', c => { c.checks[0].typo = true; }],
     ['checks[0].run_all', c => { c.checks[0].run = 'node {files}'; }],
     ['checks[1].id', c => { c.checks.push({ ...c.checks[0] }); }],
@@ -83,11 +97,20 @@ test('lint accepts the complete Check Config shape and rejects unknown needs for
   const c = cleanConfig();
   c.prepare = { run: 'npm ci', stamps: ['package{,-lock}.json'] };
   c.marker_exempt = ['retired/**'];
+  c.slots = { pg: { max: 4, perRunMax: 2 }, redis: { max: 2 } };
   Object.assign(c.checks[0], {
     run: 'node --test {tests}', run_all: 'node --test',
     sources: ['lib/**'], select: 'node select.mjs {files}',
     needs: ['cmd:node', 'cmd:pwsh.exe', 'docker', 'os:darwin', 'os:linux', 'os:windows', 'env:API_TOKEN', 'path:node_modules'],
     timeout_s: 30, retry: 1, lock: 'database',
+  });
+  c.checks.push({
+    id: 'db-slot', run: 'node --test', inputs: ['db/**'], tests: [],
+    ci: false, ci_reason: 'Local slot check.', slot: 'pg',
+  });
+  c.checks.push({
+    id: 'cache-slot', run: 'node --test', inputs: ['cache/**'], tests: [],
+    ci: false, ci_reason: 'Local slot check with omitted perRunMax.', slot: 'redis',
   });
   c.lanes = [{ id: 'live', kind: 'owner-only', reason: 'Real shop', run_by: 'owner', tests: ['live/**'], command: 'npm run live' }];
   c.excluded = [{ paths: ['fixtures/**'], reason: 'Fixture data' }];

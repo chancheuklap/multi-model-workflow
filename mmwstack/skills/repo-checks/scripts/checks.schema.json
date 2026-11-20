@@ -19,6 +19,11 @@
         "stamps": { "$ref": "#/$defs/patterns" }
       }
     },
+    "slots": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/text" },
+      "additionalProperties": { "$ref": "#/$defs/slot" }
+    },
     "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
     "lanes": { "type": "array", "items": { "$ref": "#/$defs/lane" } },
     "excluded": {
@@ -73,7 +78,8 @@
         "ci_reason": { "$ref": "#/$defs/text" },
         "timeout_s": { "type": "number", "exclusiveMinimum": 0 },
         "retry": { "type": "integer", "minimum": 0, "maximum": 1 },
-        "lock": { "$ref": "#/$defs/text" }
+        "lock": { "$ref": "#/$defs/text" },
+        "slot": { "$ref": "#/$defs/text" }
       },
       "dependentRequired": { "sources": ["select"], "select": ["sources"] },
       "allOf": [
@@ -87,6 +93,15 @@
           "then": { "required": ["run_all"] }
         }
       ]
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max"],
+      "properties": {
+        "max": { "type": "integer", "minimum": 1 },
+        "perRunMax": { "type": "integer", "minimum": 1 }
+      }
     },
     "lane": {
       "type": "object",
