@@ -10,7 +10,7 @@ Here's what you'll learn:
 4. [Design the change](./04-design.md). [architect](../../skills/architect/SKILL.md), [arena](../../skills/arena/SKILL.md), prototypes, cross-session decisions with [Wayfinder](../../skills/mmw-mode/playbooks/wayfinder.md), and plans before code locks in a shape.
 5. [Build and clean the change](./05-build-and-clean.md). The build playbooks, [write-tests](../../skills/write-tests/SKILL.md), [unslop](../../skills/unslop/SKILL.md), and [no-comments](../../skills/no-comments/SKILL.md).
 6. [Verify and ship](./06-verify-and-ship.md). Prove behavior on the real app, formally verify what tests rarely reach, vet numbers with [benchmark-checklist](../../skills/benchmark-checklist/SKILL.md), then open a focused PR and drive it to merged, or build an install package.
-7. [Run work while you sleep](./07-overnight.md). Trust before loops, an overnight contract, a decision log you can audit, and Projects and automations that scale past one agent.
+7. [Run work while you sleep](./07-overnight.md). Trust before loops, an overnight contract, a decision log you can audit, and persistent coordinator sessions and automations that scale past one agent.
 8. [Steer with principle names](./08-principles.md). The 32 names that redirect an agent mid-task.
 9. [Make it yours](./09-make-it-yours.md). Your own mode, [correct](../../skills/correct/SKILL.md) for repeated mistakes, and how to test a skill change.
 10. [Recipes and pitfalls](./10-recipes-and-pitfalls.md). Prompts to copy and mistakes to skip.

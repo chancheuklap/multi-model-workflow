@@ -24,10 +24,10 @@ _Avoid_: caller for the invoker. A caller is code or a person that uses a module
 A named set of reusable instructions that an operator or another skill can invoke. A playbook can call a skill for one step.
 
 **Playbook**:
-A sequence of steps for a kind of task, such as an investigation or a bug fix. The operator can name the playbook inside the mode. The main chat copies its steps into the checklist and keeps a skipped step visible with its reason.
+A sequence of steps for a kind of task, such as an investigation or a bug fix. The operator can name the playbook inside the mode. The main chat copies its steps into the checklist.
 
 **Non-negotiable**:
-A trigger in the mode that ties a condition to a required action, such as the throughput checkpoint for nontrivial multi-step work.
+A trigger in the mode that ties a condition to a required action, such as opening a work issue for a new repository task.
 
 **Throughput checkpoint**:
 A decision about how to divide work. It records what must finish first, which workstreams are independent, which writes would share state, and the smallest safe division. One worker can be the result.
@@ -75,7 +75,7 @@ The operator's saved assignments of models and settings to roles, in `~/.agents/
 A named kind of assignment in the model rule. Autopilot starts its PR owner on `coder`. Autopilot and Shipping assign independent PR checks to `verifier`. Scoped code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A single-agent [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`.
 
 **Reasoning budget**:
-The operator's target reasoning level. The targets for `unlimited`, `large`, `medium`, and `small` are `max`, `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
+The operator's target reasoning level. The targets for `large`, `medium`, and `small` are `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
 
 **Speed (model role)**:
 The choice of standard or fast execution for a delegate. Unless the operator fixed the role's speed, fast is reserved for failing CI, a broken trunk, or a person waiting on the result to proceed.
@@ -84,7 +84,7 @@ The choice of standard or fast execution for a delegate. Unless the operator fix
 The operator's explicit choice of `inherit-parent` or `auto`. Both values run the delegate on the parent's model with its inherited settings.
 
 **Panel role**:
-A two-seat assignment from `arena runners` or `architect runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Architect applies Arena's runner rules to its own list. [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
+A two-seat assignment from `arena runners`. Two entries naming the same model supply two independent agents. Inherited entries also occupy seats. Architect reuses `arena runners` when it runs Arena. [arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md)
 
 **Arena cross-judge pool**:
 The operator's ordered list for one independent read-only judge. Arena uses the first available entry, including an explicitly inherited model. A candidate author cannot judge the submissions.
