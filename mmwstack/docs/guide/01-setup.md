@@ -4,7 +4,7 @@ In this page you install the plugin, pick which models mmwstack uses, and run yo
 
 ## Install the plugin
 
-Install this copy with the local plugin or skill installation your environment provides. Keep the bundle together so relative links resolve. For project installs, expose the bundled `agents/` directory through `.claude/agents/` for Claude Code or `.cursor/agents/` for Cursor. For Codex, register each bundled agent by name in `.codex/agents/<name>.toml`. Embed the complete role instructions in `developer_instructions` and resolve skill links relative to the checkout that supplies the installed skills. The Cursor plugin manifest already registers `agents/`. To use it directly, give your agent [mmw-mode](../../skills/mmw-mode/SKILL.md) and your task. In this guide, `/name` refers to the skill of that name in the bundle.
+Install this copy with the local plugin or skill installation your environment provides. Keep the bundle together so relative links resolve. For project installs, expose the bundled `agents/` directory through `.claude/agents/` for Claude Code or `.cursor/agents/` for Cursor. For Codex, register each bundled agent by name in `.codex/agents/<name>.toml`. Embed the complete role instructions in `developer_instructions` and resolve skill links relative to the checkout that supplies the installed skills. For Antigravity (AGY), register `.agents/skills.json`, `.agents/hooks.json`, and native role files in `.agents/agents/<name>.md` (`subagent: true`, `mainAgent: true`, explicit `tools:` allowlists, and no `model:` field) so `scripts/agy-delegate` can dispatch exact models from `## agy`. The Cursor plugin manifest already registers `agents/`. To use it directly, give your agent [mmw-mode](../../skills/mmw-mode/SKILL.md) and your task. In this guide, `/name` refers to the skill of that name in the bundle.
 
 ## Pick your models
 
@@ -15,6 +15,8 @@ The `large` budget requests `xhigh` reasoning. `unlimited` lifts each model to i
 The same role can use a different model in another host.
 
 On Factory Droid, choose `light`, `medium`, or `heavy` for each role and panel entry. Factory's tier settings supply the model and reasoning. Sync the project's native Droid registrations before launching a session, including when a different model rule changes the advisor or Comment Sicko tier. [Droid registration in setup-mmwstack](../../skills/setup-mmwstack/SKILL.md#5-write-the-rule)
+
+On Antigravity (AGY), choose exact model IDs from `agy models` (such as `claude-opus-5-5-high` or `gemini-4-neon-xhigh`) under `## agy`. Local sessions dispatch roles through `scripts/agy-delegate` so each delegate gets its exact model, reasoning level, role prompt, and tool allowlist without using `swarm`. [Host subagent dispatch](../../skills/mmw-mode/references/host-dispatch.md)
 
 You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. Each runner panel has two seats. The entries can name the same model or tier. Autopilot starts PR owners on `coder`. Autopilot and Shipping use `verifier` for independent PR checks. For a model race, choose a configured model for each arm.
 

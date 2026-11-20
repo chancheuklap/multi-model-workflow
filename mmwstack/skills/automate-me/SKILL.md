@@ -25,7 +25,7 @@ Update mode changes the rest of the flow:
 
 ### 1. Mine their history
 
-Locate the active workspace's transcripts before fanning out. Read only conversations from that workspace. If none are accessible, gather preferences in step 2 instead.
+Locate the active workspace's transcripts before fanning out. Read only conversations from that workspace (when all sessions start from a shared Home Repo workspace, filter by the topic or repository in scope; on Antigravity, check `~/.gemini/antigravity/brain/<id>/.system_generated/logs/transcript.jsonl` and `antigravity-cli/brain/`). If none are accessible, gather preferences in step 2 instead.
 
 Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Use the model and settings from the current host’s `reader` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 
@@ -42,7 +42,7 @@ Cross-check across slices before elevating a signal. Patterns seen in 2+ slices 
 
 Mining misses intent that hasn't come up yet. Offer concrete choices rather than asking the user to type from scratch.
 
-Shape: one or two questions with 4-6 options each, `allow_multiple: true` for category questions. Start broad ("Which areas matter most?"), then follow up on selected areas with specific options. After the structured rounds, one free-form chat question catches anything the options missed.
+Shape: one or two questions with 4-6 options each, with multi-select enabled for category questions. Start broad ("Which areas matter most?"), then follow up on selected areas with specific options. After the structured rounds, one free-form chat question catches anything the options missed.
 
 Don't dump 20 questions.
 
