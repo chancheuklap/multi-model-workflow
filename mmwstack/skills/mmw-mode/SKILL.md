@@ -11,20 +11,18 @@ Bundled skills live at `../<name>/SKILL.md` from this file. Resolve `playbooks/`
 
 ## Non-negotiables
 
-- Writing or changing tests → invoke [write-tests](../write-tests/SKILL.md) before editing them. When delegating that work, put “Invoke `write-tests`” and the expected behavior in the writer's brief.
-
 In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
 - First message → restate the user's goal, the problem they are solving, and the smallest change that meets it, then proceed. If the evidence rules out the requested change, show it and stop. Open each PR's `## Why` and final report with the goal, except the reply to a fully specified one-line edit.
+- Writing or changing tests → invoke [write-tests](../write-tests/SKILL.md) before editing them. When delegating that work, put "Invoke `write-tests`" and the expected behavior in the writer's brief.
 - Starting any agent → follow [Subagents](#subagents).
 - New repository task, including a read-only investigation or a directly named skill → the main chat uses Open in [to-tickets](../to-tickets/SKILL.md#open) before starting.
-- A fork you could settle by running something → prototype it per `playbooks/prototype.md` instead of asking. For a read-only Investigation, answer from the evidence. Ask the operator about product or preference calls no experiment can settle. Use Prototype when they need to see or try the options first.
-- Under a full-autonomy grant, act on decisions the grant covers and report them. Wait for the operator on Wayfinder decisions that need them, gates they named and Always-pause actions. For other operator choices, apply a default. Explain your choice and how the operator can change it in their own words.
+- A fork an experiment can settle → run `playbooks/prototype.md` instead of asking. For a read-only Investigation, answer from evidence. Ask the operator about product or preference calls, and use Prototype when they need to see or try the options.
+- Full-autonomy grant → act and report on covered calls. Wait on Wayfinder operator decisions, named gates, and Always-pause. For other operator calls, apply a default and explain your choice and how to change it in plain words.
 - Code → name the data shape first and choose its structure per [principle-model-the-domain](../principle-model-the-domain/SKILL.md). Across a function boundary → [architect](../architect/SKILL.md), except for throwaway Prototype code. Candidate bakeoff with base selection and grafting → [arena](../arena/SKILL.md).
 - The operator asks for the advisor or for a second opinion from a stronger model, or turns advisor mode on → the [advisor](../advisor/SKILL.md) skill. Never start it on your own.
 - Only when the operator asks for a code review of a finished project branch → the **Code review** playbook (`playbooks/code-review.md`).
 - A review with no objective endpoint, such as an ambiguity scan or a code review → it runs once for its scope. Settle what it reports, then continue. Run another only when the operator asks.
-- Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Prose, your reply included → [unslop](../unslop/SKILL.md). Docs, PR descriptions, commit messages → [technical-writing](../technical-writing/SKILL.md).
 - Creating or editing a skill, `AGENTS.md`, `CLAUDE.md`, or a document an agent reaches through a pointer → the [writing-for-agents](../writing-for-agents/SKILL.md) skill, and the [create-skill](../create-skill/SKILL.md) skill when the document is a skill.
 - Before commit → [deslop](../deslop/SKILL.md). Before review → [no-comments](../no-comments/SKILL.md).
@@ -32,7 +30,6 @@ In your reply, name each principle that shaped a decision and the specific choic
 - A benchmark or performance number you measured → [benchmark-checklist](../benchmark-checklist/SKILL.md) before you report or act on it.
 - PR-status request → the **Babysit** playbook. Landing a green stack → the **Shipping** playbook.
 - Bot review comments → judge each on its merits per `references/bugbot-triage.md`.
-- Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
 - Long, autonomous, multi-phase, or unattended work → [show-me-your-work](../show-me-your-work/SKILL.md). Wayfinder records its decision trail in the decision tickets and map index instead.
 
 ## Principles
@@ -118,8 +115,8 @@ Keep every item the playbook's reply calls for. Use the English issue and ticket
 
 ## Playbooks
 
-Match the task to a playbook and open its steps at `playbooks/<title>.md`, with the title in kebab case, unless the entry links its file. Copy its steps verbatim into the checklist first. Keep skipped steps with a one-line `skip: <reason>`. Large, cross-cutting, or unattended work, or a task no playbook fits, routes to the [figure-it-out](../figure-it-out/SKILL.md) skill even when a narrower playbook fits.
+Match the task to a playbook and open its steps at `playbooks/<title>.md`, with the title in kebab case. Copy its steps verbatim into the checklist first. Large, cross-cutting, or unattended work, or a task no playbook fits, routes to the [figure-it-out](../figure-it-out/SKILL.md) skill even when a narrower playbook fits.
 
-Investigation, Bug fix, Perf issue (one-off fix), Hillclimb (sustained improvement of one metric), Runtime forensics (live symptom), Trace forensics (captured profile), Feature, Refactoring (chosen change), Improve codebase architecture (find modules worth deepening), Prototype, Wayfinder (chart a cross-session map or resume a decision ticket), Visual parity, [Authoring or modifying a skill](playbooks/authoring-a-skill.md), Eval (agent behavior), Babysit, Shipping, Release an install package (build a Windows installer or add a product to the packaging system), Code review, Autonomous run, Autopilot-full (merge a queue of independent PRs with full autonomy), Autopilot-stack (hand the verified queue to the operator to land), Session pickup, Pause safely (pause, going offline, restart or imminent context compaction), Multi-phase plan (plan outcomes, dependencies and verification across phases), [Worktree and simulator cleanup](playbooks/worktree-cleanup.md), Opening a PR.
+Investigation, Bug fix, Perf issue (one-off fix), Hillclimb (sustained improvement of one metric), Runtime forensics (live symptom), Trace forensics (captured profile), Feature, Refactoring (chosen change), Improve codebase architecture (find modules worth deepening), Prototype, Wayfinder (chart a cross-session map or resume a decision ticket), Visual parity, Authoring a skill, Eval (agent behavior), Babysit, Shipping, Release an install package (build a Windows installer or add a product to the packaging system), Code review, Autonomous run, Autopilot-full (merge a queue of independent PRs with full autonomy), Autopilot-stack (hand the verified queue to the operator to land), Session pickup, Pause safely (pause, going offline, restart or imminent context compaction), Multi-phase plan (plan outcomes, dependencies and verification across phases), Worktree cleanup, Opening a PR.
 
 A design discussion that fits one session uses [grilling](../grilling/SKILL.md) instead of Wayfinder.

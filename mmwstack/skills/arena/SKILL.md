@@ -24,7 +24,7 @@ If a candidate produces no output, continue with the remaining candidate and not
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, spawn one read-only judge. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use the first available entry in pool order, including an explicitly inherited model. Start a fresh agent that produced none of the candidates. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
+After all Phase B candidates complete, spawn one fresh read-only judge that produced none of the candidates, following [Subagents](../mmw-mode/SKILL.md#subagents). Use the first available entry in pool order (including an explicitly inherited model) from the current host's `arena cross-judge pool` line in `~/.agents/mmwstack-models.md` (or the supplied rule file). If none runs, pick the base yourself in Phase D and say the judge did not run. While you read in Phase D, the judge scores each candidate by path label on each rubric criterion and recommends a base with rationale. Never spawn the judge while candidates are still writing.
 
 ## Phase D: Pick a base
 

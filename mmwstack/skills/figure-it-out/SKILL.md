@@ -9,7 +9,7 @@ When the task matches no playbook, design one. The deliverable before any code i
 
 ## Start
 
-Start a checklist whose first item is to read the Principles section of the [mmw-mode](../mmw-mode/SKILL.md) skill. Then add the phases below as todos.
+Start a checklist whose first item is to read the Principles section of the [mmw-mode](../mmw-mode/SKILL.md) skill. Then add the phases below as checklist items.
 
 ## Phase A: Frame
 
@@ -26,7 +26,7 @@ Present the framing and tradeoffs before committing to a long run. Reversible wo
 Decompose into atomic, independently-landable units. Sequence riskiest-unknown-first. Scaffold and verification come before features (the [principle-foundational-thinking](../principle-foundational-thinking/SKILL.md) principle skill).
 
 - Build the verification harness before the work, with the baseline captured from the pre-change state, so the check reads as "old value vs new value".
-- For one-way-door design decisions, run the [architect](../architect/SKILL.md) skill (it runs [arena](../arena/SKILL.md)). Skip it for mechanical work whose shape is already concrete. A second [arena](../arena/SKILL.md) over a settled design is over-engineering (the [principle-laziness-protocol](../principle-laziness-protocol/SKILL.md) principle skill).
+- For one-way-door design decisions, run the [architect](../architect/SKILL.md) skill (it runs [arena](../arena/SKILL.md) for large or contested designs). Skip it for mechanical work whose shape is already concrete. A second [arena](../arena/SKILL.md) over a settled design is over-engineering (the [principle-laziness-protocol](../principle-laziness-protocol/SKILL.md) principle skill).
 - Decide what fans out. Parallelize only across seams, and give each worker its own worktree or branch (the [principle-separate-before-serializing-shared-state](../principle-separate-before-serializing-shared-state/SKILL.md) principle skill). Don't over-fan.
 - Write the designed phase list down. That list is what the human reviews.
 

@@ -49,7 +49,7 @@ Read each principle you change in full. Compare the mode index entries and skill
 
 Route by input and requested outcome. **Trace forensics** diagnoses a captured startup profile. **Perf issue** fixes measured startup slowness. Put the playbook in `mmwstack/skills/mmw-mode/playbooks/<title>.md` using a lowercase, hyphenated title. Give the path in the mode index when the filename differs from that title. [Trace forensics](mmwstack/skills/mmw-mode/playbooks/trace-forensics.md)
 
-Write backward from the handoff. The main chat uses the numbered steps as its checklist and records reasons for skips. Order steps by the evidence each needs. At a skill call, give the input, the required result and how the main chat uses it.
+Write backward from the handoff. The main chat uses the numbered steps as its checklist. Order steps by the evidence each needs. At a skill call, give the input, the required result and how the main chat uses it.
 
 ```markdown
 ### <Playbook name>
