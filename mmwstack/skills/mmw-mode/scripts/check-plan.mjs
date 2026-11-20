@@ -73,6 +73,17 @@ const closingComment = (text) => {
 	return end === -1 ? null : end + 3;
 };
 
+const CJK = /[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]/;
+const hasCurlyQuote = (text) => {
+	if (/[\u2018\u2019]/.test(text)) return true;
+	for (const match of text.matchAll(/[\u201c\u201d]/g)) {
+		const prev = text[match.index - 1] ?? "";
+		const next = text[match.index + 1] ?? "";
+		if (!CJK.test(prev) && !CJK.test(next)) return true;
+	}
+	return false;
+};
+
 let comment = false;
 let codeEnd = null;
 const inlineToken = /\\[\\`<]|`+|<!--/g;
@@ -126,7 +137,7 @@ for (let i = start; i < raw.length; i++) {
 		.replace(/\]\([^)]*\)/g, "]");
 	lines.push({ n, text, prose });
 	if (/[\u2013\u2014]/.test(prose)) fail(n, "long dash");
-	if (/[\u2018\u2019\u201c\u201d]/.test(prose)) fail(n, "curly quote");
+	if (hasCurlyQuote(prose)) fail(n, "curly quote");
 	if (/: \S/.test(prose)) fail(n, "mid-sentence colon");
 }
 
