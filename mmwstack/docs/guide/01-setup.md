@@ -8,9 +8,9 @@ Install this copy with the local plugin or skill installation your environment p
 
 ## Pick your models
 
-Choose from the models your host can assign to each role (code delegates, judgment, the advisor, the review panels). Save your choices and reasoning budget in the current host's section of `~/.agents/mmwstack-models.md` or supply a different rule file.
+Choose from the models your host can assign to each role (code delegates, judgment, the advisor, the review panels). Edit the current host's section of `~/.agents/mmwstack-models.md` (or a supplied rule file) directly, or run optional [setup-mmwstack](../../skills/setup-mmwstack/SKILL.md) (`/setup-mmwstack`) to detect available models and save your choices interactively.
 
-The `large` budget requests `xhigh` reasoning. `unlimited` lifts each model to its highest tier, up to `max`. `medium` and `small` lower the reasoning and spend fewer tokens.
+The `large` budget requests `xhigh` reasoning, the top tier. `medium` and `small` lower the reasoning to `high` and `medium` and spend fewer tokens.
 
 The same role can use a different model in another host.
 
@@ -22,13 +22,13 @@ You might be wondering what happens if you use Auto. Set a role to `inherit-pare
 
 ## Accept the verification offers, or don't
 
-If your project has neither a project-local `verify-<app>` for the target surface nor an existing harness, project setup offers once to generate one with [create-verification-skill](../../skills/create-verification-skill/SKILL.md).
+If your project has neither a project-local `verify-<app>` for the target surface nor an existing harness, `/setup-mmwstack` offers once to generate one with [create-verification-skill](../../skills/create-verification-skill/SKILL.md).
 
-Say yes and it writes `verify-<app>/` in the project's skills directory, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and setup moves on. You can run [create-verification-skill](../../skills/create-verification-skill/SKILL.md) yourself any time. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers it in depth.
+Say yes and it writes `verify-<app>/` in the project's skills directory, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and `/setup-mmwstack` moves on. You can run [create-verification-skill](../../skills/create-verification-skill/SKILL.md) yourself any time. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers it in depth.
 
 If you're new to mmwstack, say yes. An agent that can check its own work keeps going until the check passes. When no project skill covers the surface, agents use [verify-this](../../skills/verify-this/SKILL.md). Of everything in this guide, the verification skill pays off the most.
 
-Then setup offers once to generate a formal verification skill with [create-formal-verification-skill](../../skills/create-formal-verification-skill/SKILL.md), unless the project already has one. Tests check the cases someone thought to write. A formal verification skill checks one key property of your code, such as "a job never runs twice at once", in every case within a stated scope. Say yes when your code has concurrency, retries, a state machine, or a parser, where a bug is costly and tests rarely reach the case that breaks. Otherwise say no, and run it later if that changes. [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers it.
+Then `/setup-mmwstack` offers once to generate a formal verification skill with [create-formal-verification-skill](../../skills/create-formal-verification-skill/SKILL.md), unless the project already has one. Tests check the cases someone thought to write. A formal verification skill checks one key property of your code, such as "a job never runs twice at once", in every case within a stated scope. Say yes when your code has concurrency, retries, a state machine, or a parser, where a bug is costly and tests rarely reach the case that breaks. Otherwise say no, and run it later if that changes. [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers it.
 
 A new task starts by opening or reusing a GitHub work issue, and follow-ups stay on the same work issue. For code delivery, the agent links each execution ticket with its corresponding PR. [mmw-mode](../../skills/mmw-mode/SKILL.md) does this for every task it routes. A skill you name directly skips the mode. In the persistent instructions loaded by both local and cloud sessions, require the same work issue rule and [mmw-mode's Subagents rules](../../skills/mmw-mode/SKILL.md#subagents) for direct skill calls.
 

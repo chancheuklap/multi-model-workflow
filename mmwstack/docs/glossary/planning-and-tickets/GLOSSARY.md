@@ -101,8 +101,8 @@ A part of the plan organized around a goal. `Depends on` names prerequisite resu
 **Checked plan**:
 The version that passed the plan's structural checks and completed its Plan-stage review. This is the text published in the plan issue. The operator's authorization determines when execution starts.
 
-**Program checklist**:
-The part of a multi-phase plan that describes how the named playbook will execute the work once authorized. A checked box records a unit of work with evidence. The per-phase sections describe the product changes.
+**Execution setup**:
+The part of a multi-phase plan that records the project-specific execution parameters for the named execution playbook once authorized: the project branch, who merges into it, operator review gates, and the boot recipe for PR verifiers. The per-phase sections describe the product changes.
 
 **Review gate**:
 A decision the plan reserves for the operator. For an interaction change, the plan names the screenshots and video the operator needs before merge. This condition follows the work into the affected ticket.

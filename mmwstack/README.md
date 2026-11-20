@@ -20,7 +20,7 @@ use the local plugin installation available in your agent environment and select
 
 two steps:
 
-1. [pick a reasoning budget and choose your models](./docs/guide/01-setup.md#pick-your-models).
+1. [pick a reasoning budget and choose your models](./docs/guide/01-setup.md#pick-your-models) by editing `~/.agents/mmwstack-models.md` or running optional [setup-mmwstack](./skills/setup-mmwstack/SKILL.md).
 2. use [mmw-mode](./skills/mmw-mode/SKILL.md) whenever you're doing anything that requires rigor.
 
 new here? the [mmwstack guide](./docs/guide/README.md) walks you through a first real task, from setup and prompting through verification and overnight runs. stuck, or unsure which skill fits? ask [mmw-help](./skills/mmw-help/SKILL.md).
@@ -107,6 +107,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | skill | use it when |
 |---|---|
 | [mmw-mode](./skills/mmw-mode/SKILL.md) | default entry point for any non-trivial task. |
+| [setup-mmwstack](./skills/setup-mmwstack/SKILL.md) | optional interactive setup to detect available models, pick a reasoning budget, and save per-role assignments to `~/.agents/mmwstack-models.md`. |
 | [mmw-help](./skills/mmw-help/SKILL.md) | you're new to mmwstack, or unsure which skill, playbook, or principle fits. finds out what you're trying to do, answers that part, and hands you a prompt to type. run it with `/mmw-help`. |
 | [in-your-own-words](./skills/in-your-own-words/SKILL.md) | you want the agent to play back your goal and the problem before it starts. run it with `/in-your-own-words`. |
 | [sharpen](./skills/sharpen/SKILL.md) | you want a prompt made deeper, not bigger, before you send it: what a top professional would do that you didn't ask for, the raw material they'd start from, their methods and tools, and an outside check that the result is right. hands back the rewritten prompt, which asks the agent to prototype any choice an experiment can settle and leaves product and preference choices to you. doesn't do the task. run it with `/sharpen`. |
@@ -128,6 +129,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [research](./skills/research/SKILL.md) | investigate a question against primary sources and return a cited report. |
 | [to-spec](./skills/to-spec/SKILL.md) | turn an existing discussion or map into a spec on its GitHub work issue. |
 | [to-tickets](./skills/to-tickets/SKILL.md) | open or update a GitHub work issue, or split agreed scope into independently verifiable tickets. |
+| [ambiguity-scan](./skills/ambiguity-scan/SKILL.md) | review a draft spec, plan, or execution ticket batch once with a fresh read-only reviewer before implementation. |
 | [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) | explain a subject with large visuals and enough text to understand the details. |
 | [html](./skills/html/SKILL.md) | build a self-contained HTML artifact. use [html-wireframe](./skills/html-wireframe/SKILL.md) for layout, [html-prototype](./skills/html-prototype/SKILL.md) for a mockup or interactive prototype, [html-plan](./skills/html-plan/SKILL.md) for an HTML plan, or [html-diagram](./skills/html-diagram/SKILL.md) for relationships. |
 | [design-artifact](./skills/design-artifact/SKILL.md) | choose the visual direction of an HTML artifact. |
@@ -142,6 +144,8 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [show-me-your-work](./skills/show-me-your-work/SKILL.md) | you want a reviewable decision trail. logs decisions to a tsv you can commit. |
 | [create-verification-skill](./skills/create-verification-skill/SKILL.md) | your project has no scripted way to prove app behavior. generates a project-local verify skill with a feature map, for any language or platform. |
 | [maintain-verification-skill](./skills/maintain-verification-skill/SKILL.md) | your verify skill's feature map has drifted from the app. source wave + one live pass, at most one PR of proven corrections. |
+| [verify-this](./skills/verify-this/SKILL.md) | verify a claim with fresh local evidence when no project-local `verify-<app>` skill covers the target app and surface. |
+| [repo-checks](./skills/repo-checks/SKILL.md) | install repository checks, maintain slow or flaky checks from run records, and fix Doctor selection misses. |
 | [create-formal-verification-skill](./skills/create-formal-verification-skill/SKILL.md) | tests can't reach the case that breaks a race, retry, state machine, parser, or unsafe code. verifies one property with the tool that fits and generates a project-local skill to recheck it on every change. |
 | [maintain-formal-verification-skill](./skills/maintain-formal-verification-skill/SKILL.md) | code your formal verification covers has changed since it was last checked. updates the model, harness, or properties to match the code, reruns, and says whether each failure is drift in the verification or a bug in the code. |
 | [exe-release](./skills/exe-release/SKILL.md) | you need a windows install package for an electron shell plus a compiled python backend. holds the release engine, the release manifest format, and the scripts the release an install package playbook drives. |
@@ -284,7 +288,7 @@ type [automate-me](./skills/automate-me/SKILL.md). it mines your recent transcri
 
 models are configurable too. the current host's section in the user-level rule maps each role (code, judgment, the review panels) to a model. skills read it when assigning those roles.
 
-change a role or your reasoning budget in `~/.agents/mmwstack-models.md` or your own rule file. the rule applies to new sessions.
+change a role or your reasoning budget by editing `~/.agents/mmwstack-models.md` (or your own rule file), or by rerunning optional [setup-mmwstack](./skills/setup-mmwstack/SKILL.md). the rule applies to new sessions.
 
 ## automations
 

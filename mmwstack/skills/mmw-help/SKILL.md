@@ -30,12 +30,12 @@ Check the state that changes the answer, and mention it only when it does:
 ## Get set up
 
 1. Open the local skill or use your environment's local plugin or skill installation.
-2. [Pick a reasoning budget and a model for each role](../../docs/guide/01-setup.md#pick-your-models). The rule applies to new chats.
+2. [Pick a reasoning budget and a model for each role](../../docs/guide/01-setup.md#pick-your-models), either by editing `~/.agents/mmwstack-models.md` directly or running optional [setup-mmwstack](../setup-mmwstack/SKILL.md). The rule applies to new chats.
 3. Start a real task with [mmw-mode](../mmw-mode/SKILL.md), a goal, and a check that can pass or fail.
 
 [to-spec](../to-spec/SKILL.md) and [to-tickets](../to-tickets/SKILL.md) can load from the user's words. The [README](../../README.md) and [guide page 1](../../docs/guide/01-setup.md) have the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, say where the tokens go and how to spend fewer. mmwstack spends extra tokens on subagents and review panels. Pick a smaller budget or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which saves tokens when the chat runs on Auto or a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save [mmw-mode](../mmw-mode/SKILL.md) for work that needs rigor.
+If cost is the worry, say where the tokens go and how to spend fewer. mmwstack spends extra tokens on subagents and review panels. Edit `~/.agents/mmwstack-models.md` or rerun [setup-mmwstack](../setup-mmwstack/SKILL.md) to pick a smaller budget or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which saves tokens when the chat runs on Auto or a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save [mmw-mode](../mmw-mode/SKILL.md) for work that needs rigor.
 
 ## Start a task with [mmw-mode](../mmw-mode/SKILL.md)
 
@@ -88,7 +88,7 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Investigate a question against primary sources and return a cited report | [research](../research/SKILL.md) |
 | Turn an existing discussion or a Wayfinder map into a published spec | [to-spec](../to-spec/SKILL.md) |
 | Open or update a GitHub work issue, or draft execution tickets from a spec or plan | [to-tickets](../to-tickets/SKILL.md) |
-| Pick a model for each role and a reasoning budget | [Pick your models](../../docs/guide/01-setup.md#pick-your-models) |
+| Pick a model for each role and a reasoning budget | [setup-mmwstack](../setup-mmwstack/SKILL.md) or [Pick your models](../../docs/guide/01-setup.md#pick-your-models) |
 | Turn their own working habits into a personal mode skill | [automate-me](../automate-me/SKILL.md) |
 | Turn what a finished task taught into skill edits | [reflect](../reflect/SKILL.md) |
 | Stop agents from repeating the same mistakes in this repo, or run a retro on a session | [correct](../correct/SKILL.md) |

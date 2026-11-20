@@ -13,7 +13,6 @@ const SUB_BLOCKS = [
 	"Verify.",
 	"Review gate.",
 ];
-const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -156,28 +155,21 @@ if (h1 !== -1 && howToRead) {
 	}
 }
 
-const program = find("Program checklist");
-if (!program) fail(1, 'no "## Program checklist" section');
+const setup = find("Execution setup");
+if (!setup) fail(1, 'no "## Execution setup" section');
 else {
-	const h3s = program.body.filter((l) => l.prose.startsWith("### ")).map((l) => l.text.slice(4).trim());
-	let cursor = 0;
-	for (const name of PROGRAM_H3) {
-		const at = h3s.findIndex((t, i) => i >= cursor && t.startsWith(name));
-		if (at === -1) fail(program.n, `Program checklist lacks "### ${name}" in order`);
-		else cursor = at + 1;
+	const h3s = setup.body.filter((l) => l.prose.startsWith("### ")).map((l) => l.text.slice(4).trim());
+	if (!h3s.some((t) => t.startsWith("Boot recipe"))) {
+		fail(setup.n, 'Execution setup lacks "### Boot recipe"');
 	}
-	const checklist = bodyText(program);
-	if (!/git show origin\/main:\S*playbooks\/|read the execution playbook from trunk/i.test(checklist)) fail(program.n, "Program checklist lacks a read from trunk");
-	if (!/\/loop 1h\b|schedule an hourly audit/i.test(checklist)) fail(program.n, "Program checklist lacks a scheduled hourly audit");
-	if (!checklist.includes("status message")) fail(program.n, 'Program checklist lacks "status message"');
 }
 
 const close = find("Close the program");
 if (!close) fail(1, 'no "## Close the program" section');
-const programIndex = sections.indexOf(program);
+const setupIndex = sections.indexOf(setup);
 const closeIndex = sections.indexOf(close);
-const phases = programIndex === -1 || closeIndex === -1 ? [] : sections.slice(programIndex + 1, closeIndex);
-if (phases.length === 0) fail(1, "no phases between Program checklist and Close the program");
+const phases = setupIndex === -1 || closeIndex === -1 ? [] : sections.slice(setupIndex + 1, closeIndex);
+if (phases.length === 0) fail(1, "no phases between Execution setup and Close the program");
 
 const report = [];
 for (const phase of phases) {

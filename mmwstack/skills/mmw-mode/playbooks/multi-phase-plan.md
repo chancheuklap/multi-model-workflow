@@ -16,7 +16,7 @@ Start from the work issue and its agreed spec, or the agreed design in the discu
    Account for every in-scope outcome with the phase that delivers it or evidence that it already works. Check the plan against the spec's scope boundaries. Run [ambiguity-scan](../../ambiguity-scan/SKILL.md) at the **Plan** stage on the complete plan. If the scan changes the plan, rerun the checker, not the scan, on the version you hand back.
 7. Hand back. For a draft-only request, return the checked file and the script's output. Otherwise use [to-tickets](../../to-tickets/SKILL.md#open) to publish the checked plan as a direct sub-issue of its spec. If tickets were requested, give [to-tickets](../../to-tickets/SKILL.md#split) the plan issue to split its remaining work and publish the approved tickets. Post the plan issue URL and the script's output, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
 
-**Verification.** Plan how to prove each outcome on the real surface (the [principle-prove-it-works](../../principle-prove-it-works/SKILL.md) principle skill). Name the scenario, the artifact to save and its pass predicate. For performance, name the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. For an interaction change, name the screenshots and video the operator reviews. The execution checklist below applies those checks to the PR opened for each code ticket.
+**Verification.** Plan how to prove each outcome on the real surface (the [principle-prove-it-works](../../principle-prove-it-works/SKILL.md) principle skill). Name the scenario, the artifact to save and its pass predicate. For performance, name the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. For an interaction change, name the screenshots and video the operator reviews. The named execution playbook applies those checks to the PR opened for each code ticket.
 
 **Verification skill.** Choose the project's `verify-<app>` for each affected surface. Use [verify-this](../../verify-this/SKILL.md) only where no project verification skill matches. For an outcome that touches two surfaces, cover both. Name the selected skill and how to drive the surface in **Verify**. Record a surface you cannot exercise as a risk in Appendix C.
 
@@ -29,54 +29,17 @@ Start from the work issue and its agreed spec, or the agreed design in the discu
 
 One box is one unit of work. Every box names the evidence that checks it. A nested box is a sub-step of the box above it. Check a box only when its evidence exists, a file, a log line, a screenshot, a test run, or a SHA. The body is a how-to. The appendices explain and record.
 
-The program runs `<mmw-mode-dir>/playbooks/<execution playbook>.md` against the project branch `project/<slug>`, created from the repository's integration branch before owners start. <Who merges into the project branch, and which changes the operator reserves for review. Once every ticket's PR merges into the project branch, stop for the operator's `/code-review project/<slug>` and final integration merge.>
+Execution follows `<mmw-mode-dir>/playbooks/<execution playbook>.md` with the project-specific parameters in **Execution setup** below.
 
 Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.
 
-## Program checklist
+## Execution setup
 
-### Arm the program
+- [ ] Create and push `project/<slug>` from the repository's integration branch (`git fetch origin && git push origin origin/<integration>:refs/heads/project/<slug>`) before owners start so every PR targets `project/<slug>`.
+- [ ] Run `<mmw-mode-dir>/playbooks/<execution playbook>.md` (`autopilot-full.md` or `autopilot-stack.md`) against `project/<slug>` once the operator gives explicit go.
+- [ ] <Who merges into `project/<slug>`, and which changes or review gates the operator reserves for review. Once every ticket's PR merges into `project/<slug>`, stop for `/code-review project/<slug>` and final integration merge.>
 
-- [ ] State the protocol and this plan to the operator, then stop. Start execution only on the operator's explicit go.
-- [ ] Create and push `project/<slug>` from the repository's integration branch (`git fetch origin && git push origin origin/<integration>:refs/heads/project/<slug>`) so every PR in this program targets it instead of merging directly into the integration branch.
-- [ ] Read these from trunk at program start. Re-read them at every tick. Fill in each source repository's trunk ref and tracked paths.
-  - [ ] `git show origin/main:mmwstack/skills/mmw-mode/playbooks/<execution playbook>.md`
-  - [ ] `git show origin/main:<tracked SKILL.md path for the selected verification skill>`
-  - [ ] `git show origin/main:mmwstack/skills/mmw-mode/playbooks/opening-a-pr.md`
-  - [ ] `git show origin/main:mmwstack/skills/<each other leaf skill the program uses>`
-- [ ] On the operator's go, schedule an hourly audit with the prompt below. Never leave the cadence to memory.
-- [ ] Use this tick prompt, verbatim. "Re-read the execution playbook from trunk. Audit the operation against it and fix drift in this tick. Probe every active agent and judge progress by side effects only. Stand down a stuck agent and dispatch its replacement now. Then post a short status message to the operator in chat only when the audit found a tracked change that no earlier status message reported, such as a PR opened, a code-ready head, a round launched or closed, a verdict, a merge, a stuck agent and the action taken, a blocker added or cleared, or a decision only the operator can make. Name every such change and nothing else. Do not repeat a table, the merged list, or an unchanged blocker. If the audit found none, end the turn with no reply text. Either way, log this tick's row in your decision trail. The row names the items reported, or none."
-- [ ] On the operator's hold or stand-down, send every owner a zero-writes order at once.
-
-### Spawn owners
-
-- [ ] Use the spec's execution tickets that link to this plan. If the tickets have yet to be published, use `to-tickets` to split the checked plan and publish the approved tickets.
-- [ ] On the operator's go, assign a PR owner to each code ticket that can start. Use the model and settings from the current host's `coder` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Give the owner the ticket URL, its acceptance criteria and the relevant plan material. For test-writing work, put the expected behavior and "Invoke [write-tests](../../write-tests/SKILL.md) before writing or changing tests" in the actual writer's brief. Include the existing PR URL if work has already started on that PR.
-- [ ] Follow the tickets' direct blockers. Branch independent changes from `project/<slug>` in the assigned workspace. For a local Home Repo worktree use `scripts/worktree start ... --base project/<slug>`. When the execution playbook stacks a change on work already available on another branch, use that branch as the base.
-- [ ] Hold the file boundaries and the operator's review gates for the assigned work.
-
-### PR mechanics, for every PR
-
-- [ ] Resolve the forge once per **Opening a PR** and use it throughout the run.
-- [ ] Open the ticket's PR ready with `project/<slug>` as its base (or its parent PR's branch when stacked) and link the two records, per **Opening a PR**.
-- [ ] Run the repo's lint and typecheck once before the PR-facing push. Push with hooks on.
-- [ ] Run `/deslop` before each commit and `/no-comments` before review.
-- [ ] Triage every Bugbot and security-reviewer comment per `<mmw-mode-dir>/references/bugbot-triage.md`.
-- [ ] Rebase onto current `project/<slug>` before the code-ready report and babysit. Keep that merge base in fix rounds. Rebase again only at merge prep, on a `git merge-tree` conflict with `project/<slug>`, on a CI failure that comes from a change on `project/<slug>`, or when a known concurrent change to the same files lands.
-
-### Verdict and merge, for every PR
-
-For each code ticket, use its acceptance criteria and the relevant phase checks to fill the unit, live and perf boxes in the decision trail for its actual PR. Give the verifier the PR URL and the commit it must check. Record why a check is inapplicable.
-
-- [ ] Unit. Run the named tests at the committed head and save the results.
-- [ ] Give one independent verifier the code-ready PR head and ticket. Use the model and settings from the current host's `verifier` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Apply the execution playbook's rules for later heads. The root checks the receipts before the verdict. Project-wide Code review follows once the spec's PRs land.
-- [ ] Live. For each scenario in the ticket, record the user action, pass condition and evidence location. Compare the load-bearing regression scenario on trunk and head. If trunk lacks the feature, record that and verify the new behavior and the end state the user waits for.
-- [ ] Perf. Record the metric, interleaved probe, trunk baseline and failure rule. Measure both sides when comparable. Otherwise set absolute budgets for the new work and the user-visible end state.
-- [ ] For an interaction change, post the screenshots and a 30 to 60 second video in chat. Stop at merge-ready and wait for the operator's approval.
-- [ ] Judge every finding by the execution playbook's blocking rule. The verdict is clean when none blocks. A failure already present in the regression scenario on trunk is recorded against trunk and does not block the PR. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `<mmw-mode-dir>/playbooks/shipping.md`.
-- [ ] <The merge or handoff rule from the execution playbook, with the patch-id rule from `<mmw-mode-dir>/playbooks/shipping.md`.>
-
-### Boot recipe, for each PR
+### Boot recipe
 
 Run the PR verifier at the head under review in a separate local worktree or cloud workspace according to the task's execution environment. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
 
