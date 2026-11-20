@@ -25,9 +25,9 @@ Update mode changes the rest of the flow:
 
 ### 1. Mine their history
 
-Locate the active workspace's transcripts before fanning out. Read only conversations from that workspace (when all sessions start from a shared Home Repo workspace, filter by the topic or repository in scope; on Antigravity, check `~/.gemini/antigravity/brain/<id>/.system_generated/logs/transcript.jsonl` and `antigravity-cli/brain/`). If none are accessible, gather preferences in step 2 instead.
+Locate the active workspace's transcripts before fanning out. Read only conversations from that workspace. When sessions start from a shared workspace across repositories, filter that history by the topic or repository in scope. If none are accessible, gather preferences in step 2 instead.
 
-Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Use the model and settings from the current host’s `reader` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
+Survey recent agent conversations within that scope for recurring patterns. Run parallel subagents across slices of history (e.g. last 2-4 weeks, split into 3 slices so each has enough material). Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `reader` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Each slice mining subagent reads transcripts from the workspace and time window the parent provides, looks for the signals below, and returns a short structured list of patterns it saw with evidence pointers. Default signals worth hunting:
 
 - Response preferences (length, tone, format, "dumb it down" corrections)
 - Delegation habits (subagents, models, specialized workflows, parallelism)
