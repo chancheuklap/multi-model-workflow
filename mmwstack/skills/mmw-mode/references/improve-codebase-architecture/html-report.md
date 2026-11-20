@@ -1,6 +1,6 @@
 # HTML Report Format
 
-An architecture review's report is a single self-contained HTML file in the OS temp directory. For call graphs, dependencies and sequences, render Mermaid to inline SVG before delivery, or draw the graph directly in SVG. Hand-built divs and inline SVG handle the more editorial visuals (mass diagrams, cross-sections).
+An architecture review's report is a single self-contained HTML file. For call graphs, dependencies and sequences, render Mermaid to inline SVG before delivery, or draw the graph directly in SVG. Hand-built divs and inline SVG handle the more editorial visuals (mass diagrams, cross-sections).
 
 ## Scaffold
 

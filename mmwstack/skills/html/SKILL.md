@@ -79,7 +79,7 @@ Requests can span forms. Read every reference that materially applies, then give
 
 ## Finish the work
 
-Write the file to the requested location, or choose a clear filename in the current workspace. When the host provides a built-in HTML artifact viewer, follow its delivery rules for artifact location, inline widgets, and standalone full-page views. When browser tooling is available, open it and inspect a wide and narrow viewport. Exercise its controls, check the console, and fix clipping, overlap, illegible text, broken states, and accidental overflow.
+Write the file to the requested location or follow the operator's and host's HTML artifact delivery rules. When browser tooling is available, open it and inspect a wide and narrow viewport. Exercise its controls, check the console, and fix clipping, overlap, illegible text, broken states, and accidental overflow.
 
 Unless the page is a review page, run one originality check before delivery: if the subject were swapped for a neighboring topic, would the same visual concept still make just as much sense? If yes, the direction is too generic; revise the composition, type, color, imagery, or interaction so it belongs to this subject.
 
