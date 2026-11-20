@@ -2,6 +2,14 @@
 
 When working on mmwstack, follow the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms.
 
+## How mmwstack works with the Home Repo
+
+**Respect the Home Repo boundary.** Every agent session starts in the Home Repo, which holds owner instructions, the model rule, native host adapters, and the installed skill library. `mmwstack` is the portable skill-pack source installed into it. Keep host-specific wiring in the Home Repo's adapters and setup docs. Keep host-specific subagent dispatch in [host-dispatch.md](mmwstack/skills/mmw-mode/references/host-dispatch.md) rather than inside general playbooks or skill bodies.
+
+**Trace prompt loading across work stages.** Before editing a prompt, trace what is already in context at that stage: persistent instructions, [mmw-mode](mmwstack/skills/mmw-mode/SKILL.md) when active, the selected playbook, the invoked skill, and any disclosed references. Keep direct skill calls working when the operator skips `mmw-mode` by routing delegation through [Subagents](mmwstack/skills/mmw-mode/SKILL.md#subagents) instead of repeating mode rules in each skill.
+
+**Protect upstream prompt craft and glossary unity.** Most `mmwstack` prompts are adapted from [pstack](upstream/pstack/) and [Matt Pocock's skills](upstream/mattpocock/skills/). Their wording carries each method's intent, so edit surgically instead of rewriting or paraphrasing freely. Reuse existing terms from the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) and the Home Repo glossary rather than coining new terms or synonyms, so every agent moving across skills shares one vocabulary and mental model.
+
 ## Bring upstream changes into mmwstack
 
 **[pstack](upstream/pstack/) updates.** Diff the upstream snapshots first. Compare each changed method with its mmwstack counterpart, accounting for renamed skills and playbooks. Apply the upstream change where it fits; preserve mmwstack's routing, model choices and handoffs.

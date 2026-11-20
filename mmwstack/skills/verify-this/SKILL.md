@@ -29,7 +29,7 @@ Do not use this for vague claims like "the code is cleaner". Ask for a measurabl
 
 - Code behavior: focused unit/integration tests or a minimal repro script.
 - CLI/TUI behavior: [control-cli](../control-cli/SKILL.md), terminal transcript, or demo recording.
-- UI behavior: [control-ui](../control-ui/SKILL.md), screenshots, accessibility snapshots, or browser traces (or the host's built-in browser agent for live web UIs when no local Playwright or Electron CDP harness applies).
+- UI behavior: [control-ui](../control-ui/SKILL.md), screenshots, accessibility snapshots, or browser traces.
 - API behavior: local HTTP/RPC request and response diff.
 - Performance: same-machine baseline/treatment timings or CPU profiles.
 - Memory: heap snapshots before and after the suspected operation.
