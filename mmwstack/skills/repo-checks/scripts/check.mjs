@@ -751,7 +751,7 @@ function selftest(facts) {
       GIT_CONFIG_GLOBAL: join(home, '.gitconfig'),
       MMW_REPO_CHECKS_ENGINE: fileURLToPath(import.meta.url), GIT_TERMINAL_PROMPT: '0',
     };
-    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP', 'MMW_REPO_CHECKS_HOOK']) delete env[key];
+    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP', 'MMW_REPO_CHECKS_HOOK', 'MMW_REPO_CHECKS_SELECTION_MANIFEST', 'MMW_REPO_CHECKS_DEFERRED_MARKER']) delete env[key];
     const gitFixture = (...args) => execFileSync('git', ['-c', `core.hooksPath=${hooks}`, ...args], {
       cwd: repo, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000,
     }).trim();
@@ -957,15 +957,18 @@ function killTree(child) {
 
 let activeCommand = null;
 
-async function commandProcess(command, timeout, log, gitIndex) {
+async function commandProcess(command, timeout, log, gitIndex, taskEnv = {}) {
   const fd = log ? openSync(log, 'a') : null;
   const start = performance.now();
   const env = { ...process.env };
   delete env.MMW_REPO_CHECKS_HOOK;
+  delete env.MMW_REPO_CHECKS_SELECTION_MANIFEST;
+  delete env.MMW_REPO_CHECKS_DEFERRED_MARKER;
   delete env.GIT_DIR;
   delete env.GIT_WORK_TREE;
   if (!gitIndex) delete env.GIT_INDEX_FILE;
   delete env.GIT_COMMON_DIR;
+  Object.assign(env, taskEnv);
   let child;
   try {
     child = spawn(command, {
@@ -1108,6 +1111,12 @@ function preparationHash(prepare) {
   return hash(JSON.stringify(parts));
 }
 
+function unlinkIfExists(path) {
+  if (!path) return;
+  try { unlinkSync(path); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+
 async function worker(task) {
   let started = false;
   let cancelled = false;
@@ -1149,17 +1158,22 @@ async function worker(task) {
       type: 'event', event: { type: 'RUNNING', id: task.id, seconds: (performance.now() - start) / 1000 },
     }), 19000);
     const attempts = [];
+    const taskEnv = {};
+    if (task.manifest) taskEnv.MMW_REPO_CHECKS_SELECTION_MANIFEST = task.manifest;
+    if (task.deferred_marker) taskEnv.MMW_REPO_CHECKS_DEFERRED_MARKER = task.deferred_marker;
     for (let i = 0; i <= task.retry && !cancelled; i++) {
-      const attempt = await commandProcess(task.command, task.timeout, task.log, task.git_index);
+      unlinkIfExists(task.deferred_marker);
+      const attempt = await commandProcess(task.command, task.timeout, task.log, task.git_index, taskEnv);
       attempts.push(attempt);
       if (attempt.exit_code === 0 && !attempt.reason) break;
     }
+    const deferred = Boolean(task.deferred_marker && existsSync(task.deferred_marker));
     if (task.prepare && attempts.at(-1).exit_code === 0 && !attempts.at(-1).reason) {
       const temporary = `${task.stamp_file}.${randomUUID()}.tmp`;
       writeFileSync(temporary, JSON.stringify({ hash: stamp }));
       renameSync(temporary, task.stamp_file);
     } else stamp = null;
-    sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare) } });
+    sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare), deferred } });
   } finally {
     clearInterval(heartbeat);
     lease.release();
@@ -1269,10 +1283,30 @@ function findReuse(facts, check, scope, command) {
   return null;
 }
 
+function writeSelectionManifest(facts, planned) {
+  const manifestScope = item => item.kind === 'reused' ? item.outcome.coverage : item.scope;
+  const needWhole = planned.some(item => item.kind !== 'skipped' && manifestScope(item).kind === 'whole' && item.check.tests.length);
+  const repoFiles = needWhole
+    ? git('ls-files', '--cached', '--others', '--exclude-standard', '-z').split('\0').filter(path => path && existsSync(path)).sort()
+    : [];
+  const lines = [];
+  for (const item of planned) {
+    if (item.kind === 'skipped') continue;
+    const scope = manifestScope(item);
+    const tests = scope.kind === 'whole'
+      ? (item.check.tests.length ? repoFiles.filter(patternsMatch(item.check.tests)) : [])
+      : [...new Set(scope.tests)].sort();
+    for (const path of tests) lines.push(`${item.check.id} ${path}`);
+  }
+  const manifestPath = join(facts.storage.logs, 'selection-manifest.txt');
+  writeFileSync(manifestPath, lines.length ? `${lines.join('\n')}\n` : '');
+  return manifestPath;
+}
+
 async function execute(facts) {
   const localLockSlots = new Map();
   const slot = executionSlots(Math.max(1, Math.min(4, Math.floor(cpus().length / 2))));
-  const settled = await Promise.allSettled(facts.selection.map(async ({ check, scope }) => {
+  const planned = facts.selection.map(({ check, scope }) => {
     const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
     const missing = (check.needs ?? []).filter(need => !needSatisfied(need));
     if (missing.length) {
@@ -1283,7 +1317,7 @@ async function execute(facts) {
         command, scope, seconds: 0, log: null, tail: [], attempts: [],
       };
       addEvent(facts, { type: 'SKIP', ...outcome });
-      return outcome;
+      return { kind: 'skipped', check, scope, outcome };
     }
     const log = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`);
     const previous = findReuse(facts, check, scope, command);
@@ -1300,15 +1334,23 @@ async function execute(facts) {
         reused_from: { record: previous.record, coverage: prior.coverage, key: prior.reuse_key },
       };
       addEvent(facts, { type: 'PASS', ...outcome });
-      return outcome;
+      return { kind: 'reused', check, scope, outcome };
     }
+    return { kind: 'run', check, scope, command, log };
+  });
+  const manifestPath = writeSelectionManifest(facts, planned);
+  const settled = await Promise.allSettled(planned.map(async item => {
+    if (item.kind !== 'run') return item.outcome;
+    const { check, scope, command, log } = item;
     if (check.lock && !localLockSlots.has(check.lock)) localLockSlots.set(check.lock, executionSlots(1));
     const release = await localLockSlots.get(check.lock)?.();
     let result;
     try {
       if (interrupted) throw new Error('Run interrupted');
+      const deferredMarker = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.deferred`);
       result = await supervisor({
         id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0,
+        manifest: manifestPath, deferred_marker: deferredMarker,
       }, slot, event => addEvent(facts, event));
     } finally {
       release?.();
@@ -1329,7 +1371,7 @@ async function execute(facts) {
       timeout_s: check.timeout_s ?? 600,
       ci: check.ci, ci_reason: check.ci_reason ?? null,
       attempts: result.attempts, recovered: status === 'passed' && result.attempts.length > 1,
-      reused: false, reusable: checkIdentity(facts) && status === 'passed',
+      reused: false, reusable: checkIdentity(facts) && status === 'passed' && !result.deferred,
       reuse_key: reuseKey(check.id, command, facts.identity), coverage: scope,
     };
     addEvent(facts, { type: status === 'passed' ? 'PASS' : 'FAIL', ...outcome });

@@ -36,6 +36,16 @@ Ctrl-C stops running checks and never retries an interrupted check. A killed eng
 
 The text `SUMMARY` counts blocked checks, including a lock timeout or failed `prepare`, in `skipped`. JSON keeps `blocked` separate. Exit 0 can include gate-covered skips or no selected checks. Exit 1 means a failed check. Exit 2 covers invalid requests or config, failed selectors, blocked execution, or missing needs with no gate coverage. Exit 70 means an unavailable engine or an internal error. Diagnostic modes have the specific exit codes below.
 
+### Selection manifest and deferral
+
+Before launching checks, the engine writes a per-run manifest file and passes its path to each check command in `MMW_REPO_CHECKS_SELECTION_MANIFEST`. Each line uses whitespace-separated `<check-name> <repo-relative-test-path>`.
+
+- Selected checks scheduled to run are included. A `whole`-scope check expands its claimed `tests` globs to matching existing repository files, and a `narrowed`-scope check lists the paths returned by its `select` command.
+- Selected checks satisfied by a clean `reused` pass in the same run are included using their covered test paths.
+- Pre-run `skipped` checks whose `needs` prerequisites failed and unselected checks are excluded.
+
+Each check attempt also receives a per-check marker path in `MMW_REPO_CHECKS_DEFERRED_MARKER`. The engine unlinks any stale marker file before the initial attempt and before every retry attempt. When a check exits 0 with that marker file present, the engine stores `reusable: false` in the saved run record so subsequent runs re-execute the check instead of reusing the deferred pass.
+
 ## Check Config
 
 The target repository holds `.agents/checks.json`. Paths and globs are repository-relative with forward slashes. Globs support `*`, `**`, `?`, character classes, and brace alternatives. Unknown fields are invalid.
