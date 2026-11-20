@@ -36,6 +36,16 @@ Ctrl-C stops running checks and never retries an interrupted check. A killed eng
 
 The text `SUMMARY` counts blocked checks, including a lock timeout or failed `prepare`, in `skipped`. JSON keeps `blocked` separate. Exit 0 can include gate-covered skips or no selected checks. Exit 1 means a failed check. Exit 2 covers invalid requests or config, failed selectors, blocked execution, or missing needs with no gate coverage. Exit 70 means an unavailable engine or an internal error. Diagnostic modes have the specific exit codes below.
 
+### Selection manifest and deferral
+
+Before launching checks, the engine writes a per-run manifest file and passes its path to each check command in `MMW_REPO_CHECKS_SELECTION_MANIFEST`. Each line uses whitespace-separated `<check-name> <repo-relative-test-path>`.
+
+- Selected checks scheduled to run are included. A `whole`-scope check expands its claimed `tests` globs to matching existing repository files, and a `narrowed`-scope check lists the paths returned by its `select` command.
+- Selected checks satisfied by a clean `reused` pass in the same run are included using their covered test paths.
+- Pre-run `skipped` checks whose `needs` prerequisites failed and unselected checks are excluded.
+
+Each check attempt also receives a per-check marker path in `MMW_REPO_CHECKS_DEFERRED_MARKER`. The engine unlinks any stale marker file before the initial attempt and before every retry attempt. When a check exits 0 with that marker file present, the engine stores `reusable: false` in the saved run record so subsequent runs re-execute the check instead of reusing the deferred pass.
+
 ## Check Config
 
 The target repository holds `.agents/checks.json`. Paths and globs are repository-relative with forward slashes. Globs support `*`, `**`, `?`, character classes, and brace alternatives. Unknown fields are invalid.
@@ -51,6 +61,7 @@ The target repository holds `.agents/checks.json`. Paths and globs are repositor
 | `affects_all` | Required array of patterns whose changes select every check and print `WIDEN`. |
 | `marker_exempt` | Optional patterns exempt from legacy-marker scanning. Defaults to `[]`. Exemption does not classify a path or claim a test. |
 | `prepare` | Optional object with `run` and `stamps` patterns. Runs before selected checks when the stamp hash changes or a selected `path:` need is missing. |
+| `slots` | Optional map of named counting slots, each with integer `max` (`>= 1`) and optional integer `perRunMax` (`1 <= perRunMax <= max`, defaults to `max`). |
 | `checks` | Required array of executable checks. |
 | `lanes` | Required array of tests the engine never runs. Each has `id`, `kind` (`ci-only`, `device`, or `owner-only`), `reason`, `run_by` (workflow, skill, or `owner`), and `tests` patterns. `command` is optional. |
 | `excluded` | Required array of non-test paths with `paths` patterns and a `reason`. |
@@ -67,7 +78,7 @@ The target repository holds `.agents/checks.json`. Paths and globs are repositor
 | `tests` | Required patterns claiming the tests this check runs. Test files also need classification through `inputs`, `sources`, `inert`, or `affects_all`. |
 | `needs` | Optional conditions. `cmd:<name>` requires an executable on PATH. `docker` requires a reachable daemon. `os:<darwin, linux, or windows>` requires that OS. `env:<name>` requires a set variable. `path:<relative path>` requires an existing path. Other forms are invalid. |
 | `ci`, `ci_run`, `ci_reason` | `ci` is required. When true, `ci_run` is required verbatim text in `ci_workflow`. When false, `ci_reason` is required. Missing needs skip a check with gate coverage, or exit 2 without it. |
-| `timeout_s`, `retry`, `lock` | Optional positive timeout in seconds (default 600), retry count 0 or 1 (default 0), and machine-wide shared-resource lock name. Only a failed check retries. |
+| `timeout_s`, `retry`, `lock`, `slot` | Optional positive timeout in seconds (default 600), retry count 0 or 1 (default 0), machine-wide binary shared-resource lock name, and named counting slot from `slots`. A check cannot declare both `lock` and `slot`. Only a failed check retries. |
 
 An unclassified changed path prints `UNCLASSIFIED` and widens selection to every check. `lint` reports unclassified tracked paths and unclaimed tracked tests. It also checks integration, gate command text, protected lane commands, canonical entry bytes, and legacy markers outside exemptions. It does not prove local and gate command equivalence.
 

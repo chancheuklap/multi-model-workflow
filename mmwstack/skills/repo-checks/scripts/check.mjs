@@ -10,7 +10,7 @@ const configPath = '.agents/checks.json';
 
 const schemaKeywords = new Set([
   '$schema', '$defs', '$ref', 'type', 'properties', 'required', 'additionalProperties',
-  'items', 'minLength', 'pattern', 'enum', 'minimum', 'maximum', 'exclusiveMinimum',
+  'propertyNames', 'items', 'minLength', 'pattern', 'enum', 'minimum', 'maximum', 'exclusiveMinimum',
   'allOf', 'anyOf', 'if', 'then', 'else', 'dependentRequired', 'format',
 ]);
 const matchesType = (value, type) => {
@@ -20,7 +20,7 @@ const matchesType = (value, type) => {
   if (type === 'integer') return Number.isInteger(value);
   return typeof value === type;
 };
-const childField = (field, key) => field ? `${field}.${key}` : key;
+const childField = (field, key) => field ? (key ? `${field}.${key}` : field) : key;
 
 function validate(value, schema, node = schema, field = '') {
   for (const key of Object.keys(node)) {
@@ -58,8 +58,10 @@ function validate(value, schema, node = schema, field = '') {
       if (!Object.hasOwn(value, key)) invalid('required field', childField(field, key));
     }
     for (const [key, item] of Object.entries(value)) {
+      if (node.propertyNames) findings.push(...validate(key, schema, node.propertyNames, childField(field, key)));
       if (Object.hasOwn(node.properties ?? {}, key)) findings.push(...validate(item, schema, node.properties[key], childField(field, key)));
       else if (node.additionalProperties === false) invalid('unknown field', childField(field, key));
+      else if (matchesType(node.additionalProperties, 'object')) findings.push(...validate(item, schema, node.additionalProperties, childField(field, key)));
     }
     for (const [key, required] of Object.entries(node.dependentRequired ?? {})) {
       if (!Object.hasOwn(value, key)) continue;
@@ -83,6 +85,12 @@ function validate(value, schema, node = schema, field = '') {
 function configFindings(config, schema) {
   const findings = validate(config, schema);
   if (findings.length) return findings;
+  for (const [slotName, slotSpec] of Object.entries(config.slots ?? {})) {
+    if (slotSpec.perRunMax !== undefined && slotSpec.perRunMax > slotSpec.max) findings.push({
+      rule: 'schema', field: `slots.${slotName}.perRunMax`,
+      message: `slots.${slotName}.perRunMax: perRunMax (${slotSpec.perRunMax}) cannot exceed max (${slotSpec.max})`,
+    });
+  }
   const ids = new Set();
   config.checks.forEach((check, index) => {
     if (ids.has(check.id)) findings.push({
@@ -93,6 +101,14 @@ function configFindings(config, schema) {
     if (check.ci && config.ci_workflow === null) findings.push({
       rule: 'schema', field: 'ci_workflow', check: check.id,
       message: `ci_workflow: ${check.id} is marked ci but no gate workflow is configured`,
+    });
+    if (check.lock !== undefined && check.slot !== undefined) findings.push({
+      rule: 'schema', field: `checks[${index}].slot`, check: check.id,
+      message: `checks[${index}].slot: ${check.id} cannot declare both lock and slot`,
+    });
+    if (check.slot !== undefined && !Object.hasOwn(config.slots ?? {}, check.slot)) findings.push({
+      rule: 'schema', field: `checks[${index}].slot`, check: check.id,
+      message: `checks[${index}].slot: ${check.id} references unknown slot ${JSON.stringify(check.slot)}`,
     });
   });
   return findings;
@@ -751,7 +767,7 @@ function selftest(facts) {
       GIT_CONFIG_GLOBAL: join(home, '.gitconfig'),
       MMW_REPO_CHECKS_ENGINE: fileURLToPath(import.meta.url), GIT_TERMINAL_PROMPT: '0',
     };
-    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP', 'MMW_REPO_CHECKS_HOOK']) delete env[key];
+    for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'MMW_CHECKS_SKIP', 'MMW_REPO_CHECKS_HOOK', 'MMW_REPO_CHECKS_SELECTION_MANIFEST', 'MMW_REPO_CHECKS_DEFERRED_MARKER']) delete env[key];
     const gitFixture = (...args) => execFileSync('git', ['-c', `core.hooksPath=${hooks}`, ...args], {
       cwd: repo, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000,
     }).trim();
@@ -957,15 +973,18 @@ function killTree(child) {
 
 let activeCommand = null;
 
-async function commandProcess(command, timeout, log, gitIndex) {
+async function commandProcess(command, timeout, log, gitIndex, taskEnv = {}) {
   const fd = log ? openSync(log, 'a') : null;
   const start = performance.now();
   const env = { ...process.env };
   delete env.MMW_REPO_CHECKS_HOOK;
+  delete env.MMW_REPO_CHECKS_SELECTION_MANIFEST;
+  delete env.MMW_REPO_CHECKS_DEFERRED_MARKER;
   delete env.GIT_DIR;
   delete env.GIT_WORK_TREE;
   if (!gitIndex) delete env.GIT_INDEX_FILE;
   delete env.GIT_COMMON_DIR;
+  Object.assign(env, taskEnv);
   let child;
   try {
     child = spawn(command, {
@@ -1088,6 +1107,129 @@ async function acquireLock(name, timeout, cancelled) {
   }
 }
 
+function createSlotCandidate(slotDir, candidate, token, owner) {
+  for (;;) {
+    mkdirSync(slotDir, { recursive: true });
+    try {
+      mkdirSync(candidate);
+      writeFileSync(join(candidate, token), JSON.stringify(owner), { flag: 'wx' });
+      return;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+}
+
+async function acquireSlotLease(slot, timeout, cancelled) {
+  if (!slot) return { release() {} };
+  const root = cacheLocks();
+  const slotDir = join(root, `slot-${hash(slot.name)}`);
+  const nonce = randomUUID();
+  const token = `${nonce}.json`;
+  const candidate = join(slotDir, `.${nonce}`);
+  const owner = { pid: process.pid, start: processStart(process.pid), nonce, slot: slot.name };
+  const deadline = performance.now() + timeout * 1000;
+  let waited = false;
+  try {
+    createSlotCandidate(slotDir, candidate, token, owner);
+    for (;;) {
+      if (cancelled()) return { release() {} };
+      let entries;
+      try {
+        entries = readdirSync(slotDir);
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          createSlotCandidate(slotDir, candidate, token, owner);
+          continue;
+        }
+        throw error;
+      }
+      const liveHolders = [];
+      const occupied = new Set();
+      let reaped = false;
+      for (const entry of entries) {
+        if (entry.startsWith('.')) continue;
+        const entryPath = join(slotDir, entry);
+        let tokens;
+        try {
+          tokens = readdirSync(entryPath);
+        } catch (error) {
+          if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
+          throw error;
+        }
+        if (!tokens.length) {
+          removeToken(entryPath, null);
+          reaped = true;
+          continue;
+        }
+        let observed;
+        const observedToken = tokens[0];
+        try {
+          observed = JSON.parse(readFileSync(join(entryPath, observedToken), 'utf8'));
+        } catch (error) {
+          if (error.code === 'ENOENT') continue;
+          throw error;
+        }
+        if (!liveOwner(observed)) {
+          removeToken(entryPath, observedToken);
+          reaped = true;
+          continue;
+        }
+        liveHolders.push(observed);
+        occupied.add(entry);
+      }
+      if (liveHolders.length < slot.max) {
+        let raced = false;
+        for (let index = 0; index < slot.max; index++) {
+          const key = String(index);
+          if (occupied.has(key)) continue;
+          const target = join(slotDir, key);
+          try {
+            renameSync(candidate, target);
+            return {
+              release: () => {
+                removeToken(target, token);
+                removeToken(slotDir, null);
+              },
+            };
+          } catch (error) {
+            if (['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES'].includes(error.code)) {
+              raced = true;
+              continue;
+            }
+            if (error.code === 'ENOENT') {
+              createSlotCandidate(slotDir, candidate, token, owner);
+              raced = true;
+              break;
+            }
+            throw error;
+          }
+        }
+        if (raced || reaped) continue;
+      }
+      if (reaped) continue;
+      if (!waited) {
+        sendWorker({
+          type: 'event',
+          event: { type: 'WAIT', lock: slot.name, slot: slot.name, holder: liveHolders[0], holders: liveHolders },
+        });
+        waited = true;
+      }
+      if (performance.now() >= deadline) return {
+        blocked: true,
+        holder: liveHolders[0],
+        holders: liveHolders,
+        release() {},
+        reason: `slot ${slot.name} (${slot.max} max) timed out; holders ${liveHolders.map(h => `pid=${h.pid} start=${h.start}`).join(', ')}`,
+      };
+      await sleep(Math.min(100, Math.max(1, deadline - performance.now())));
+    }
+  } finally {
+    removeToken(candidate, token);
+    removeToken(slotDir, null);
+  }
+}
+
 function readOptionalJson(path) {
   try { return JSON.parse(readFileSync(path, 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
@@ -1108,6 +1250,12 @@ function preparationHash(prepare) {
   return hash(JSON.stringify(parts));
 }
 
+function unlinkIfExists(path) {
+  if (!path) return;
+  try { unlinkSync(path); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+
 async function worker(task) {
   let started = false;
   let cancelled = false;
@@ -1120,7 +1268,9 @@ async function worker(task) {
   process.on('SIGINT', abandon);
   process.on('SIGTERM', abandon);
   process.once('disconnect', () => { if (!started) { cancelled = true; cancelGrant(); } });
-  const lease = await acquireLock(task.lock, task.timeout, () => cancelled);
+  const lease = task.slot
+    ? await acquireSlotLease(task.slot, task.timeout, () => cancelled)
+    : await acquireLock(task.lock, task.timeout, () => cancelled);
   if (cancelled) {
     lease.release();
     return;
@@ -1149,17 +1299,22 @@ async function worker(task) {
       type: 'event', event: { type: 'RUNNING', id: task.id, seconds: (performance.now() - start) / 1000 },
     }), 19000);
     const attempts = [];
+    const taskEnv = {};
+    if (task.manifest) taskEnv.MMW_REPO_CHECKS_SELECTION_MANIFEST = task.manifest;
+    if (task.deferred_marker) taskEnv.MMW_REPO_CHECKS_DEFERRED_MARKER = task.deferred_marker;
     for (let i = 0; i <= task.retry && !cancelled; i++) {
-      const attempt = await commandProcess(task.command, task.timeout, task.log, task.git_index);
+      unlinkIfExists(task.deferred_marker);
+      const attempt = await commandProcess(task.command, task.timeout, task.log, task.git_index, taskEnv);
       attempts.push(attempt);
       if (attempt.exit_code === 0 && !attempt.reason) break;
     }
+    const deferred = Boolean(task.deferred_marker && existsSync(task.deferred_marker));
     if (task.prepare && attempts.at(-1).exit_code === 0 && !attempts.at(-1).reason) {
       const temporary = `${task.stamp_file}.${randomUUID()}.tmp`;
       writeFileSync(temporary, JSON.stringify({ hash: stamp }));
       renameSync(temporary, task.stamp_file);
     } else stamp = null;
-    sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare) } });
+    sendWorker({ type: 'result', result: { attempts, seconds: (performance.now() - start) / 1000, stamp, prepared: Boolean(task.prepare), deferred } });
   } finally {
     clearInterval(heartbeat);
     lease.release();
@@ -1269,10 +1424,37 @@ function findReuse(facts, check, scope, command) {
   return null;
 }
 
-async function execute(facts) {
+function writeSelectionManifest(facts, planned) {
+  const manifestScope = item => item.kind === 'reused' ? item.outcome.coverage : item.scope;
+  const needWhole = planned.some(item => item.kind !== 'skipped' && manifestScope(item).kind === 'whole' && item.check.tests.length);
+  const repoFiles = needWhole
+    ? git('ls-files', '--cached', '--others', '--exclude-standard', '-z').split('\0').filter(path => path && existsSync(path)).sort()
+    : [];
+  const lines = [];
+  for (const item of planned) {
+    if (item.kind === 'skipped') continue;
+    const scope = manifestScope(item);
+    const tests = scope.kind === 'whole'
+      ? (item.check.tests.length ? repoFiles.filter(patternsMatch(item.check.tests)) : [])
+      : [...new Set(scope.tests)].sort();
+    for (const path of tests) lines.push(`${item.check.id} ${path}`);
+  }
+  const manifestPath = join(facts.storage.logs, 'selection-manifest.txt');
+  writeFileSync(manifestPath, lines.length ? `${lines.join('\n')}\n` : '');
+  return manifestPath;
+}
+
+function resolveCheckSlot(config, check) {
+  if (!check.slot) return null;
+  const spec = config.slots[check.slot];
+  return { name: check.slot, max: spec.max, perRunMax: spec.perRunMax ?? spec.max };
+}
+
+async function execute(config, facts) {
   const localLockSlots = new Map();
+  const localCountingSlots = new Map();
   const slot = executionSlots(Math.max(1, Math.min(4, Math.floor(cpus().length / 2))));
-  const settled = await Promise.allSettled(facts.selection.map(async ({ check, scope }) => {
+  const planned = facts.selection.map(({ check, scope }) => {
     const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
     const missing = (check.needs ?? []).filter(need => !needSatisfied(need));
     if (missing.length) {
@@ -1283,7 +1465,7 @@ async function execute(facts) {
         command, scope, seconds: 0, log: null, tail: [], attempts: [],
       };
       addEvent(facts, { type: 'SKIP', ...outcome });
-      return outcome;
+      return { kind: 'skipped', check, scope, outcome };
     }
     const log = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.log`);
     const previous = findReuse(facts, check, scope, command);
@@ -1300,15 +1482,31 @@ async function execute(facts) {
         reused_from: { record: previous.record, coverage: prior.coverage, key: prior.reuse_key },
       };
       addEvent(facts, { type: 'PASS', ...outcome });
-      return outcome;
+      return { kind: 'reused', check, scope, outcome };
     }
+    return { kind: 'run', check, scope, command, log };
+  });
+  const manifestPath = writeSelectionManifest(facts, planned);
+  const settled = await Promise.allSettled(planned.map(async item => {
+    if (item.kind !== 'run') return item.outcome;
+    const { check, scope, command, log } = item;
+    const countingSlot = resolveCheckSlot(config, check);
     if (check.lock && !localLockSlots.has(check.lock)) localLockSlots.set(check.lock, executionSlots(1));
-    const release = await localLockSlots.get(check.lock)?.();
+    if (countingSlot && !localCountingSlots.has(countingSlot.name)) {
+      localCountingSlots.set(countingSlot.name, executionSlots(countingSlot.perRunMax));
+    }
+    const release = check.lock
+      ? await localLockSlots.get(check.lock)()
+      : countingSlot
+        ? await localCountingSlots.get(countingSlot.name)()
+        : null;
     let result;
     try {
       if (interrupted) throw new Error('Run interrupted');
+      const deferredMarker = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.deferred`);
       result = await supervisor({
-        id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0,
+        id: check.id, command, log, lock: check.lock, slot: countingSlot, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0,
+        manifest: manifestPath, deferred_marker: deferredMarker,
       }, slot, event => addEvent(facts, event));
     } finally {
       release?.();
@@ -1329,7 +1527,7 @@ async function execute(facts) {
       timeout_s: check.timeout_s ?? 600,
       ci: check.ci, ci_reason: check.ci_reason ?? null,
       attempts: result.attempts, recovered: status === 'passed' && result.attempts.length > 1,
-      reused: false, reusable: checkIdentity(facts) && status === 'passed',
+      reused: false, reusable: checkIdentity(facts) && status === 'passed' && !result.deferred,
       reuse_key: reuseKey(check.id, command, facts.identity), coverage: scope,
     };
     addEvent(facts, { type: status === 'passed' ? 'PASS' : 'FAIL', ...outcome });
@@ -1453,7 +1651,7 @@ async function run(schema, facts) {
   runStorage(facts);
   streamFacts(facts);
   try {
-    if (await prepare(config, facts)) await execute(facts);
+    if (await prepare(config, facts)) await execute(config, facts);
   } catch (error) {
     facts.results = facts.selection.map(selected => internalOutcome(facts, selected, error));
   }
