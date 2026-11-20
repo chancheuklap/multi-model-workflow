@@ -44,10 +44,9 @@
 
 3. **Grilling loop.** Once the user picks an opportunity, use [grilling](../../grilling/SKILL.md) to walk the decision tree with them: constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
 
-   Side effects happen inline as decisions crystallize; use [domain-modeling](../../domain-modeling/SKILL.md) to keep the domain model current as you go:
+   While grilling keeps the domain model current, handle two architecture-review cases inline:
 
    - **Naming a deepened module after a concept not in the project's glossary?** Add the term to the relevant glossary. Create the file lazily if it doesn't exist.
-   - **Sharpening a fuzzy term during the conversation?** Update the glossary right there.
    - **User rejects the opportunity with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing; skip ephemeral reasons ("not worth it right now") and self-evident ones.
 
    **Want to explore alternative interfaces for the deepened module?** Show the user the constraints any new interface would need to satisfy, the dependencies it would rely on and which category they fall into, and an illustrative snippet that is not a proposal. Give [architect](../../architect/SKILL.md) the selected module, real call sites and settled constraints, and ask for alternative interfaces to the module. This playbook leaves implementation to the execution ticket, so architect returns its design package.
