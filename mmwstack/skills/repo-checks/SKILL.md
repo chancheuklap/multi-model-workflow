@@ -13,6 +13,8 @@ Run every command from the target repository root. The [check engine](scripts/ch
 
 Read the [reference](references/checks.md) for Check Config fields, JSON results, and moment rules. Use `scripts/check --help` for command syntax.
 
+During execution, check commands receive two per-run environment variables documented in [Selection manifest and deferral](references/checks.md#selection-manifest-and-deferral). `MMW_REPO_CHECKS_SELECTION_MANIFEST` points to a file listing `<check-name> <repo-relative-test-path>` for scheduled and clean `reused` checks, excluding pre-run `skipped` checks. `MMW_REPO_CHECKS_DEFERRED_MARKER` holds a per-check marker path cleared before every attempt so a check that defers work and exits 0 records `reusable: false`.
+
 ## Install
 
 Enter with the target repository and the Home Repo registry. Finish with a valid Check Config, three canonical entry files, a registry entry, and saved probes.
