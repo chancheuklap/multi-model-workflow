@@ -116,7 +116,18 @@ test("checks phase headings, required sub-blocks, and prototype evidence appendi
 test("rejects forbidden punctuation in prose", () => {
 	expect(runPlan("Bad — dash.\n", 1).stderr).toContain("long dash");
 	expect(runPlan("Bad “quote”.\n", 1).stderr).toContain("curly quote");
+	expect(runPlan("“hello”\n", 1).stderr).toContain("curly quote");
+	expect(runPlan("‘hi’\n", 1).stderr).toContain("curly quote");
+	expect(runPlan("don’t\n", 1).stderr).toContain("curly quote");
 	expect(runPlan("Bad: colon.\n", 1).stderr).toContain("mid-sentence colon");
+});
+
+test("accepts Chinese double quotes while rejecting English curly quotes and other forbidden punctuation", () => {
+	expect(runPlan("显示“中文”提示。\n", 0).stdout).toContain("0 problems");
+	expect(runPlan("“登录已过期”\n", 0).stdout).toContain("0 problems");
+	expect(runPlan("中文混入 “hello” 失败。\n", 1).stderr).toContain("curly quote");
+	expect(runPlan("显示“中文” — bad.\n", 1).stderr).toContain("long dash");
+	expect(runPlan("显示“中文”: bad.\n", 1).stderr).toContain("mid-sentence colon");
 });
 
 test("accepts ordinary, indented, and longer closing fences", () => {
