@@ -16,7 +16,7 @@ The same role can use a different model in another host.
 
 On Factory Droid, choose `light`, `medium`, or `heavy` for each role and panel entry. Factory's tier settings supply the model and reasoning. Sync the project's native Droid registrations before launching a session, including when a different model rule changes the advisor or Comment Sicko tier. [Droid registration in setup-mmwstack](../../skills/setup-mmwstack/SKILL.md#5-write-the-rule)
 
-On Antigravity (AGY), choose exact model IDs from `agy models` under `## agy`. Local sessions dispatch roles through `scripts/agy-delegate` so each delegate runs in an isolated conversation with its exact model, reasoning level, role instructions, and tool allowlist. [Host subagent dispatch](../../skills/mmw-mode/references/host-dispatch.md)
+On Antigravity (AGY), choose exact model IDs from `agy models` under `## agy`, and add `# fallback: <pattern> -> <target>[, <target>...]` lines when a model should fall back on unavailability. Local sessions dispatch roles through `scripts/agy-delegate` so each delegate runs in an isolated conversation with its exact model, fallback chain, reasoning level, role instructions, and tool allowlist. [Host subagent dispatch](../../skills/mmw-mode/references/host-dispatch.md)
 
 You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` to run it on the parent chat's model. Both values mean the same thing, and neither is a model slug. Each runner panel has two seats. The entries can name the same model or tier. Autopilot starts PR owners on `coder`. Autopilot and Shipping use `verifier` for independent PR checks. For a model race, choose a configured model for each arm.
 
