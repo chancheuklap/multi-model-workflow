@@ -18,13 +18,13 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 ## Phase B: Fan out
 
-Spawn both runners in parallel, each in a fresh context. On Factory Droid, choose the built-in `worker` or `explorer` by the tools the runner needs and pass its tier as `Task.complexity`. Report a Droid seat as unavailable if neither built-in can honor its tools and tier. Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
+Spawn both runners in parallel, each in a fresh context, following the current host's dispatch row in [host-dispatch.md](../mmw-mode/references/host-dispatch.md). Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
 
 If a candidate produces no output, continue with the remaining candidate and note the dropout.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, spawn one read-only judge. Use the model and settings from the current host’s `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). On Factory Droid, use the built-in `explorer` and pass the entry’s tier as `Task.complexity`. Treat an entry as unavailable if the tools or tier cannot be honored. Use the first available entry in pool order, including an explicitly inherited model. Start a fresh agent that produced none of the candidates. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
+After all Phase B candidates complete, spawn one read-only judge following [host-dispatch.md](../mmw-mode/references/host-dispatch.md). Use the model and settings from the current host’s `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Use the first available entry in pool order, including an explicitly inherited model. Start a fresh agent that produced none of the candidates. If no eligible entry runs, pick the base yourself in Phase D and say the judge did not run. The judge sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
 
 ## Phase D: Pick a base
 
