@@ -61,6 +61,7 @@ The target repository holds `.agents/checks.json`. Paths and globs are repositor
 | `affects_all` | Required array of patterns whose changes select every check and print `WIDEN`. |
 | `marker_exempt` | Optional patterns exempt from legacy-marker scanning. Defaults to `[]`. Exemption does not classify a path or claim a test. |
 | `prepare` | Optional object with `run` and `stamps` patterns. Runs before selected checks when the stamp hash changes or a selected `path:` need is missing. |
+| `slots` | Optional map of named counting slots, each with integer `max` (`>= 1`) and optional integer `perRunMax` (`1 <= perRunMax <= max`, defaults to `max`). |
 | `checks` | Required array of executable checks. |
 | `lanes` | Required array of tests the engine never runs. Each has `id`, `kind` (`ci-only`, `device`, or `owner-only`), `reason`, `run_by` (workflow, skill, or `owner`), and `tests` patterns. `command` is optional. |
 | `excluded` | Required array of non-test paths with `paths` patterns and a `reason`. |
@@ -77,7 +78,7 @@ The target repository holds `.agents/checks.json`. Paths and globs are repositor
 | `tests` | Required patterns claiming the tests this check runs. Test files also need classification through `inputs`, `sources`, `inert`, or `affects_all`. |
 | `needs` | Optional conditions. `cmd:<name>` requires an executable on PATH. `docker` requires a reachable daemon. `os:<darwin, linux, or windows>` requires that OS. `env:<name>` requires a set variable. `path:<relative path>` requires an existing path. Other forms are invalid. |
 | `ci`, `ci_run`, `ci_reason` | `ci` is required. When true, `ci_run` is required verbatim text in `ci_workflow`. When false, `ci_reason` is required. Missing needs skip a check with gate coverage, or exit 2 without it. |
-| `timeout_s`, `retry`, `lock` | Optional positive timeout in seconds (default 600), retry count 0 or 1 (default 0), and machine-wide shared-resource lock name. Only a failed check retries. |
+| `timeout_s`, `retry`, `lock`, `slot` | Optional positive timeout in seconds (default 600), retry count 0 or 1 (default 0), machine-wide binary shared-resource lock name, and named counting slot from `slots`. A check cannot declare both `lock` and `slot`. Only a failed check retries. |
 
 An unclassified changed path prints `UNCLASSIFIED` and widens selection to every check. `lint` reports unclassified tracked paths and unclaimed tracked tests. It also checks integration, gate command text, protected lane commands, canonical entry bytes, and legacy markers outside exemptions. It does not prove local and gate command equivalence.
 

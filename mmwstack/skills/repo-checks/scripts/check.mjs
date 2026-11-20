@@ -10,7 +10,7 @@ const configPath = '.agents/checks.json';
 
 const schemaKeywords = new Set([
   '$schema', '$defs', '$ref', 'type', 'properties', 'required', 'additionalProperties',
-  'items', 'minLength', 'pattern', 'enum', 'minimum', 'maximum', 'exclusiveMinimum',
+  'propertyNames', 'items', 'minLength', 'pattern', 'enum', 'minimum', 'maximum', 'exclusiveMinimum',
   'allOf', 'anyOf', 'if', 'then', 'else', 'dependentRequired', 'format',
 ]);
 const matchesType = (value, type) => {
@@ -20,7 +20,7 @@ const matchesType = (value, type) => {
   if (type === 'integer') return Number.isInteger(value);
   return typeof value === type;
 };
-const childField = (field, key) => field ? `${field}.${key}` : key;
+const childField = (field, key) => field ? (key ? `${field}.${key}` : field) : key;
 
 function validate(value, schema, node = schema, field = '') {
   for (const key of Object.keys(node)) {
@@ -58,8 +58,10 @@ function validate(value, schema, node = schema, field = '') {
       if (!Object.hasOwn(value, key)) invalid('required field', childField(field, key));
     }
     for (const [key, item] of Object.entries(value)) {
+      if (node.propertyNames) findings.push(...validate(key, schema, node.propertyNames, childField(field, key)));
       if (Object.hasOwn(node.properties ?? {}, key)) findings.push(...validate(item, schema, node.properties[key], childField(field, key)));
       else if (node.additionalProperties === false) invalid('unknown field', childField(field, key));
+      else if (matchesType(node.additionalProperties, 'object')) findings.push(...validate(item, schema, node.additionalProperties, childField(field, key)));
     }
     for (const [key, required] of Object.entries(node.dependentRequired ?? {})) {
       if (!Object.hasOwn(value, key)) continue;
@@ -83,6 +85,12 @@ function validate(value, schema, node = schema, field = '') {
 function configFindings(config, schema) {
   const findings = validate(config, schema);
   if (findings.length) return findings;
+  for (const [slotName, slotSpec] of Object.entries(config.slots ?? {})) {
+    if (slotSpec.perRunMax !== undefined && slotSpec.perRunMax > slotSpec.max) findings.push({
+      rule: 'schema', field: `slots.${slotName}.perRunMax`,
+      message: `slots.${slotName}.perRunMax: perRunMax (${slotSpec.perRunMax}) cannot exceed max (${slotSpec.max})`,
+    });
+  }
   const ids = new Set();
   config.checks.forEach((check, index) => {
     if (ids.has(check.id)) findings.push({
@@ -93,6 +101,14 @@ function configFindings(config, schema) {
     if (check.ci && config.ci_workflow === null) findings.push({
       rule: 'schema', field: 'ci_workflow', check: check.id,
       message: `ci_workflow: ${check.id} is marked ci but no gate workflow is configured`,
+    });
+    if (check.lock !== undefined && check.slot !== undefined) findings.push({
+      rule: 'schema', field: `checks[${index}].slot`, check: check.id,
+      message: `checks[${index}].slot: ${check.id} cannot declare both lock and slot`,
+    });
+    if (check.slot !== undefined && !Object.hasOwn(config.slots ?? {}, check.slot)) findings.push({
+      rule: 'schema', field: `checks[${index}].slot`, check: check.id,
+      message: `checks[${index}].slot: ${check.id} references unknown slot ${JSON.stringify(check.slot)}`,
     });
   });
   return findings;
@@ -1091,6 +1107,129 @@ async function acquireLock(name, timeout, cancelled) {
   }
 }
 
+function createSlotCandidate(slotDir, candidate, token, owner) {
+  for (;;) {
+    mkdirSync(slotDir, { recursive: true });
+    try {
+      mkdirSync(candidate);
+      writeFileSync(join(candidate, token), JSON.stringify(owner), { flag: 'wx' });
+      return;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+}
+
+async function acquireSlotLease(slot, timeout, cancelled) {
+  if (!slot) return { release() {} };
+  const root = cacheLocks();
+  const slotDir = join(root, `slot-${hash(slot.name)}`);
+  const nonce = randomUUID();
+  const token = `${nonce}.json`;
+  const candidate = join(slotDir, `.${nonce}`);
+  const owner = { pid: process.pid, start: processStart(process.pid), nonce, slot: slot.name };
+  const deadline = performance.now() + timeout * 1000;
+  let waited = false;
+  try {
+    createSlotCandidate(slotDir, candidate, token, owner);
+    for (;;) {
+      if (cancelled()) return { release() {} };
+      let entries;
+      try {
+        entries = readdirSync(slotDir);
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          createSlotCandidate(slotDir, candidate, token, owner);
+          continue;
+        }
+        throw error;
+      }
+      const liveHolders = [];
+      const occupied = new Set();
+      let reaped = false;
+      for (const entry of entries) {
+        if (entry.startsWith('.')) continue;
+        const entryPath = join(slotDir, entry);
+        let tokens;
+        try {
+          tokens = readdirSync(entryPath);
+        } catch (error) {
+          if (error.code === 'ENOENT' || error.code === 'ENOTDIR') continue;
+          throw error;
+        }
+        if (!tokens.length) {
+          removeToken(entryPath, null);
+          reaped = true;
+          continue;
+        }
+        let observed;
+        const observedToken = tokens[0];
+        try {
+          observed = JSON.parse(readFileSync(join(entryPath, observedToken), 'utf8'));
+        } catch (error) {
+          if (error.code === 'ENOENT') continue;
+          throw error;
+        }
+        if (!liveOwner(observed)) {
+          removeToken(entryPath, observedToken);
+          reaped = true;
+          continue;
+        }
+        liveHolders.push(observed);
+        occupied.add(entry);
+      }
+      if (liveHolders.length < slot.max) {
+        let raced = false;
+        for (let index = 0; index < slot.max; index++) {
+          const key = String(index);
+          if (occupied.has(key)) continue;
+          const target = join(slotDir, key);
+          try {
+            renameSync(candidate, target);
+            return {
+              release: () => {
+                removeToken(target, token);
+                removeToken(slotDir, null);
+              },
+            };
+          } catch (error) {
+            if (['EEXIST', 'ENOTEMPTY', 'EPERM', 'EACCES'].includes(error.code)) {
+              raced = true;
+              continue;
+            }
+            if (error.code === 'ENOENT') {
+              createSlotCandidate(slotDir, candidate, token, owner);
+              raced = true;
+              break;
+            }
+            throw error;
+          }
+        }
+        if (raced || reaped) continue;
+      }
+      if (reaped) continue;
+      if (!waited) {
+        sendWorker({
+          type: 'event',
+          event: { type: 'WAIT', lock: slot.name, slot: slot.name, holder: liveHolders[0], holders: liveHolders },
+        });
+        waited = true;
+      }
+      if (performance.now() >= deadline) return {
+        blocked: true,
+        holder: liveHolders[0],
+        holders: liveHolders,
+        release() {},
+        reason: `slot ${slot.name} (${slot.max} max) timed out; holders ${liveHolders.map(h => `pid=${h.pid} start=${h.start}`).join(', ')}`,
+      };
+      await sleep(Math.min(100, Math.max(1, deadline - performance.now())));
+    }
+  } finally {
+    removeToken(candidate, token);
+    removeToken(slotDir, null);
+  }
+}
+
 function readOptionalJson(path) {
   try { return JSON.parse(readFileSync(path, 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
@@ -1129,7 +1268,9 @@ async function worker(task) {
   process.on('SIGINT', abandon);
   process.on('SIGTERM', abandon);
   process.once('disconnect', () => { if (!started) { cancelled = true; cancelGrant(); } });
-  const lease = await acquireLock(task.lock, task.timeout, () => cancelled);
+  const lease = task.slot
+    ? await acquireSlotLease(task.slot, task.timeout, () => cancelled)
+    : await acquireLock(task.lock, task.timeout, () => cancelled);
   if (cancelled) {
     lease.release();
     return;
@@ -1303,8 +1444,15 @@ function writeSelectionManifest(facts, planned) {
   return manifestPath;
 }
 
-async function execute(facts) {
+function resolveCheckSlot(config, check) {
+  if (!check.slot) return null;
+  const spec = config.slots[check.slot];
+  return { name: check.slot, max: spec.max, perRunMax: spec.perRunMax ?? spec.max };
+}
+
+async function execute(config, facts) {
   const localLockSlots = new Map();
+  const localCountingSlots = new Map();
   const slot = executionSlots(Math.max(1, Math.min(4, Math.floor(cpus().length / 2))));
   const planned = facts.selection.map(({ check, scope }) => {
     const command = expandCommand(scope.kind === 'whole' ? check.run_all ?? check.run : check.run, scope);
@@ -1342,14 +1490,22 @@ async function execute(facts) {
   const settled = await Promise.allSettled(planned.map(async item => {
     if (item.kind !== 'run') return item.outcome;
     const { check, scope, command, log } = item;
+    const countingSlot = resolveCheckSlot(config, check);
     if (check.lock && !localLockSlots.has(check.lock)) localLockSlots.set(check.lock, executionSlots(1));
-    const release = await localLockSlots.get(check.lock)?.();
+    if (countingSlot && !localCountingSlots.has(countingSlot.name)) {
+      localCountingSlots.set(countingSlot.name, executionSlots(countingSlot.perRunMax));
+    }
+    const release = check.lock
+      ? await localLockSlots.get(check.lock)()
+      : countingSlot
+        ? await localCountingSlots.get(countingSlot.name)()
+        : null;
     let result;
     try {
       if (interrupted) throw new Error('Run interrupted');
       const deferredMarker = join(facts.storage.logs, `${hash(check.id).slice(0, 24)}.deferred`);
       result = await supervisor({
-        id: check.id, command, log, lock: check.lock, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0,
+        id: check.id, command, log, lock: check.lock, slot: countingSlot, timeout: check.timeout_s ?? 600, retry: check.retry ?? 0,
         manifest: manifestPath, deferred_marker: deferredMarker,
       }, slot, event => addEvent(facts, event));
     } finally {
@@ -1495,7 +1651,7 @@ async function run(schema, facts) {
   runStorage(facts);
   streamFacts(facts);
   try {
-    if (await prepare(config, facts)) await execute(facts);
+    if (await prepare(config, facts)) await execute(config, facts);
   } catch (error) {
     facts.results = facts.selection.map(selected => internalOutcome(facts, selected, error));
   }

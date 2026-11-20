@@ -11,7 +11,7 @@ Use [to-tickets](../to-tickets/SKILL.md) to reuse the work issue and record the 
 
 Run every command from the target repository root. The [check engine](scripts/check.mjs) reads the current directory and takes no repository-path argument. The entry uses the installed engine at `~/.agents/skills/repo-checks/scripts/check.mjs`; `MMW_REPO_CHECKS_ENGINE` can point at another engine file for a proof.
 
-Read the [reference](references/checks.md) for Check Config fields, JSON results, and moment rules. Use `scripts/check --help` for command syntax.
+Read the [reference](references/checks.md) for Check Config fields, JSON results, and moment rules. Use `scripts/check --help` for command syntax. Use top-level `slots` and per-check `slot` for cross-worktree counting leases with optional `perRunMax` caps. Checks declare either binary `lock` or counting `slot`, never both.
 
 During execution, check commands receive two per-run environment variables documented in [Selection manifest and deferral](references/checks.md#selection-manifest-and-deferral). `MMW_REPO_CHECKS_SELECTION_MANIFEST` points to a file listing `<check-name> <repo-relative-test-path>` for scheduled and clean `reused` checks, excluding pre-run `skipped` checks. `MMW_REPO_CHECKS_DEFERRED_MARKER` holds a per-check marker path cleared before every attempt so a check that defers work and exits 0 records `reusable: false`.
 
