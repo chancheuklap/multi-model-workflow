@@ -40,22 +40,22 @@ The rule for a correction that keeps recurring. A single owner can remove the op
 ### The design seen by its callers
 
 **Design package**:
-A candidate or chosen design comprising a type sketch and its rationale, with a module map for larger changes. Under Exhaust the Design Space, an architectural comparison uses at least two structurally distinct candidates. The chosen sketch guides implementation. Arena's synthesis returns the synthesized design package, which architect also calls the synthesized design or synthesized sketch. A design package the operator approves is a settled baseline for the agent that writes the code.
+A candidate or chosen design comprising a usage sketch, a type sketch, and a design rationale, with a module map for larger changes. Under Exhaust the Design Space, an architectural comparison uses at least two structurally distinct candidates. The chosen design package guides implementation. Arena's synthesis returns the synthesized design package, which architect also calls the synthesized design or synthesized sketch. A design package accepted by the operator (via plain-language sign-off or opt-in candidate approval) is a settled baseline for the agent that writes the code.
 
 **Usage sketch**:
 The caller's view of the proposed design, shown by example imports, calls, and results. The type sketch is derived from this usage. Under Experience First, the person importing a library is a user of the design, as is the engineer maintaining it.
 
 **Type sketch**:
-The proposed types, function signatures, and module boundaries, with the implementation left open. The sketch makes it possible to trace data from input to output before the bodies are written.
+The proposed types, type signatures, and module boundaries that realize the interface (including invariants, ordering constraints, and error modes), with the implementation left open. The sketch makes it possible to trace data from input to output before the bodies are written.
 
 **Design rationale**:
 The record accompanying a sketch. It explains the choice of shape, its tradeoffs, and the alternatives considered. When Arena compares the candidates, its synthesis decision says which candidate supplied the base, what the chosen design took from other candidates, and what it left out.
 
 **Design review before implementation**:
-An invoker can ask [architect](../../../skills/architect/SKILL.md) to show its recommended sketch before code. Architect waits for approval. By default, implementation starts once the sketch is ready. When the invoker assigns implementation to another agent, architect returns the design package and stops.
+An operator can explicitly ask [architect](../../../skills/architect/SKILL.md) to show competing candidates and wait for approval before code. By default, architect hands the code-level design package to implementation (or returns it to the invoker when another agent writes the code) and reports the recommended shape, gains in depth, locality, or seam placement, and core trade-offs to the operator in plain language.
 
 **Architecture vocabulary**:
-The terms module, interface, depth, seam, adapter, leverage, and locality as [codebase-dic](../../../skills/codebase-dic/SKILL.md) defines them. They describe the shape of the code and mean the same in every project.
+The terms module, interface, implementation, depth, seam, adapter, leverage, and locality as [codebase-dic](../../../skills/codebase-dic/SKILL.md) defines them. They describe the shape of the code and mean the same in every project.
 
 **Domain vocabulary**:
 The terms the project's own glossary defines for its concepts. They name modules and seams. When a deepened module takes its name from a concept the glossary lacks, [domain-modeling](../../../skills/domain-modeling/SKILL.md) adds the term.
@@ -107,7 +107,7 @@ A concrete implementation that satisfies an interface at a seam. One adapter des
 The distinction that determines how a deepened module can be tested. An **in-process** dependency needs no adapter. A **local-substitutable** dependency has a local stand-in. A **remote but owned** service uses a transport adapter. A **true external** service is outside the project's control and uses a mock adapter in tests.
 
 **Design red flag**:
-A property of a candidate design that warrants revision or rejection. Examples include callers able to import private implementation details, a hand-synced list whose copies can drift, or two public paths to the same operation.
+A property of a candidate design that warrants revision or rejection. The canonical eight flags are shallow module, information leakage, temporal decomposition, pass-through method, split ownership, two ways to do one task, importable internals (callers able to import private implementation details), and hand-synced list (copies that can drift when edited separately).
 
 **Information leakage**:
 One implementation decision that several modules must know. Exposing a transport representation to callers, for example, makes a protocol change require edits outside the module that handles the protocol.
@@ -213,7 +213,7 @@ The [principles guide](../../guide/08-principles.md) explains how a named princi
 
 The settled decision, shared-premise test, and rerunnable tool come from [principle-baseline-is-the-contract](../../../skills/principle-baseline-is-the-contract/SKILL.md), [principle-attack-the-premise](../../../skills/principle-attack-the-premise/SKILL.md), and [principle-build-the-lever](../../../skills/principle-build-the-lever/SKILL.md).
 
-The [architect](../../../skills/architect/SKILL.md) skill defines the design package. Its [interface directions](../../../skills/architect/references/interface-directions.md) specify what each runner returns when comparing interfaces to one module. The typed representations appear in [typescript-best-practices](../../../skills/typescript-best-practices/SKILL.md). The [PR watcher's types](../../../skills/mmw-mode/scripts/watch-pr/types.ts) show the validated PR number and the clean CI state.
+The [architect](../../../skills/architect/SKILL.md) skill defines the design package and the design red flags it screens. Its [Design it twice](../../../skills/architect/references/design-it-twice.md) reference runs [arena](../../../skills/arena/SKILL.md) with contrasting design directions and specifies what each runner returns when comparing interfaces to one module. The typed representations appear in [typescript-best-practices](../../../skills/typescript-best-practices/SKILL.md). The [PR watcher's types](../../../skills/mmw-mode/scripts/watch-pr/types.ts) show the validated PR number and the clean CI state.
 
 The [Improve codebase architecture playbook](../../../skills/mmw-mode/playbooks/improve-codebase-architecture.md) uses [codebase-dic](../../../skills/codebase-dic/SKILL.md) to assess deepening opportunities. Its [dependency categories](../../../skills/codebase-dic/references/deepening.md#dependency-categories) explain how the module is tested at its seam. codebase-dic repeats the architecture vocabulary for agents that read only the skill. Change both together.
 
