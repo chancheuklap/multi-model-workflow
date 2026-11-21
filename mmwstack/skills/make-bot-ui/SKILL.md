@@ -1,9 +1,6 @@
 ---
 name: make-bot-ui
-description: >-
-  Use when building a custom UI (page, dashboard, buttons) that should wake a
-  Grok Bot over a webhook, when the user must provide a webhook sender key, or
-  when exposing that UI on Tailscale.
+description: "Build a custom UI (page, dashboard, buttons) waking a Grok Bot via webhook, needing a webhook sender key, or exposed on Tailscale."
 ---
 # How to make a bot UI
 

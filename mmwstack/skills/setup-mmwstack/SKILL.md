@@ -1,6 +1,6 @@
 ---
 name: setup-mmwstack
-description: Configure which models mmwstack uses per role and at what reasoning budget. Detects your available models and saves the user's choices for future tasks. Use for /setup-mmwstack or when the user asks to configure mmwstack models or change the reasoning budget.
+description: "Detect available models and configure mmwstack per-role models and reasoning budgets."
 ---
 
 # Setup mmwstack

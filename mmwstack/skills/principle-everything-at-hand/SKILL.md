@@ -1,6 +1,6 @@
 ---
 name: principle-everything-at-hand
-description: "Apply when laying out a page or diagram for a person. Put labels and evidence beside what they explain. Keep comparisons at the same scale and place them side by side when they fit."
+description: "Apply when laying out a page or diagram for a person. Put labels and evidence beside marks and align comparisons."
 ---
 
 # Everything at Hand

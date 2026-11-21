@@ -1,6 +1,6 @@
 ---
 name: arena
-description: "Spawn two parallel candidates for the same task, pick a base, graft the strongest parts of the losers into it. Use for /arena, 'arena this', 'throw it in the arena', or when one attempt at a non-trivial artifact would lock in the wrong shape."
+description: "Run two parallel candidates, pick a base, and graft the losers' best parts. Use for 'throw it in the arena' or non-trivial artifacts risking the wrong shape."
 ---
 
 # Arena

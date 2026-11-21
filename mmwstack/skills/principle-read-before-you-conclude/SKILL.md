@@ -1,6 +1,6 @@
 ---
 name: principle-read-before-you-conclude
-description: "Apply before you change a file or say how it works. Read the relevant source and callers, including handoffs when a rule spans agents. Distinguish what you observed from what you inferred."
+description: "Apply before editing a file or stating how it works. Read source, callers, and cross-agent handoffs."
 ---
 
 # Read Before You Conclude

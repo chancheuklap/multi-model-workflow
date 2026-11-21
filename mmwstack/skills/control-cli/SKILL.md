@@ -1,6 +1,6 @@
 ---
 name: control-cli
-description: Build or adapt a local harness to drive, inspect, and profile an interactive CLI or TUI without external services. Use within a verification skill for CLI UX checks, startup regressions, memory leaks, hangs, prompt flows, or terminal demos.
+description: "Build or adapt an offline local harness inside a verification skill to drive, inspect, and profile CLIs or TUIs (UX, startup, leaks, hangs, prompts, demos)."
 ---
 
 # Control CLI

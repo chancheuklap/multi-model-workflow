@@ -1,6 +1,6 @@
 ---
 name: principle-attack-the-premise
-description: "Apply when two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it."
+description: "Apply after two or more fixes sharing one premise fail the same gate."
 ---
 
 # Attack the Premise

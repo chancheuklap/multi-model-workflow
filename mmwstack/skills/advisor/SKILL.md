@@ -1,6 +1,6 @@
 ---
 name: advisor
-description: "Consult an independent advisor at a major decision or when stuck, and act on its verdict. Use for /advisor, \"ask the advisor\", \"get a second opinion from a stronger model\", or when the operator turns advisor mode on. Never start it on your own."
+description: "Consult a stronger-model advisor on major decisions or when stuck. Use only on /advisor, \"ask the advisor\", second opinion, or advisor mode; never start on your own."
 ---
 
 # Advisor
