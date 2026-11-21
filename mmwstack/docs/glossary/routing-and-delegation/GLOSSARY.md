@@ -109,7 +109,7 @@ A comparison of independent attempts at one artifact. Each runner receives the s
 The agent that produces one independent answer to the Arena brief. Its **candidate** is the artifact it submits with a short rationale explaining alternatives it considered and rejected. An architect runner submits a design package under the same arrangement.
 
 **Design direction**:
-A distinct approach to the same brief, such as a different structure or trade-off. By default every runner receives the same brief and chooses its own direction. When the task asks for alternative interfaces to one module, each runner is assigned one of architect's [interface directions](../../../skills/architect/references/interface-directions.md) and the rest of its prompt stays identical. The wireframe sense is [layout direction](../design-and-presentation/GLOSSARY.md#visual-and-interaction-design).
+A distinct approach to the same brief, such as a different structure or trade-off. By default every runner receives the same brief and chooses its own direction. When the task asks for alternative interfaces to one module, each runner is assigned one direction from architect's [Design it twice](../../../skills/architect/references/design-it-twice.md) reference and the rest of its prompt stays identical. The wireframe sense is [layout direction](../design-and-presentation/GLOSSARY.md#visual-and-interaction-design).
 _Avoid_: direction for a constraint that every runner receives.
 
 **Arena rubric**:
@@ -124,4 +124,4 @@ The candidate the parent selects as the starting artifact for synthesis. A **gra
 **Synthesis note**:
 The record accompanying the verified Arena artifact. It identifies the base and why it won, the judge's verdict or absence, each graft and its source, rejected alternatives, any convergence or dropouts, and the verification result.
 
-[arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md) · [Architect interface directions](../../../skills/architect/references/interface-directions.md)
+[arena](../../../skills/arena/SKILL.md) · [architect](../../../skills/architect/SKILL.md) · [Design it twice](../../../skills/architect/references/design-it-twice.md)
