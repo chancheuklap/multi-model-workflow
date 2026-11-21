@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types and boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs two attempts at the same brief and merges the best parts.
+One attempt at a hard design locks in the first shape the model thought of. [architect](../../skills/architect/SKILL.md) settles types, interfaces, and module boundaries before implementation. [arena](../../skills/arena/SKILL.md) runs two attempts at the same brief and merges the best parts.
 
 The two most common design mistakes are taking the agent's first design and polishing a plan that no code has tested. This page fixes both. You plan through code. Prototypes answer the open questions, a README or tutorial sets the target, and the written plan comes last.
 
@@ -12,11 +12,11 @@ The two most common design mistakes are taking the agent's first design and poli
 /architect design the import pipeline before writing any code. i care most about how callers use it.
 ```
 
-[architect](../../skills/architect/SKILL.md) starts with the caller's evidence and traces any gaps that could change the interface. Then it sketches two different shapes, each with types, signatures, and module boundaries, and picks the one where each piece of state has one owner, each task has one way to do it, and callers need to know least. For a large or contested design, it runs [arena](../../skills/arena/SKILL.md) instead of sketching alone. If you want to see the design before any code, say so in the prompt. When a playbook hands the code to another agent, architect returns the design instead.
+[architect](../../skills/architect/SKILL.md) starts with the invoker's evidence and traces any gaps that could change the interface. Using [codebase-dic](../../skills/codebase-dic/SKILL.md), it writes the caller's usage sketch first and sketches two structurally distinct shapes, each giving the types, type signatures, and module boundaries that realize the interface. It screens each shape against design red flags and picks the one where each piece of state has one owner, each task has one way to do it, and callers need to know least. For a large or contested design, it runs [arena](../../skills/arena/SKILL.md) instead of sketching alone. By default it reports the recommended shape and trade-offs in plain language and proceeds to implementation. Ask for a design review before implementation when you want to compare competing shapes or Arena candidates before any code. When a playbook hands the code to another agent, architect returns the design package instead.
 
 The design isn't sacred once code starts. If the same workaround keeps coming back, [architect](../../skills/architect/SKILL.md) redesigns instead of patching around it.
 
-To find modules worth deepening, ask for [Improve codebase architecture](../../skills/mmw-mode/playbooks/improve-codebase-architecture.md). It shows you the deepening opportunities in an HTML report. Once you pick one and want to compare interfaces, it calls [architect](../../skills/architect/SKILL.md), which gives each parallel runner a different interface direction. You see the competing designs and the recommendation before deciding what to build.
+To find modules worth deepening, ask for [Improve codebase architecture](../../skills/mmw-mode/playbooks/improve-codebase-architecture.md). It shows you the deepening opportunities in an HTML report. Once you pick one and want to compare interfaces, it calls [architect](../../skills/architect/SKILL.md), which runs [arena](../../skills/arena/SKILL.md) with contrasting design directions through its [Design it twice](../../skills/architect/references/design-it-twice.md) reference. By default you receive a plain-language summary of the recommended shape and trade-offs, and the code-level design package attaches to the execution ticket once you authorize implementation. Ask for a design review before implementation when you want to compare Arena candidates before deciding.
 
 ## Fan out attempts with [arena](../../skills/arena/SKILL.md)
 

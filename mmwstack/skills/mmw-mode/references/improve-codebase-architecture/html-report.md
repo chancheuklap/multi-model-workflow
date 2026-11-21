@@ -45,10 +45,12 @@ Each deepening opportunity is one `<article>`:
 - **Badge row**: recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `local-substitutable`, `ports & adapters`, `mock`). The opportunity you'd tackle first also gets a `Recommended first` badge with its reason beside it.
 - **Files**: monospaced list in a small font.
 - **Before / After diagram**: the centrepiece. Two columns, side by side, with a legend beside it for the marks it uses: solid box = module, dashed line = seam, red arrow = leakage, thick dark box = deep module. See patterns below.
-- **Problem**: what hurts.
-- **Solution**: what changes.
-- **Benefits**: bullets. e.g. "Tests hit one interface", "Pricing logic stops leaking", "Delete 4 shallow wrappers".
-- **ADR callout** (if applicable): in an amber-tinted box.
+- **Problem**: one sentence. What hurts.
+- **Solution**: one sentence. What changes.
+- **Benefits**: bullets, 6 words or fewer each. e.g. "Tests hit one interface", "Pricing logic stops leaking", "Delete 4 shallow wrappers".
+- **ADR callout** (if applicable): one line in an amber-tinted box.
+
+No paragraphs of explanation. If the diagram needs a paragraph to be understood, redraw the diagram.
 
 ## Diagram patterns
 
