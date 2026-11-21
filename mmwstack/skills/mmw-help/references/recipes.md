@@ -48,5 +48,5 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 - `/ketchup` catches you up on this chat since your last message and lists every call that waits on you.
 - `/mmw-mode full autopilot on this queue. each item is independent.`
 - `/mmw-mode autopilot these changes, but don't merge. i'll land them.`
-- `/reflect capture what we learned so the next run doesn't repeat it.` Approve only edits that change a future decision.
+- `/correct retro on this session. capture durable lessons in skills or repo checks.` Approve only edits that change a future decision.
 - `/bro` restates your goal, then restates the last reply in plain words. Say what you need, such as `/bro what changed while I was away`, and it hands off to the matching skill.
