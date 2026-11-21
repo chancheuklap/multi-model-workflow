@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or idea while keeping the project's glossary and ADRs current with domain-modeling. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: "Relentlessly stress-test a plan, decision, or idea while updating glossary and ADRs via domain-modeling. Use on plan stress-tests or 'grill' triggers."
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.

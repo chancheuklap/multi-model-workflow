@@ -1,6 +1,6 @@
 ---
 name: bro
-description: "Align understanding. Restate the user's goals and problem, then restate your last message in plain language. Hand off to ketchup, ketchup-video, recall, teach, big-pics-little-words, or sharpen when the user's words call for one. Use for /bro."
+description: "Restate the user's goal, problem, and your last reply plainly, or route to a narrower clarity skill. Use only for /bro."
 ---
 
 Restate in your own words what you think the user's goals are and what problem they're trying to solve.

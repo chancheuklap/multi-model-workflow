@@ -1,6 +1,6 @@
 ---
 name: mmw-help
-description: Guides users through mmwstack setup, /mmw-mode, and picking the skill, playbook, or principle for a task. Type /mmw-help with a question.
+description: "Guide mmwstack setup, /mmw-mode, and choosing a skill, playbook, or principle. Use for /mmw-help."
 ---
 
 # MMW help

@@ -1,6 +1,6 @@
 ---
 name: mmw-mode
-description: MMW's agent style for concise, detailed responses, deliberate subagents, unslopped prose, simple code, and verified work. Use for /mmw-mode, or requests to work in this style.
+description: "MMW agent style for concise, verified work, deliberate subagents, unslopped prose, and simple code. Use for /mmw-mode or style requests."
 icon: crown
 color: yellow
 ---

@@ -1,8 +1,6 @@
 ---
 name: create-skill
-description: >-
-  Create Agent Skills. Use when authoring a new skill or asking about
-  SKILL.md structure.
+description: "Create Agent Skills or answer SKILL.md structure questions."
 ---
 # Creating Agent Skills
 

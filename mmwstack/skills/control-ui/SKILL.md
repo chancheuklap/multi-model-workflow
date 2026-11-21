@@ -1,6 +1,6 @@
 ---
 name: control-ui
-description: Build or adapt a local browser/CDP harness to drive and inspect a web, IDE, or Electron UI. Use within a verification skill for local UI verification, screenshots, accessibility snapshots, perf profiles, visual diffs, or reproducing UI bugs.
+description: "Build or adapt a local browser/CDP harness inside a verification skill to drive and inspect web, IDE, or Electron UIs (screenshots, a11y, perf, diffs, repros)."
 ---
 
 # Control UI

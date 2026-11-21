@@ -1,6 +1,6 @@
 ---
 name: principle-boundary-discipline
-description: "Apply when wiring validation, error handling, or framework adapters. Validate inputs at the boundary, trust internal types, and keep business logic pure. Catch errors where you can recover or translate them."
+description: "Apply when wiring validation, error handling, or framework adapters."
 ---
 
 # Boundary Discipline

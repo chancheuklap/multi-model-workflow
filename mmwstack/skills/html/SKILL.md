@@ -1,6 +1,6 @@
 ---
 name: html
-description: Create or redesign self-contained single-file HTML artifacts with a visual direction shaped by the user's brief, project, and subject. Use when HTML is the deliverable for a report, explainer, landing page, presentation, tool, mixed artifact, or broad request. This is the HTML collection's only implicit router. Route clear wireframe, interactive prototype, mockup, HTML plan, or diagram requests to the matching direct-invocation specialist when available. Do not use for ordinary application implementation when a standalone HTML file is not the deliverable.
+description: "Create or redesign standalone single-file HTML deliverables (report, explainer, landing page, deck, tool, mixed or broad). Sole implicit HTML router; delegate wireframe, prototype, mockup, plan, or diagram to specialists. Not for app code."
 ---
 
 # HTML

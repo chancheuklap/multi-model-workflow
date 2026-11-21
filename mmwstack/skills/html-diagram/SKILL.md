@@ -1,6 +1,6 @@
 ---
 name: html-diagram
-description: Direct-invocation specialist for self-contained HTML diagrams whose layout, notation, and interaction clarify relationships, sequence, topology, state, hierarchy, or quantitative structure. Use when the user explicitly invokes html-diagram or the broad html skill routes a diagram request here. Do not activate independently from a general request.
+description: "Standalone HTML diagrams (relationships, sequence, topology, state, hierarchy, quantitative). Explicit invoke or html-routed only; never auto-trigger."
 ---
 
 # HTML Diagram
