@@ -1,6 +1,6 @@
 ---
 name: codebase-dic
-description: Shared vocabulary and principles for deep modules (module, interface, implementation, depth, seam, adapter, leverage, locality, deletion test). Consult when designing or reviewing a module's shape, or when another skill invokes it. Reference only, not a session to run.
+description: "Deep-module vocabulary and principles for designing or reviewing module shape. Reference only, not a session to run."
 ---
 
 # codebase-dic

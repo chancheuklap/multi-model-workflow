@@ -1,6 +1,6 @@
 ---
 name: principle-minimize-reader-load
-description: "Apply when reviewing code that's hard to trace or deciding whether to extract a helper. Count the layers and hidden state a reader must follow. Extract a helper when it serves composition or reuse, hides complexity, or clarifies the caller."
+description: "Apply when tracing complex code or deciding whether to extract a helper."
 ---
 
 # Minimize Reader Load

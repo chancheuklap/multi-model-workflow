@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Sketch types, interfaces, and module boundaries before code, then stay in the loop while implementation fills in. Use for /architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape."
+description: "Design types, interfaces, and module boundaries before code and guide implementation. Use for 'design this' or non-trivial work risking the wrong shape."
 ---
 
 # Architect

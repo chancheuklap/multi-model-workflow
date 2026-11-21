@@ -1,6 +1,6 @@
 ---
 name: principle-write-for-where-it-is-read
-description: "Apply before writing a brief, spec, command, or other output someone else will use. Identify the recipient, their task, and what context they will have where they read or run it."
+description: "Apply before writing a brief, spec, command, or handoff for another reader."
 ---
 
 # Write for Where It Is Read

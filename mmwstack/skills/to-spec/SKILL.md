@@ -1,6 +1,6 @@
 ---
 name: to-spec
-description: "Turn a discussion or the decisions on a settled Wayfinder map into a spec and publish it to the GitHub work issue: no interview, just synthesis of what you've already discussed."
+description: "Synthesize a discussion or settled Wayfinder map into a spec and publish it to the GitHub work issue without interviewing."
 ---
 
 # To spec

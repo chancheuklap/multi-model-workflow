@@ -1,9 +1,6 @@
 ---
 name: big-pics-little-words
-description: >-
-  Explain the current subject in HTML with large visuals and the text
-  needed to understand them while preserving key details. Use when the user
-  or another skill names big-pics-little-words.
+description: "Explain the current subject in HTML with large visuals and concise supporting text. Use only when named by the user or another skill."
 ---
 
 

@@ -20,40 +20,32 @@ Run it again whenever your habits drift:
 
 Update mode mines only the history since the skill last changed. It keeps rules you haven't contradicted, revises the ones with new evidence, and adds sections only for new patterns.
 
-## Capture a session's lessons with [reflect](../../skills/reflect/SKILL.md)
-
-Right after a task that taught you something, run:
-
-```text
-/reflect that took way too long. capture what we learned so the next run doesn't repeat it.
-```
-
-[reflect](../../skills/reflect/SKILL.md) reads the transcript, keeps only lessons that would change a future agent's work, and sorts the proposals into `Accepted`, `Rejected`, and `Backlog`. It waits for your approval before any skill changes. Approve a proposal only if it would change a future decision. One weird session is an anecdote, not a rule.
-
 ## Fix the environment with [correct](../../skills/correct/SKILL.md)
 
-When you correct agents for the same mistake again and again, the fix belongs in the repo, not in your next prompt. Rank the options by how well they hold:
+When agents repeat a mistake or struggle through a session, route the fix to the highest level of enforcement that works instead of repeating yourself in chat:
 
 1. Make the mistake impossible with architecture or a better data structure.
 2. Block it with types, or with a lint or CI check whose error names the fix.
-3. Catch it with a test.
-4. Write it down as a doc or agent rule. Nothing fails when an agent skips a rule, so this comes last.
+3. Catch it with a behavioral test.
+4. Write it down last, as a review standard, a skill edit, or a navigation pointer, only for genuine judgment calls.
 
-Human review isn't on the list. A reviewer who must catch the same mistake on every PR is the problem this fixes. [correct](../../skills/correct/SKILL.md) does the work:
+Human review is not on the list. A reviewer who must catch the same mistake on every PR is the problem this fixes. [correct](../../skills/correct/SKILL.md) handles both repository environment improvements and durable skill edits from one entry point:
 
 ```text
 /correct agents keep calling the database client directly instead of going through the repository layer
 ```
 
-It reads recent commits, reverts, review comments, and comments that explain workarounds, then groups the mistakes into classes. A class counts once it has happened twice. It also looks for gaps in navigation, automated checks, coding standards, instruction files, tool cost, and information access. It fixes the most frequent classes one commit each, at the highest level that works, and proves each new check fails on a real past mistake. It also keeps a table in the agent instruction file that pairs each rule with what enforces it, so a rule that nothing enforces shows up as a repeat. The reply lists every candidate by severity. Each class comes with its evidence, the level chosen, and why a higher level didn't work. A candidate with no repeated class behind it, or outside the repo, is reported and left unchanged.
+For repeated repository mistakes, [correct](../../skills/correct/SKILL.md) reads recent commits, reverts, review comments, and workaround comments, groups repeated errors into mistake classes (two or more occurrences), fixes the most frequent classes one commit each, and proves each new check fails on a real past mistake. It keeps a rule table pairing each rule with what enforces it in a dedicated repository standards or rules doc, linked by a single navigation pointer in `AGENTS.md` or `CLAUDE.md`, so an unenforced rule that breaks again escalates immediately.
 
-Run it with no argument and it finds the classes from history on its own. For a retro, name a session, or ask for a retro and it reads the current one:
+For a rough session, ask for a retro or tell it to reflect lessons into skills:
 
 ```text
-/correct retro on this session
+/correct retro on this session. capture durable lessons in skills or repo checks.
 ```
 
-[reflect](../../skills/reflect/SKILL.md) and [correct](../../skills/correct/SKILL.md) split the work. [reflect](../../skills/reflect/SKILL.md) improves skills from one session. [correct](../../skills/correct/SKILL.md) changes the repo so a mistake class can't come back. Pair it with [architect](../../skills/architect/SKILL.md) when the fix is a new boundary. [Run many projects in parallel](./07-overnight.md#run-many-projects-in-parallel) has a prompt that does both across a whole repo.
+In a session retro, [correct](../../skills/correct/SKILL.md) reads the transcript and audits both repository environment friction (navigation pointers, unwired or missing guardrails, coding standards, bloated agent instruction files, tool economy, no-ops, and information access) and existing skills (six-month durability filter, body edits, and missed-trigger description tuning). Anything a check can enforce routes as a repository improvement candidate rather than skill prose. Single-session candidates and all skill edits wait for your approval before anything changes.
+
+Pair [correct](../../skills/correct/SKILL.md) with [architect](../../skills/architect/SKILL.md) when the fix is a new boundary. Use [repo-checks](../../skills/repo-checks/SKILL.md) when the change is installing or maintaining `.agents/checks.json` and repository hooks. [Run many projects in parallel](./07-overnight.md#run-many-projects-in-parallel) has a prompt that runs [correct](../../skills/correct/SKILL.md) and [architect](../../skills/architect/SKILL.md) across a whole repo.
 
 ## Author a focused skill
 

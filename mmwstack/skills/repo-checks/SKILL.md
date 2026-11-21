@@ -1,6 +1,6 @@
 ---
 name: repo-checks
-description: Installs repository checks, maintains slow or flaky checks from run records, and fixes a Doctor selection miss. Use when adding a repository to repo-checks or handling a Doctor checks finding.
+description: "Install repo checks, maintain slow or flaky checks from run records, and fix Doctor selection misses. Use when adding a repo or handling Doctor checks findings."
 ---
 
 # Repo checks

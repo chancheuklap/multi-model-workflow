@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: Write tests while landing code for a specified behavior, a cheap bug regression, or a behavior-preserving move, through an interface that exposes the expected behavior.
+description: "Write tests while landing code for specified behavior, regressions, or refactors through user-facing interfaces."
 ---
 
 # Write tests

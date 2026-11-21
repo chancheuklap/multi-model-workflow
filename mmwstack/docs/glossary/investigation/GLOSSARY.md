@@ -94,24 +94,3 @@ Recall's account of where the work stands. It opens with a *capsule* of at most 
 The single tag attached to each line of work in a recall brief. The tags are `[merged #N]`, `[open PR #N]`, `[in flight <branch>]`, `[verified, uncommitted]`, `[reverted #N]`, and `[planned, not started]`. Chat findings cite a chat ID.
 
 [recall](../../../skills/recall/SKILL.md)
-
-### Reviewing a session
-
-**Durable learning**:
-A finding from a particular session that would change a future agent's decision and would still apply after paths, versions, or code details change. The agent running [reflect](../../../skills/reflect/SKILL.md) ties it to a specific moment in the active transcript and proposes a destination for it.
-
-### Disposition of session findings
-
-**Missed trigger**:
-A skill was available and suited to the task but did not run. Its finding routes to the skill description. A body edit concerns a skill the transcript shows the agent used, for example by reading its instructions, naming it in a delegation brief, or running its documented commands.
-
-**Accepted finding**:
-A proposal for a specific edit, with its problem, proposed change, and destination. The operator chooses which accepted proposals to apply.
-
-**Rejected finding**:
-A proposal the agent drops with a reason, such as guidance the target skill already gives or a one-off that would not change a future decision.
-
-**Backlog finding**:
-A lesson better enforced by a mechanism such as a lint rule, script, metadata flag, or runtime check. The agent presents it under Backlog.
-
-[reflect](../../../skills/reflect/SKILL.md)

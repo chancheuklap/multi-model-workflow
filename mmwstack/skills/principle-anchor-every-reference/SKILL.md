@@ -1,6 +1,6 @@
 ---
 name: principle-anchor-every-reference
-description: "Apply when a reply, document, or diagram refers to a component, event, or source. Use its name from the source or project glossary and identify it where the reader encounters it."
+description: "Apply when citing a component, event, or source in a reply, doc, or diagram."
 ---
 
 # Anchor Every Reference
