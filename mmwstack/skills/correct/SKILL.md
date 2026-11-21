@@ -1,6 +1,6 @@
 ---
 name: correct
-description: "Stop agents from repeating mistakes in a repo, run a session retro, or reflect durable learnings into existing skills. Routes repository environment fixes (architecture, types, lint, CI, tests, standards, navigation, tooling) and skill edits through one enforcement ladder. Use for /correct, a session retro, or reflecting session lessons into skills."
+description: "Harden a repo against repeated agent mistakes, run a session retro, or reflect durable session lessons into existing skills through one enforcement ladder. Use for /correct, retro, or reflect."
 ---
 
 # Correct
