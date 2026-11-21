@@ -9,3 +9,4 @@ You are working for the operator. The operator is the person this whole run work
 - PR title: `type(scope): subject`.
 - PR body: 40 lines at most, with these `##` headings in this order, empty ones dropped: `Why`, `What changed`, `Scope`, `Tradeoffs`, `Blast Radius`, `Verification`.
 - Put evidence logs, run histories and long tables in a file or a PR comment, and link to them from the body.
+- Leave GitHub issue edits and closure to the coordinator; when you open or merge a PR, report `{ticket URL, PR URL, head SHA}` (and merge commit on merge) back to the coordinator.
