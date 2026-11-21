@@ -7,10 +7,10 @@ The assignee receives a ticket describing the result to deliver. Its PR gives re
 ### The PR and its owner
 
 **Pull request (PR)**:
-The request to merge the code change for one [execution ticket](../planning-and-tickets/GLOSSARY.md). Its `Why` section links the ticket. The main chat records the returned PR URL on the ticket so an owner or verifier can find the same change from either record.
+The request to merge the code change for one [execution ticket](../planning-and-tickets/GLOSSARY.md). The PR owner links the ticket in `Why`. The main chat records the returned PR URL in the ticket's `Handoff` and writes `Result` (and closes the ticket if GitHub left it open) after merge, so an owner or verifier can find the same change from either record.
 
 **PR owner**:
-The agent role responsible for a code ticket's PR and the sole writer of its branch in Autopilot. It receives the ticket URL and any existing PR URL. A replacement agent can take over the role. The execution playbook determines whether the owner merges the verified change or hands it to the operator.
+The agent role responsible for a code ticket's PR and the sole writer of its branch and PR body in Autopilot. It receives the ticket URL and any existing PR URL, reports the opened PR to the main chat, and leaves issue updates and closure to the main chat. A replacement agent can take over the role. The execution playbook determines whether the owner merges the verified change or hands it to the operator.
 _Avoid_: owner alone when the operator or the author of an individual finding could be meant.
 
 **Forge**:

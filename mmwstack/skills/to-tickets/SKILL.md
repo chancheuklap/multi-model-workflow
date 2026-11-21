@@ -23,7 +23,7 @@ Update the issue for that outcome whenever the work materially changes. Keep the
 
 When a standalone problem becomes one independently verifiable deliverable, draft the execution ticket on that issue using the template below. Keep the original report and evidence. Once its scope is approved, publish the reviewed draft on the same issue as `mmw:ticket`. Use the same drafting step when its execution scope changes. For several deliverables, use [Split](#split) with their spec or plan.
 
-Change only labels that describe this workflow. Create a missing label on first use. Read back the changed body, comment or labels. Return a `ready-for-agent` ticket to the execution playbook when its direct blockers clear. Close at the outcome the issue calls for. For a requested merge, record a verified stack handed to the operator as awaiting merge. Close a parent when its requested outcome and the required child outcomes are complete.
+Change only labels that describe this workflow. Create a missing label on first use. Read back the changed body, comment or labels. Return a `ready-for-agent` ticket to the execution playbook when its direct blockers clear. The main chat is the single writer for issue `Handoff`, `Result`, and closure. Record the PR URL in `Handoff` as soon as the PR opens. Close at the outcome the issue calls for: once a verified PR merges into its assigned trunk (including `project/<slug>`), write `Result` and close the ticket whenever GitHub did not auto-close it. For a requested merge, record a verified stack handed to the operator as awaiting merge. Close a parent when its requested outcome and the required child outcomes are complete.
 
 ## Draft an execution ticket
 
