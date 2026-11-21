@@ -40,19 +40,19 @@ The rule for a correction that keeps recurring. A single owner can remove the op
 ### The design seen by its callers
 
 **Design package**:
-A candidate or chosen design comprising a usage sketch, a type sketch, and a design rationale, with a module map for larger changes. Under Exhaust the Design Space, an architectural comparison uses at least two structurally distinct candidates. The chosen design package guides implementation. Arena's synthesis returns the synthesized design package, which architect also calls the synthesized design or synthesized sketch. A design package accepted by the operator (via plain-language sign-off or opt-in candidate approval) is a settled baseline for the agent that writes the code.
+A candidate or chosen design comprising a usage sketch, a type sketch, and a design rationale, with a module map for larger changes. Under Exhaust the Design Space, an architectural comparison uses at least two structurally distinct candidates. The chosen design package guides implementation. Arena's synthesis returns the synthesized design package. A design package accepted by the operator, whether from a plain-language summary or a design review before implementation, is a settled baseline for the agent that writes the code.
 
 **Usage sketch**:
 The caller's view of the proposed design, shown by example imports, calls, and results. The type sketch is derived from this usage. Under Experience First, the person importing a library is a user of the design, as is the engineer maintaining it.
 
 **Type sketch**:
-The proposed types, type signatures, and module boundaries that realize the interface (including invariants, ordering constraints, and error modes), with the implementation left open. The sketch makes it possible to trace data from input to output before the bodies are written.
+The proposed types, type signatures, and module boundaries that realize the interface, including invariants, ordering constraints, and error modes, with the implementation left open. The sketch makes it possible to trace data from input to output before the bodies are written.
 
 **Design rationale**:
-The record accompanying a sketch. It explains the choice of shape, its tradeoffs, and the alternatives considered. When Arena compares the candidates, its synthesis decision says which candidate supplied the base, what the chosen design took from other candidates, and what it left out.
+The record accompanying a sketch. It explains the choice of shape, its trade-offs, and the alternatives considered. When Arena compares the candidates, its synthesis decision says which candidate supplied the base, what the chosen design took from other candidates, and what it left out.
 
 **Design review before implementation**:
-An operator can explicitly ask [architect](../../../skills/architect/SKILL.md) to show competing candidates and wait for approval before code. By default, architect hands the code-level design package to implementation (or returns it to the invoker when another agent writes the code) and reports the recommended shape, gains in depth, locality, or seam placement, and core trade-offs to the operator in plain language.
+An operator can explicitly ask [architect](../../../skills/architect/SKILL.md) to show competing shapes or Arena candidates and wait for approval before code. By default, architect proceeds to implementation, or returns the code-level design package when another agent writes the code. It reports the recommended shape, gains in depth, locality, or seam placement, and core trade-offs to the operator in plain language.
 
 **Architecture vocabulary**:
 The terms module, interface, implementation, depth, seam, adapter, leverage, and locality as [codebase-dic](../../../skills/codebase-dic/SKILL.md) defines them. They describe the shape of the code and mean the same in every project.
@@ -107,7 +107,7 @@ A concrete implementation that satisfies an interface at a seam. One adapter des
 The distinction that determines how a deepened module can be tested. An **in-process** dependency needs no adapter. A **local-substitutable** dependency has a local stand-in. A **remote but owned** service uses a transport adapter. A **true external** service is outside the project's control and uses a mock adapter in tests.
 
 **Design red flag**:
-A property of a candidate design that warrants revision or rejection. The canonical eight flags are shallow module, information leakage, temporal decomposition, pass-through method, split ownership, two ways to do one task, importable internals (callers able to import private implementation details), and hand-synced list (copies that can drift when edited separately).
+A property of a candidate design that warrants revision or rejection. The canonical eight flags are shallow module, information leakage, temporal decomposition, pass-through method, split ownership, two ways to do one task, importable internals, and hand-synced list. Importable internals let callers import private implementation details, and a hand-synced list keeps copies that drift when edited separately.
 
 **Information leakage**:
 One implementation decision that several modules must know. Exposing a transport representation to callers, for example, makes a protocol change require edits outside the module that handles the protocol.

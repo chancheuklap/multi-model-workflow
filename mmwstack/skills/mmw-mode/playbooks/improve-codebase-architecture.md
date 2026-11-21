@@ -9,7 +9,7 @@
    - If the user named a direction (a module, a subsystem, a pain point), take it, and skip the inference below.
    - Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots, the files and areas that keep coming up, and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
 
-   Spawn a fresh `mmw-agent` for the read-only exploration. Give it the work issue URL and scope. Use the model and settings from the current host’s `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Include the relevant glossary, ADRs and [codebase-dic](../../codebase-dic/SKILL.md) in the brief. Ask for real call sites and file paths that show the friction. Include the following questions and the deletion test in the exploration prompt.
+   Spawn a fresh `mmw-agent` for the read-only exploration. Give it the work issue URL and scope. Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Include the relevant glossary, ADRs and [codebase-dic](../../codebase-dic/SKILL.md) in the brief. Ask for real call sites and file paths that show the friction. Include the following questions and the deletion test in the exploration prompt.
 
    Don't follow rigid heuristics; explore organically and note where you experience friction:
 
@@ -23,16 +23,7 @@
 
 2. **Present the deepening opportunities as an HTML report.** Produce a single self-contained HTML report and deliver it per the operator's and host's HTML artifact rules. Show the report to the user and link it.
 
-   Use [big-pics-little-words](../../big-pics-little-words/SKILL.md) with [html](../../html/SKILL.md). Each opportunity gets a **before/after visualisation**. [HTML report format](../references/improve-codebase-architecture/html-report.md) governs the scaffold, card structure, diagram patterns, and brevity bounds. [big-pics-little-words](../../big-pics-little-words/SKILL.md) and [html](../../html/SKILL.md) supply offline HTML and SVG craft without expanding cards into narrative prose. For dependency categories, consult [Deepening](../../codebase-dic/references/deepening.md).
-
-   For each opportunity, render a card with:
-
-   - **Files**: which files/modules are involved
-   - **Problem**: why the current architecture is causing friction
-   - **Solution**: plain English description of what would change
-   - **Benefits**: explained in terms of locality and leverage, and how tests would improve
-   - **Before / After diagram**: side-by-side, custom-drawn, illustrating the shallowness and the deepening
-   - **Recommendation strength**: one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
+   Render each deepening opportunity as a card with a **before/after visualization** per [HTML report format](../references/improve-codebase-architecture/html-report.md), which governs the scaffold, card structure, diagram patterns, and brevity bounds. Use [big-pics-little-words](../../big-pics-little-words/SKILL.md) and [html](../../html/SKILL.md) for offline HTML and SVG craft while keeping every card within those brevity bounds. For dependency categories, consult [Deepening](../../codebase-dic/references/deepening.md).
 
    Mark the opportunity you'd tackle first with a `Recommended first` badge on its card, with the reason beside the badge.
 
@@ -49,6 +40,6 @@
    - **Naming a deepened module after a concept not in the project's glossary?** Add the term to the relevant glossary. Create the file lazily if it doesn't exist.
    - **User rejects the opportunity with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing; skip ephemeral reasons ("not worth it right now") and self-evident ones.
 
-   **Want to explore alternative interfaces for the deepened module?** Give [architect](../../architect/SKILL.md) the selected module, real call sites, dependencies, and settled constraints, and ask for alternative interfaces to the module. This playbook leaves implementation to the execution ticket, so [architect](../../architect/SKILL.md) runs its `design-it-twice` reference through [arena](../../arena/SKILL.md) and returns the synthesized design package with a plain-language summary of gains and trade-offs (or pauses with candidate comparisons when the operator asks to review before code).
+   **Want to explore alternative interfaces for the deepened module?** Pass the selected module, real call sites, dependencies, and settled constraints to [architect](../../architect/SKILL.md), and ask for alternative interfaces to that module. Tell it that implementation belongs to the execution ticket, so it returns the design package and design rationale for this session to record.
 
-**Reply:** Link the HTML report. Record the findings and decisions on the work issue with [to-tickets](../../to-tickets/SKILL.md#update) and name any project glossary or ADR file that step 3 changed. Stop on the work issue before Opening a PR. When the operator authorizes implementation, route the execution ticket to [Refactoring](refactoring.md) for a change that preserves behavior, or [Feature](feature.md) for changed behavior. If step 3 ran [architect](../../architect/SKILL.md) and the operator accepted the resulting design package (via plain-language sign-off or opt-in candidate approval), attach it to the execution ticket as a settled baseline and skip that downstream playbook's architect step. If step 3 settled constraints without running [architect](../../architect/SKILL.md), the downstream playbook runs [architect](../../architect/SKILL.md) as usual.
+**Reply:** Link the HTML report. Record the findings and decisions on the work issue with [to-tickets](../../to-tickets/SKILL.md#update) and name any project glossary or ADR file that step 3 changed. Stop on the work issue before Opening a PR. When the operator authorizes implementation, route the execution ticket to [Refactoring](refactoring.md) for a change that preserves behavior, or [Feature](feature.md) for changed behavior. If step 3 produced an accepted design package from [architect](../../architect/SKILL.md) (whether from a plain-language summary or from a design review before implementation), attach it to the execution ticket as a settled baseline and note that the design is settled so the downstream playbook skips its architect step. If step 3 settled constraints without producing a design package, the downstream playbook runs architect as usual.
