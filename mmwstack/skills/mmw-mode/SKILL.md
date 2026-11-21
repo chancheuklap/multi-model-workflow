@@ -101,6 +101,8 @@ Read the linked leaf skill in full for any principle you apply. Each entry names
 
 **Execution environment.** At task start, the main chat determines the [execution environment](../../docs/glossary/routing-and-delegation/GLOSSARY.md#people-and-instructions) (`local` or `cloud`) from the workspace its host assigned. Every skill, including one invoked directly, uses that value. Before starting a subagent, the dispatcher confirms the host runs the route in the task's execution environment. This includes replacements and nested dispatch.
 
+**Session root and target worktrees.** Keep every delegate's session root in the parent session's workspace, which is the Home Repo checkout in a Home Repo workflow, so owner instructions, hooks, skills, and role definitions remain active. Pass target repository worktrees as absolute paths in the brief, and mount them through host dispatch where supported.
+
 Start each brief with `Read <path>/worker.md before anything else.`. Use the absolute path to the [worker.md](worker.md) directory in the receiving workspace. Give the execution environment, goal, scope, completion condition and operator authorization. For nested dispatch, include the host, a readable path to this section, and the model rule file or relevant role lines.
 
 You own every subagent's work. Review the diff and write your own summary. For a second opinion, give the same question to a fresh agent. Compare its evidence with yours.
