@@ -1,6 +1,6 @@
 ---
 name: codebase-dic
-description: Shared vocabulary for designing deep modules. Use when another skill needs the deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality) or its principles (the deletion test, the interface is the test surface, one adapter means a hypothetical seam). Reference to consult, not a session to run.
+description: Shared vocabulary for designing deep modules. Use when designing or reviewing a module's interface, depth, or seam, applying the deletion test, or when another skill needs the deep-module vocabulary (module, interface, implementation, depth, seam, adapter, leverage, locality). Reference to consult, not a session to run.
 ---
 
 # codebase-dic
@@ -111,4 +111,4 @@ Good interfaces make testing natural:
 ## Going deeper
 
 - **Deepening a cluster given its dependencies**, see [Deepening](references/deepening.md) for dependency categories, seam discipline, and tests at the interface.
-- **Exploring alternative interfaces**, use [architect](../architect/SKILL.md).
+- **Exploring alternative interfaces to one module**, use [architect](../architect/SKILL.md) (which loads its `design-it-twice` reference).
