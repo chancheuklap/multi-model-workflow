@@ -41,7 +41,7 @@ Tests alone are not sufficient verification. Check each applicable unit, live, a
 
 ### Boot recipe
 
-The coordinator dispatches a fresh, read-only PR verifier independent of the author in the task's execution environment. Once the coder has stopped and its worktree is clean at the exact pushed PR head SHA (`git status` empty and `HEAD` matching the PR `headRefOid`), run the verifier in that same worktree; create a separate local worktree or cloud workspace when the coder is still concurrently modifying that worktree or when the cloud environment requires one. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
+The coordinator dispatches a fresh, read-only PR verifier independent of the author in the task's execution environment. Once the coder has stopped and its worktree is clean at the exact pushed PR head SHA (`git status` empty and `HEAD` matching the PR `headRefOid`), assign the verifier to inspect that same worktree; create a separate local worktree or cloud workspace when the coder is still concurrently modifying that worktree or when the cloud environment requires one. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
 
 - [ ] Confirm the verifier's assigned worktree or cloud workspace is clean at `<head SHA>` (or run `git fetch origin <head-branch> && git checkout <head SHA>` in a separate workspace).
 - [ ] <Start the backend and the surface. Wait for ready.>
