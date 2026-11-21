@@ -90,8 +90,7 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Open or update a GitHub work issue, or draft execution tickets from a spec or plan | [to-tickets](../to-tickets/SKILL.md) |
 | Pick a model for each role and a reasoning budget | [setup-mmwstack](../setup-mmwstack/SKILL.md) or [Pick your models](../../docs/guide/01-setup.md#pick-your-models) |
 | Turn their own working habits into a personal mode skill | [automate-me](../automate-me/SKILL.md) |
-| Turn what a finished task taught into skill edits | [reflect](../reflect/SKILL.md) |
-| Stop agents from repeating the same mistakes in this repo, or run a retro on a session | [correct](../correct/SKILL.md) |
+| Stop agents from repeating mistakes in a repo, run a session retro, or turn session lessons into skill edits | [correct](../correct/SKILL.md) |
 | Build a page whose buttons wake a Grok Bot over a webhook | [make-bot-ui](../make-bot-ui/SKILL.md) |
 | Find their way around mmwstack | [mmw-help](SKILL.md) |
 
@@ -151,7 +150,7 @@ For a run that drifts, [`references/prompting.md`](references/prompting.md) has 
 ## Make mmwstack my own
 
 - [automate-me](../automate-me/SKILL.md) drafts a personal mode skill from the user's own history, to use alongside [mmw-mode](../mmw-mode/SKILL.md).
-- [reflect](../reflect/SKILL.md) after a session turns its lessons into skill edits the user approves.
+- [correct](../correct/SKILL.md) hardens a repo against repeated mistake classes, audits a session's environment friction, and turns durable session lessons into skill edits the operator approves.
 - `/mmw-mode write a skill for <workflow>` runs the authoring playbook, which shapes the skill with [writing-for-agents](../writing-for-agents/SKILL.md) and drafts it with [create-skill](../create-skill/SKILL.md). The eval playbook tests a skill change blind.
 - Fix a misbehaving skill in its own PR, not inside the feature work where it went wrong.
 

@@ -133,8 +133,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [big-pics-little-words](./skills/big-pics-little-words/SKILL.md) | explain a subject with large visuals and enough text to understand the details. |
 | [html](./skills/html/SKILL.md) | build a self-contained HTML artifact. use [html-wireframe](./skills/html-wireframe/SKILL.md) for layout, [html-prototype](./skills/html-prototype/SKILL.md) for a mockup or interactive prototype, [html-plan](./skills/html-plan/SKILL.md) for an HTML plan, or [html-diagram](./skills/html-diagram/SKILL.md) for relationships. |
 | [design-artifact](./skills/design-artifact/SKILL.md) | choose the visual direction of an HTML artifact. |
-| [reflect](./skills/reflect/SKILL.md) | a long task landed and you want the recipe captured as a skill edit. |
-| [correct](./skills/correct/SKILL.md) | you keep correcting agents for the same mistakes, or want a retro of a session. mines history and the session you name for mistake classes, looks for navigation, check, standards, tooling, and information gaps, fixes each class at the highest level that works (architecture, then types, lint, and ci, then tests, with docs last), and keeps a table pairing each rule with what enforces it. |
+| [correct](./skills/correct/SKILL.md) | stop agents from repeating mistakes in a repo, run a session retro, or reflect durable learnings into existing skills. routes repository environment fixes (architecture, types, lint, ci, tests, standards, navigation, tooling) and skill edits through one enforcement ladder. |
 | [teach](./skills/teach/SKILL.md) | you want to actually understand a change or subsystem, not just have it summarized. runs how + why and weaves one plain explanation, built up diagram by diagram. |
 | [write-tests](./skills/write-tests/SKILL.md) | you are landing code and want its tests written well. failing test first for a specified behavior or a cheap bug regression, and a green run before and after a behavior-preserving move. |
 | [benchmark-checklist](./skills/benchmark-checklist/SKILL.md) | you ran a benchmark or measured a speedup or regression. vets the number (limiter, tuning, errors, repeat runs, end-to-end relevance) before you report or act on it. |
@@ -195,9 +194,7 @@ arena:             /arena take my prompt to the arena verbatim. i want to compar
 code-review:       /code-review project/billing
 write-tests:       /write-tests implement
 unslop:            can we unslop and tighten the new changes?
-reflect:           /reflect that took too long. capture what we learned so the next run doesn't
-                   repeat it.
-correct:           /correct
+correct:           /correct retro on this session. capture durable lessons in skills or repo checks.
 show-me-your-work: /show-me-your-work keep a decision trail i can review when i'm back.
 automate-me:       /automate-me
 help:              /mmw-help which skill should i use to review this branch?
