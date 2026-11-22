@@ -15,7 +15,7 @@ Find the spec issue the branch's tickets draw on, and the execution tickets whos
 
 ## Fan out
 
-Spawn one fresh subagent for each axis, in parallel, assigning each its own worktree at the reviewed commit. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host’s `code review` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Give each the diff, the reviewed commit, the spec and the landed tickets, the standards files that govern the changed paths, and the reference for its axis. The reviewer leaves the reviewed files unchanged and pushes nothing.
+Reuse an existing clean checkout already at the reviewed commit, or create one detached-HEAD read-only checkout at that commit with no review branches. Spawn one fresh subagent for each axis in parallel and assign all three to that shared checkout. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host’s `code review` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Give each the shared checkout path, the diff, the reviewed commit, the spec and the landed tickets, the standards files that govern the changed paths, and the reference for its axis. The reviewer leaves the reviewed files unchanged and pushes nothing.
 
 | Axis | Reference |
 | --- | --- |
@@ -32,6 +32,8 @@ Check each finding against the reviewed commit. Do not review the diff again. Re
 For each kept finding, name the approved requirement it affects. Say whether the evidence shows a defect this work introduced, an existing defect, or an uncertain cause. A valid finding does not authorize a repair by itself.
 
 A **hard finding** is a documented-standard breach, a spec finding, or a test finding you kept. A **judgement call** is a baseline smell.
+
+After you check every finding and rerun any runtime reproductions, remove the temporary detached checkout if this review created it.
 
 ## Report
 
