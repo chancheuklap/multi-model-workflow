@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Review a project branch once across Standards, Spec, and Tests after its spec tickets land. Use only when the operator asks for a branch code review."
+description: "Review a project branch once on the Standards, Spec, and Tests axes after its spec's execution tickets land. Use only when the operator asks for a branch code review."
 ---
 
 # Code review

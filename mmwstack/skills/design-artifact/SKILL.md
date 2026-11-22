@@ -1,6 +1,6 @@
 ---
 name: design-artifact
-description: "Visual design principles and creative direction for HTML deliverables (palette, typography, layout, theming) to avoid generic AI styling."
+description: "Visual design principles and creative direction for HTML artifacts (palette, typography, layout, theming, visual register) to avoid generic AI styling."
 ---
 
 Before shaping the artifact, use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md), [principle-everything-at-hand](../principle-everything-at-hand/SKILL.md), and [principle-anchor-every-reference](../principle-anchor-every-reference/SKILL.md).

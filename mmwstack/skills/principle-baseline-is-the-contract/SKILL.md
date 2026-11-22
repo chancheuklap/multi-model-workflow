@@ -1,6 +1,6 @@
 ---
 name: principle-baseline-is-the-contract
-description: "Apply when implementing or documenting a settled spec, prototype, or operator decision."
+description: "Apply when implementing or documenting a settled baseline from a spec, approved prototype, or operator decision."
 ---
 
 # The Baseline Is the Contract

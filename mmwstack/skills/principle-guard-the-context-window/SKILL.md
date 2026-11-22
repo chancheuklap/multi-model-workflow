@@ -1,6 +1,6 @@
 ---
 name: principle-guard-the-context-window
-description: "Apply when large outputs, screenshots, long files, or fan-out reads threaten context."
+description: "Apply when large outputs, screenshots, long files, or fan-out planning threaten the context window."
 ---
 
 # Guard the Context Window

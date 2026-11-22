@@ -1,6 +1,6 @@
 ---
 name: maintain-formal-verification-skill
-description: "Sync a project's formal verification with code changes, rerun, and classify drift vs bugs. Use for \"is the model still true to the code\" or post-merge/refactor rechecks."
+description: "Sync a project's formal verification with code changes, rerun, and classify verification drift vs bugs. Use for \"is the model still true to the code\" or post-merge/refactor rechecks."
 ---
 
 # Maintain a formal verification skill

@@ -1,6 +1,6 @@
 ---
 name: figure-it-out
-description: "Design an auditable playbook when no narrower one fits (large migrations, multi-part changes, unattended reviewable work). Use for 'figure it out'."
+description: "Design an auditable bespoke playbook when no narrower one fits (large migrations, multi-part changes, unattended reviewable work). Use for 'figure it out'."
 ---
 
 # Figure it out

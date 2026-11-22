@@ -1,6 +1,6 @@
 ---
 name: wizard
-description: "Generate an interactive bash wizard for human-only steps (infra, credentials, CI secrets, third-party dashboards, cutovers). Never use for agent-doable steps."
+description: "Generate an interactive bash wizard for human-only steps (infrastructure, credentials, CI secrets, third-party dashboards, cutovers). Never use for agent-doable steps."
 ---
 
 # Wizard

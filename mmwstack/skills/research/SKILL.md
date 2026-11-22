@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Investigate a question via primary sources and save findings as a repo Markdown file. Use for topic research, docs/API lookup, or delegated reading legwork."
+description: "Investigate a question via primary sources and save a research report in the repo. Use for topic research, docs/API lookup, or delegated reading legwork."
 ---
 
 # Research

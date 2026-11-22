@@ -1,6 +1,6 @@
 ---
 name: statechart
-description: "Model-check a TLA+ state machine, draw a Mermaid statechart, and report shortest paths to rule violations. Use to verify state flows or show bugs as state paths."
+description: "Check a TLA+ model, draw a Mermaid statechart, and report each shortest bug path that breaks a rule. Use for /statechart or to show a bug as a path through states."
 ---
 
 # Statechart

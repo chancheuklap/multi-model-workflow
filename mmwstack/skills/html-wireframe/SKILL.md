@@ -1,6 +1,6 @@
 ---
 name: html-wireframe
-description: "Low-fidelity standalone HTML wireframes (hierarchy, navigation, task flow, layout). Explicit invoke or html-routed only; never auto-trigger; polished mockups use html-prototype."
+description: "Low-fidelity standalone HTML wireframes (hierarchy, navigation, task flow, layout). Explicit invoke or html-routed only. Never auto-trigger. Polished mockups use html-prototype."
 ---
 
 # HTML Wireframe
