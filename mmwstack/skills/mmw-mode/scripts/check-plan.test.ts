@@ -6,16 +6,18 @@ import { spawnSync } from "node:child_process";
 import { expect, test } from "bun:test";
 
 const checker = join(import.meta.dir, "check-plan.mjs");
-const rule =
+const legacyBoxesRule =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
-const currentRule =
+const legacyEvidenceRule =
 	"Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.";
+const currentRule =
+	"Tests alone are not sufficient verification. Check each applicable unit, live, formal, and perf requirement against its evidence.";
 
 const validPlan = `# Demo
 
 ## How to read this
 One box is one unit of work and names the evidence. Check a box only when its evidence exists. See playbooks/.
-${rule}
+${legacyBoxesRule}
 
 ## Execution setup
 - [ ] Create project/demo from dev and run playbooks/autopilot-stack.md.
@@ -55,10 +57,13 @@ const runPlan = (example: string, expectedExit: number, plan = validPlan) => {
 	}
 };
 
-test("accepts ticket-specific verification and plans already in progress", () => {
-	expect(runPlan("", 0, validPlan.replace(rule, currentRule)).stdout).toContain("0 problems");
+test("accepts formal verification rule and plans already in progress", () => {
+	expect(runPlan("", 0, validPlan.replace(legacyBoxesRule, currentRule)).stdout).toContain("0 problems");
+	expect(runPlan("", 0, validPlan.replace(legacyBoxesRule, legacyEvidenceRule)).stdout).toContain("0 problems");
 	expect(runPlan("", 0, validPlan).stdout).toContain("0 problems");
-	expect(runPlan("", 1, validPlan.replace(rule, "")).stderr).toContain("How to read this lacks");
+	expect(runPlan("", 1, validPlan.replace(legacyBoxesRule, "")).stderr).toContain(
+		`How to read this lacks "${currentRule}"`,
+	);
 });
 
 test("requires Execution setup with a Boot recipe outside fenced examples and comments", () => {
@@ -72,7 +77,7 @@ test("requires Execution setup with a Boot recipe outside fenced examples and co
 		(text: string) => `~~~text\n${text}\n~~~`,
 		(text: string) => `<!--\n${text}\n-->`,
 	]) {
-		expect(runPlan("", 1, validPlan.replace(rule, hide(currentRule))).stderr).toContain(
+		expect(runPlan("", 1, validPlan.replace(legacyBoxesRule, hide(currentRule))).stderr).toContain(
 			`How to read this lacks "${currentRule}"`,
 		);
 		expect(runPlan("", 1, validPlan.replace("### Boot recipe", hide("### Boot recipe"))).stderr).toContain(
