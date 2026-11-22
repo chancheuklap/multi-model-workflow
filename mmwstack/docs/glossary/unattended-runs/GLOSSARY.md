@@ -68,6 +68,7 @@ The operator's zero-writes order to every Autopilot owner. Owners report their s
 
 **Decision trail**:
 The record of decisions the operator can audit after a run. In an unattended execution, it is an append-only log. Each row names its time, phase, decision, reason, evidence pointer, and result. A correction adds a row that supersedes the original. Wayfinder keeps its trail across sessions in the map index and the linked decision tickets. A hillclimb uses an attempt log with measured results. [Hillclimb experiments](../performance/GLOSSARY.md#hillclimb-experiments)
+_Avoid_: decision log alone when it could be confused with a [Hillclimb decision log](../performance/GLOSSARY.md#hillclimb-experiments).
 
 **Run (decision trail)**:
 One agent conversation, including later turns and context summaries. A replacement agent, a pickup, or a new chat starts a new run, even when the same task and decision trail continue.
@@ -76,7 +77,7 @@ One agent conversation, including later turns and context summaries. A replaceme
 A decision-trail row with phase `start` that marks where a run adds to an existing log or resumes after another run wrote to it. Its evidence identifies the current run, and it names the preceding timestamp range written by others.
 
 **Trail audit**:
-A comparison of a run's decision rows with its transcript and the evidence each row points to. Missing decisions and unsupported claims get new rows. If the execution record is unavailable, the audit identifies the claims it could not check.
+A comparison of a run's decision rows with its transcript and the evidence each row points to. Missing decisions and unsupported claims get new rows. If the transcript is unavailable, the audit identifies the claims it could not check.
 
 **Attention**:
 The closing section of a report for a run that produced a decision trail. An independent reviewer who did none of the work checks the log and transcript for weak evidence, skipped verification, or risky choices. The section identifies the reviewer and its flags, records no flags, or says the independent review could not run.

@@ -72,7 +72,7 @@ The playbook that assigns authorized tickets and directs their delivery. It rece
 The operator's saved assignments of models and settings to roles, in `~/.agents/mmwstack-models.md` or the rule file the operator supplies. Each dispatcher reads the section for its host. A subagent that will delegate receives that section or the role lines it needs. An assignment that cannot run leaves an unfilled role.
 
 **Model role**:
-A named kind of assignment in the model rule. Autopilot starts its PR owner on `coder`. Autopilot and Shipping assign independent PR checks to `verifier`. Scoped code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A single-agent [research](../../../skills/research/SKILL.md) report and a factual lookup for [grilling](../../../skills/grilling/SKILL.md) both use `judgment and prose`.
+A named kind of assignment in the model rule. Autopilot starts its PR owner on `coder`. Autopilot and Shipping assign independent PR checks to `verifier`. Scoped code assignments use `feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`. `judgment and prose` covers writing and judgment, `advisor` covers consults of the advisor, `reader` covers a read-only assignment to read and report, and `code review` covers finished project-branch reviews. A single-agent [research](../../../skills/research/SKILL.md) report, a factual lookup for [grilling](../../../skills/grilling/SKILL.md), and the independent review of a decision trail in [show-me-your-work](../../../skills/show-me-your-work/SKILL.md) use `judgment and prose`.
 
 **Reasoning budget**:
 The operator's target reasoning level. The targets for `large`, `medium`, and `small` are `xhigh`, `high`, and `medium`, respectively. Setup uses the highest supported level at or below the target. A fixed effort or speed for a role takes precedence over adjustments for an assignment.
@@ -90,7 +90,7 @@ A two-seat assignment from `arena runners`. Two entries naming the same model su
 The operator's ordered list for one independent read-only judge. Arena uses the first available entry, including an explicitly inherited model. A candidate author cannot judge the submissions.
 
 **Second opinion**:
-An answer from a fresh agent given the same question.
+An answer from a fresh agent given the same question. A request for a second opinion from a stronger model routes to [advisor](../../../skills/advisor/SKILL.md), not an ordinary second opinion.
 
 **Advisor**:
 The independent agent a decision owner consults at a major decision, when stuck, or when the operator asks. It reads the brief and the repository, returns a verdict, and edits nothing. The `advisor` role supplies its model. **Advisor mode** is the operator's instruction to consult it at those checkpoints for the rest of one conversation. [advisor](../../../skills/advisor/SKILL.md)

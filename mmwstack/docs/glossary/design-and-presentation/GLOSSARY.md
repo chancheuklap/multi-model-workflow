@@ -8,6 +8,7 @@ These terms distinguish what a design settles, what a running product shows, and
 
 **HTML artifact**:
 A self-contained HTML file that a person can open to read or use. For example, a visual explanation shows a system's structure or decisions in pictures with enough text to preserve their meaning. [html](../../../skills/html/SKILL.md) · [big-pics-little-words](../../../skills/big-pics-little-words/SKILL.md)
+_Avoid_: HTML deliverable as a substitute for HTML artifact.
 
 **HTML artifact form**:
 The way a reader uses an HTML artifact. A document supports reading, a presentation paces one idea per screen, and an interface exposes actions and their results. A diagram shows relationships, while a data visualization shows a quantitative comparison. [Documents and presentations](../../../skills/html/references/documents-and-presentations.md) · [Interfaces and tools](../../../skills/html/references/interfaces.md) · [Charts and data](../../../skills/html/references/charts-and-data.md)

@@ -61,6 +61,7 @@ _Avoid_: backlog finding.
 
 **Level of enforcement**:
 The means by which a repository prevents or detects a mistake class. Removing the mistaken path through architecture takes precedence. Other levels use types or a lint or CI check that names the fix, then a behavioral test, and finally written guidance for a judgment call. A new check has to fail on a real past instance.
+_Avoid_: enforcement ladder.
 
 **Agent instruction file**:
 A persistent instruction file loaded into every session's context window, such as `AGENTS.md` or `CLAUDE.md` in a repository or global scope. Keep it concise and use it mainly for navigation pointers rather than inline standards or tables.
@@ -84,6 +85,7 @@ _Avoid_: reviewer agent.
 
 **Durable learning**:
 A finding from a session transcript that will still hold in six months, would change a future agent's decision, and routes to an existing skill the session used or should have fired. The agent running [correct](../../../skills/correct/SKILL.md) ties it to a specific moment in the transcript and proposes an edit on the skill's editable source.
+_Avoid_: durable session lessons.
 
 **Missed trigger**:
 A skill that was available and suited to the task but did not fire. Its finding routes to tuning the skill's `description`. A body edit concerns a skill the transcript shows the agent used, for example by reading its instructions, naming it in a delegation brief, or running its documented commands.

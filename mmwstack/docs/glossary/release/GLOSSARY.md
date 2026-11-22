@@ -38,6 +38,6 @@ _Avoid_: 熔断, CIRCUIT-BREAK, and any invented Chinese name.
 
 **install package**:
 The installer this skill ships for a product, far enough that a person can install it.
-_Avoid_: any invented Chinese name.
+_Avoid_: Windows installer as a substitute for install package, and any invented Chinese name.
 
 Sources include [exe-release](../../../skills/exe-release/SKILL.md) and the [Release an install package playbook](../../../skills/mmw-mode/playbooks/release-an-install-package.md).
