@@ -2,9 +2,12 @@
 import fs from "node:fs";
 import process from "node:process";
 
-const LEGACY_RULE =
-	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
-const RULE = "Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.";
+const LEGACY_RULES = [
+	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.",
+	"Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.",
+];
+const RULE =
+	"Tests alone are not sufficient verification. Check each applicable unit, live, formal, and perf requirement against its evidence.";
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -160,7 +163,7 @@ if (h1 !== -1 && howToRead) {
 	const intro = raw.slice(lines[h1].n, howToRead.n - 1).filter((text) => text.trim() !== "");
 	if (intro.length >= 10) fail(lines[h1].n, `intro is ${intro.length} lines, under ten required`);
 	const guidance = howToRead.body.map((l) => l.prose).join("\n");
-	if (![RULE, LEGACY_RULE].some((rule) => guidance.includes(rule))) fail(howToRead.n, `How to read this lacks "${RULE}"`);
+	if (![RULE, ...LEGACY_RULES].some((rule) => guidance.includes(rule))) fail(howToRead.n, `How to read this lacks "${RULE}"`);
 	for (const marker of HOW_TO_READ_MARKERS) {
 		if (!bodyText(howToRead).includes(marker)) fail(howToRead.n, `How to read this lacks "${marker}"`);
 	}

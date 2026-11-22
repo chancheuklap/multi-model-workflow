@@ -47,7 +47,7 @@ A LONG, numbered list of user stories. Each user story should be in the format o
 1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
 </user-story-example>
 
-If the project uses a project-local `verify-<app>` skill, its scripts drive the real app and assert what a person can observe, by copying a sentence from these stories. When a story states such a result, write that result as its own sentence, one a script can copy unchanged. That sentence is the expected result. This spec does not create `verify-<app>` and does not edit its `features/` map.
+If the project uses a project-local `verify-<app>` skill, its scripts drive the real app and assert what a person can observe, by copying a sentence from these stories. When a story states such a result, write that result as its own sentence, one a script can copy unchanged. That sentence is the expected result. When the change affects `covered code` of a project `formal verification skill` (`formal-verify-<area>` or a differently named skill covering that area), record any `intended change to a promise` in `Testing Decisions`. This spec does not create `verify-<app>` or a `formal verification skill`, and does not edit `features/` maps, models, or formal verification harnesses.
 
 This list of user stories should be extremely extensive and cover all aspects of the feature.
 
@@ -74,6 +74,7 @@ A list of testing decisions that were made. Include:
 - The conditions and expected result for each behavior under test
 - Which modules will be tested
 - Prior art for the tests (i.e. similar types of tests in the codebase)
+- Any `intended change to a promise` on `covered code`, naming the matching `formal verification skill` (`formal-verify-<area>` or a differently named skill covering that area), the prior promise, and the new promise
 
 ## Out of Scope
 

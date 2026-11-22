@@ -27,6 +27,7 @@ In your reply, name each principle that shaped a decision and the specific choic
 - Creating or editing a skill, `AGENTS.md`, `CLAUDE.md`, or a document an agent reaches through a pointer → the [writing-for-agents](../writing-for-agents/SKILL.md) skill, and the [create-skill](../create-skill/SKILL.md) skill when the document is a skill.
 - Before commit → [deslop](../deslop/SKILL.md). Before review → [no-comments](../no-comments/SKILL.md).
 - Verifying app behavior → use the target project's `verify-<app>` skill that covers the app and surface under test. Use [verify-this](../verify-this/SKILL.md) only when no project verification skill matches.
+- Touching `covered code` or guarded state → run every matching project `formal verification skill` (`formal-verify-<area>`, or any differently named skill covering that area) alongside `verify-<app>`. Sync any changed `model`, `formal verification harness`, or `coverage record` per [maintain-formal-verification-skill](../maintain-formal-verification-skill/SKILL.md).
 - A benchmark or performance number you measured → [benchmark-checklist](../benchmark-checklist/SKILL.md) before you report or act on it.
 - PR-status request → the **Babysit** playbook. Landing a green stack → the **Shipping** playbook.
 - Bot review comments → judge each on its merits per `references/bugbot-triage.md`.

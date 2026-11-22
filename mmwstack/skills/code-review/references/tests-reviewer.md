@@ -18,6 +18,8 @@ Check whether the chosen interface distinguishes the expected result from the fa
 
 Scripts and feature files in the project-local `verify-<app>` skill are the project's verification skill. That skill drives the real app and asserts a sentence copied from the spec. Those files are not tests at a test seam. This axis judges the tests in the assigned change and any existing proof the change relies on. The verifier runs the skill's scripts and checks that asserted sentence. A missing script is the verifier's result. This axis does not run those scripts, does not ask them for a failing-before run, and does not report them as a test seam finding.
 
+Skill files, models, and formal verification harnesses in a project `formal verification skill` (`formal-verify-<area>` or a differently named skill covering that area) are formal verification artifacts rather than tests at a `test seam`. The `PR verifier` runs those formal checks and inspects them for `verification drift` and `broken variant` detection. This axis does not run formal checks, does not ask formal models or formal verification harnesses for a failing-before unit-test run, and does not report them as a `test seam` finding.
+
 When you need the words for that finding, use [codebase-dic](../../codebase-dic/SKILL.md). It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
 ## The change's tests
