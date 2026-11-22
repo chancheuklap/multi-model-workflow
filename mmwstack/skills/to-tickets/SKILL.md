@@ -77,6 +77,8 @@ A ticket that changes a surface a person uses names the feature-file path in the
 
 When the ticket names a feature file and copies an expected-result sentence, it also tells the agent writing the code to write, inside that `verify-<app>/` directory, a drive script that performs the feature's user path and asserts that sentence, record the script's command in the feature file's `Driving it with <harness>` section, run it, and commit the script and the feature-file edit with the code. A ticket that lacks either the feature file or the sentence gets no script.
 
+A ticket that touches `covered code` or guarded state names the matching project `formal verification skill` (`formal-verify-<area>` or a differently named skill covering that area) and each affected `property` or `formal check`. It instructs the agent writing the code to sync the `model`, `formal verification harness`, and `coverage record` in the PR (leaving `sync commit` under [maintain-formal-verification-skill](../maintain-formal-verification-skill/SKILL.md) rules), change a `property` only for an `intended change to a promise` backed by cited evidence, prove `broken variant` failure when updating a model, and rerun the `formal check`.
+
 When getting it wrong is wrong **silently** (money that has to reach a terminal state, recovery after a crash, a contract an installed base already reads, a security default), name the observation that distinguishes success from that failure.
 
 ## Parent

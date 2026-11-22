@@ -14,8 +14,8 @@ You are reviewing a draft spec produced by [to-spec](../../to-spec/SKILL.md) bef
 - **Required sections and perspective.** The draft includes `Problem Statement`, `Solution`, `User Stories`, `Implementation Decisions`, `Testing Decisions`, and `Out of Scope` (plus `Further Notes` when needed). `Problem Statement` and `Solution` describe the problem and solution from the user's perspective.
 - **User stories and expected results.** `User Stories` cover every agreed outcome in `As an <actor>, I want <feature>, so that <benefit>` form. Whenever a story states a user-observable outcome, that `expected result` stands as its own standalone sentence that a plan, execution ticket, or verification script can copy unchanged.
 - **Decision-level implementation notes.** `Implementation Decisions` name modules, interfaces, schemas, API contracts, and architectural decisions without volatile file paths or raw code snippets. An inline snippet is valid only when trimmed to decision-rich parts (such as a state machine, schema, or type shape) and explicitly noted as coming from a prototype.
-- **Observable testing decisions.** `Testing Decisions` specify conditions, expected results, tested modules, and prior art rather than generic test placeholders.
-- **Verification boundary.** The spec does not claim to create a `verify-<app>` skill or edit its `features/` map.
+- **Observable testing decisions.** `Testing Decisions` specify conditions, expected results, tested modules, prior art, and any `intended change to a promise` on `covered code` rather than generic test placeholders.
+- **Verification boundary.** The spec does not claim to create `verify-<app>` or a `formal verification skill` (`formal-verify-<area>` or a differently named project formal verification skill), and does not claim to edit `features/` maps, models, or formal verification harnesses.
 
 ## 3. Document clarity
 
