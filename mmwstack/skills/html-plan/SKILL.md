@@ -1,6 +1,6 @@
 ---
 name: html-plan
-description: "Standalone HTML plans preserving source content (hierarchy, sequence, ownership, dependencies). Explicit invoke or html-routed only; never auto-trigger."
+description: "Standalone HTML plans with source fidelity (hierarchy, sequence, ownership, dependencies). Explicit invoke or html-routed only. Never auto-trigger."
 ---
 
 # HTML Plan

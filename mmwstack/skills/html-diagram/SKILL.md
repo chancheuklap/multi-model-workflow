@@ -1,6 +1,6 @@
 ---
 name: html-diagram
-description: "Standalone HTML diagrams (relationships, sequence, topology, state, hierarchy, quantitative). Explicit invoke or html-routed only; never auto-trigger."
+description: "Standalone HTML diagrams (relationships, sequence, topology, state, hierarchy, quantitative). Explicit invoke or html-routed only. Never auto-trigger."
 ---
 
 # HTML Diagram

@@ -1,6 +1,6 @@
 ---
 name: show-me-your-work
-description: "Keep a reviewable TSV decision log for long, autonomous, multi-phase, or unattended work."
+description: "Keep a reviewable TSV decision trail for long, autonomous, multi-phase, or unattended work a human reviews after stepping away. Use for /show-me-your-work."
 ---
 
 # Show me your work

@@ -1,6 +1,6 @@
 ---
 name: html-prototype
-description: "Polished, responsive standalone HTML mockups (noninteractive) and interactive prototypes. Explicit invoke or html-routed only; never auto-trigger."
+description: "Polished, responsive standalone HTML mockups (noninteractive fidelity mode) and interactive prototypes. Explicit invoke or html-routed only. Never auto-trigger."
 ---
 
 # HTML Prototype

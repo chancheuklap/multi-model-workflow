@@ -1,6 +1,6 @@
 ---
 name: html
-description: "Create or redesign standalone single-file HTML deliverables (report, explainer, landing page, deck, tool, mixed or broad). Sole implicit HTML router; delegate wireframe, prototype, mockup, plan, or diagram to specialists. Not for app code."
+description: "Create or redesign standalone single-file HTML artifacts with a tailored visual direction (report, explainer, landing page, deck, tool, mixed or broad). Sole implicit HTML router. Delegate wireframe, interactive prototype, mockup, HTML plan, or HTML diagram requests to specialists. Not for app code."
 ---
 
 # HTML

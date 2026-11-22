@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Design types, interfaces, and module boundaries before code and guide implementation. Use for 'design this' or non-trivial work risking the wrong shape."
+description: "Sketch types, interfaces, and module boundaries before code and guide implementation. Use for 'design this' or non-trivial work risking the wrong shape."
 ---
 
 # Architect

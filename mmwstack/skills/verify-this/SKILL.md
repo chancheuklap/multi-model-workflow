@@ -1,6 +1,6 @@
 ---
 name: verify-this
-description: "Verify a claim with fresh local before-and-after evidence when no project verify-<app> skill covers the target app and surface."
+description: "Verify a falsifiable claim by comparing a fresh local verification baseline and treatment when no project verification skill covers the target app and surface."
 ---
 
 # Verify This
