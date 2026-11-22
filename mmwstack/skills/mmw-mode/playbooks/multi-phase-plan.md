@@ -16,9 +16,9 @@ Start from the work issue and its agreed spec, or the agreed design in the discu
    Account for every in-scope outcome with the phase that delivers it or evidence that it already works. Check the plan against the spec's scope boundaries. Run [ambiguity-scan](../../ambiguity-scan/SKILL.md) at the **Plan** stage on the complete plan. If the scan changes the plan, rerun the checker, not the scan, on the version you hand back.
 7. Hand back. For a draft-only request, return the checked file and the script's output. Otherwise use [to-tickets](../../to-tickets/SKILL.md#open) to publish the checked plan as a direct sub-issue of its spec. If tickets were requested, give [to-tickets](../../to-tickets/SKILL.md#split) the plan issue to split its remaining work and publish the approved tickets. Post the plan issue URL and the script's output, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
 
-**Verification.** Plan how to prove each outcome on the real surface (the [principle-prove-it-works](../../principle-prove-it-works/SKILL.md) principle skill). Name the scenario, the artifact to save and its pass predicate. For performance, name the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. For an interaction change, name the screenshots and video the operator reviews. The named execution playbook applies those checks to the PR opened for each code ticket.
+**Verification.** Plan how to prove each outcome on the real surface (the [principle-prove-it-works](../../principle-prove-it-works/SKILL.md) principle skill). Name the scenario, the artifact to save and its pass predicate. When a phase touches `covered code` or guarded state, name the `property` or `formal check`, its bounds, and the sync requirement. For performance, name the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. For an interaction change, name the screenshots and video the operator reviews. The named execution playbook applies those checks to the PR opened for each code ticket.
 
-**Verification skill.** Choose the project's `verify-<app>` for each affected surface. Use [verify-this](../../verify-this/SKILL.md) only where no project verification skill matches. For an outcome that touches two surfaces, cover both. Name the selected skill and how to drive the surface in **Verify**. Record a surface you cannot exercise as a risk in Appendix C.
+**Verification skill.** Choose the project's `verify-<app>` for each affected surface and every matching project `formal verification skill` (`formal-verify-<area>` or a differently named skill covering the affected `covered code` or guarded state). Use [verify-this](../../verify-this/SKILL.md) only where no project product verification skill matches. For an outcome that touches two surfaces, cover both. Name the selected skills, how to drive the surface, and the formal check command in **Verify**. Record a surface you cannot exercise, or an uncheckable `bound` or `assumption` gap, as a risk in Appendix C.
 
 ````markdown
 # <Program> plan
@@ -31,7 +31,7 @@ One box is one unit of work. Every box names the evidence that checks it. A nest
 
 Execution follows `<mmw-mode-dir>/playbooks/<execution playbook>.md` with the project-specific parameters in **Execution setup** below.
 
-Tests alone are not sufficient verification. Check each applicable unit, live, and perf requirement against its evidence.
+Tests alone are not sufficient verification. Check each applicable unit, live, formal, and perf requirement against its evidence.
 
 ## Execution setup
 
@@ -41,11 +41,12 @@ Tests alone are not sufficient verification. Check each applicable unit, live, a
 
 ### Boot recipe
 
-The coordinator dispatches a fresh, read-only PR verifier independent of the author in the task's execution environment. Once the coder has stopped and its worktree is clean at the exact pushed PR head SHA (`git status` empty and `HEAD` matching the PR `headRefOid`), assign the verifier to inspect that same worktree; create a separate local worktree or cloud workspace when the coder is still concurrently modifying that worktree or when the cloud environment requires one. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the verification skill named in **Verify** for each affected surface.
+The coordinator dispatches a fresh, read-only PR verifier independent of the author in the task's execution environment. Once the coder has stopped and its worktree is clean at the exact pushed PR head SHA (`git status` empty and `HEAD` matching the PR `headRefOid`), assign the verifier to inspect that same worktree; create a separate local worktree or cloud workspace when the coder is still concurrently modifying that worktree or when the cloud environment requires one. Isolate ports and runtime data when verifiers share a machine, or run conflicting checks in sequence. Use the `verify-<app>` skill named in **Verify** for each affected surface and run every matching project `formal verification skill` (`formal-verify-<area>` or differently named) named in **Verify**.
 
 - [ ] Confirm the verifier's assigned worktree or cloud workspace is clean at `<head SHA>` (or run `git fetch origin <head-branch> && git checkout <head SHA>` in a separate workspace).
 - [ ] <Start the backend and the surface. Wait for ready.>
 - [ ] <Deliver input only through the user-facing driver named in Verify. Name the read-only diagnostics.>
+- [ ] <Run each matching project formal verification skill named in Verify at `<head SHA>` and confirm the model, formal verification harness, and coverage record match the diff.>
 - [ ] Save the evidence for each scenario at the location named in the ticket or plan and return links or paths the operator can open.
 
 ## Phase 1. <Goal as a verb phrase>
@@ -66,7 +67,7 @@ The coordinator dispatches a fresh, read-only PR verifier independent of the aut
 
 **Verify.**
 
-- [ ] <The check to run, what passes and where to find its evidence. Name the test case, live scenario or performance probe that proves this result. For a live check, name the selected verification skill and the driver command.>
+- [ ] <The check to run, what passes and where to find its evidence. Name the test case, live scenario, formal check, or performance probe that proves this result. For a live check, name the selected `verify-<app>` skill and the driver command. When `covered code` or guarded state changes, name the matching project formal verification skill (`formal-verify-<area>` or differently named), affected property, and check command.>
 
 **Review gate.** <None. Or name the operator's decision.>
 
@@ -86,7 +87,7 @@ The coordinator dispatches a fresh, read-only PR verifier independent of the aut
 
 ## Appendix C. Risks
 
-<Each risk with the outcome it affects and what to watch.>
+<Each risk with the outcome it affects and what to watch, including any uncheckable surface, bound, or assumption gap.>
 
 ## Appendix D. Links and reading list
 

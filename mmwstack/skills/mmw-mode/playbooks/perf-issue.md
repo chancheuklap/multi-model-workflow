@@ -17,6 +17,7 @@
 3. Plan the fix from the trace. If it crosses a function boundary, [architect](../../architect/SKILL.md) first. Delegate implementation to a subagent. Use the model and settings from the current host’s `perf-issue` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Review the diff. Capture a post-fix trace.
    Apply the [principle-sequence-verifiable-units](../../principle-sequence-verifiable-units/SKILL.md) principle skill, verifying each attempt before trying the next.
 4. Parse and compare the artifacts (JSON to sqlite, diff). "Inconclusive" or wrong-surface is not a pass. Flag it.
+   When the optimization touches `covered code` or guarded state (such as concurrency, locks, retries, or caching), run every matching project `formal verification skill` (`formal-verify-<area>` or a differently named skill covering that area) after the fix, sync any changed `model`, `formal verification harness`, and `coverage record` per [maintain-formal-verification-skill](../../maintain-formal-verification-skill/SKILL.md), prove `broken variant` failure on model updates, and confirm each `property` still holds.
 5. Cite the measurement in the PR.
 6. Run **Opening a PR**.
 

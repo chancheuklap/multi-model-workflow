@@ -70,7 +70,7 @@ From then on, "verify it in the app" is a step any agent can execute, in this re
 /mmw-mode repro this with /verify-<app>. if it repros on main, fix it and show me a video as proof.
 ```
 
-In Shipping and Autopilot the independent PR verifier uses the verification skill to run the ticket’s scenarios at the PR head and returns evidence for each.
+In Shipping and Autopilot the independent PR verifier uses `verify-<app>` to run the ticket's scenarios at the PR head and runs every matching project formal verification skill (`formal-verify-<area>` or a differently named skill covering that area) when `covered code` or guarded state changed, returning evidence for each.
 
 Treat the verification skill as infrastructure, not a one-off. Commit it, so every person and every agent on the team drives the app the same way. Then [principle-build-the-lever](../../skills/principle-build-the-lever/SKILL.md). When agents keep writing throwaway scripts to click through the app, ask for a small control CLI that the skill calls instead. Agents spend fewer tokens, and every run becomes repeatable. A CLI that agents use well has these traits:
 
@@ -111,9 +111,11 @@ The question picks the tool. Whether events can happen in a bad order suits a mo
 
 It verifies one property and shows that property failing on a broken variant of the code, because a check you've never seen fail proves nothing. When the current code already breaks the property, you get the counterexample as a short sequence of steps in your code's terms. The property stays as stated, so the finding stays a finding. Product code doesn't change unless you ask.
 
-It writes a project-local skill that tells the next agent whether a change touches the verified code, how to run the check with one command, and how to tell a real bug from a modeling error. Before handing it over, the generator follows that skill once on a scratch change that breaks the property, and the check must catch it. The handoff says what was verified, with which tool and bounds, what the check found, and what it doesn't cover. A pass covers the model or the bound, not the whole system.
+It writes `formal-verify-<area>/SKILL.md` in the project's skills directory (or uses the project's chosen name) that tells the next agent whether a change touches the `covered code` or guarded state, how to run the check with one command, and how to tell a real bug from a modeling error. Before handing it over, the generator follows that skill once on a scratch change that breaks the property, and the check must catch it. The handoff says what was verified, with which tool and bounds, what the check found, and what it doesn't cover. A pass covers the model or the bound, not the whole system.
 
 The skill also records which code each check covers and the commit where the check last matched it. Merges and refactors that skip the skill can leave the check passing on a description of code that's gone. After them, run [maintain-formal-verification-skill](../../skills/maintain-formal-verification-skill/SKILL.md). It updates the verification from the code, reruns it, shows that each updated check can still fail, and tells you whether each failure is drift in the verification or a bug in the code.
+
+A project formal verification skill sits alongside `verify-<app>` across daily delivery and independent PR verification. Whenever a change touches `covered code` or guarded state, invoke every matching project formal verification skill alongside `verify-<app>`, sync the model, formal verification harness, and coverage record in the PR (leaving `sync commit` under [maintain-formal-verification-skill](../../skills/maintain-formal-verification-skill/SKILL.md) rules), prove broken-variant failure after model updates, and record the check command, result, bounds, assumptions, and [statechart](../../skills/statechart/SKILL.md) output in PR `## Verification`. During Autopilot and Shipping, the independent read-only PR verifier reruns matching formal verification skills at the PR head SHA and inspects the diff against the model, formal verification harness, and coverage record so stale checks or unapproved weakenings fail before merge.
 
 ## Show the behavior as a statechart
 
@@ -157,7 +159,7 @@ Green is not the same as safe. When you're ready to land, say so:
 /mmw-mode land the stack.
 ```
 
-The [Shipping playbook](../../skills/mmw-mode/playbooks/shipping.md) verifies each PR independently before it arms anything. One fresh agent per PR proves the behavior live, and the agent that judges a change is never the one that wrote it. Then Shipping lands only the contiguous verified run from the bottom, one PR at a time through GitHub by default or Origin when its CLI is available, and reports the first PR that breaks the chain. A verified PR sitting above an unverified one waits, because merging it would pull the gap in underneath.
+The [Shipping playbook](../../skills/mmw-mode/playbooks/shipping.md) verifies each PR independently before it arms anything. One fresh agent per PR proves the behavior live and runs every matching project formal verification skill when `covered code` or guarded state changed, and the agent that judges a change is never the one that wrote it. Then Shipping lands only the contiguous verified run from the bottom, one PR at a time through GitHub by default or Origin when its CLI is available, and reports the first PR that breaks the chain. A verified PR sitting above an unverified one waits, because merging it would pull the gap in underneath.
 
 ## Build an install package with Release an install package
 

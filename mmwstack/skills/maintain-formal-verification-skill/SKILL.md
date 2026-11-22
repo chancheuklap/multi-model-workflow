@@ -5,7 +5,7 @@ description: "Sync a project's formal verification with code changes, rerun, and
 
 # Maintain a formal verification skill
 
-A formal check proves a property of what it describes. When the code changes and the verification does not, the check can keep passing while it describes code that no longer exists. That pass is the dangerous case, because it looks like a proof. This skill is the upkeep loop for a verify skill that [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md) generated, or for any project-local skill that runs a model checker, prover, or code-level verifier against named code. The project-local skill handles a change that an agent makes while it uses that skill. This skill handles the changes that skipped it: merges, edits made without the skill, and drift that builds up across many commits.
+A formal check proves a property of what it describes. When the code changes and the verification does not, the check can keep passing while it describes code that no longer exists. That pass is the dangerous case, because it looks like a proof. This skill is the upkeep loop for a formal verification skill that [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md) generated (`formal-verify-<area>` by default), or for any differently named project-local skill that runs a model checker, prover, or code-level verifier against named code. The project-local skill handles a change that an agent makes while it uses that skill. This skill handles the changes that skipped it: merges, edits made without the skill, and drift that builds up across many commits.
 
 ## Outcomes
 
@@ -24,7 +24,7 @@ Edit only the verification: models, harnesses, property files, and the verify sk
 
 ## Pass
 
-1. **Find the checks.** A verify skill has no fixed name, so find it by what it does: a project skill that runs a model checker, a prover, or another verifier against named code. Read each one you find, or the one the user named. For each check, collect the property, the code it covers, the bounds and assumptions, the command that runs it, and the commit where it was last confirmed to describe the code. If no verify skill exists, stop and point at [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md). If the skill does not record a sync commit, use the last commit that changed the verification files, and say that you did.
+1. **Find the checks.** Check `formal-verify-*` in the project's skills directory first, and also find any differently named formal verification skill by what it does (a project skill that runs a model checker, a prover, or another verifier against named code). Read each one you find, or the one the user named. For each check, collect the property, the code it covers, the bounds and assumptions, the command that runs it, and the commit where it was last confirmed to describe the code. If no formal verification skill exists, stop and point at [create-formal-verification-skill](../create-formal-verification-skill/SKILL.md). If the skill does not record a sync commit, use the last commit that changed the verification files, and say that you did.
 
 2. **Run it as it is.** Run each check once before you change anything, and record the result. A pass here does not tell you that the code is correct. It tells you that the old description still holds. A failure here can be drift or a bug. Do not decide which until step 5.
 
