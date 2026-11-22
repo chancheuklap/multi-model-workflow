@@ -10,7 +10,7 @@ Apply the [shared test judgment](../../write-tests/references/judgment.md). Cons
 
 Report a proposed rewrite or deletion as a finding. Quote the test, the criterion, and the correction.
 
-Create an isolated copy of the reviewed commit in this checkout for a reproduction or a deliberate mutation, with independent inputs. Restore the copy after the mutation. The mutation shows whether a test fails; it is not a change to the ticket head.
+Create an isolated copy of the reviewed commit under the OS temp directory, outside the shared read-only checkout, for a reproduction or a deliberate mutation, with independent inputs. Remove that temporary copy afterward so the shared checkout stays untouched. The mutation shows whether a test fails; it is not a change to the ticket head.
 
 ## Test seams
 
