@@ -66,7 +66,7 @@ Sources include [create-formal-verification-skill](../../../skills/create-formal
 ### Keeping a check aligned with the code
 
 **Formal verification skill**:
-A project-local skill that records how to rerun formal checks, identify changes to covered code, interpret a failure, and bring the checks back into sync. Projects choose their own skill name.
+A project-local skill, named `formal-verify-<area>` by default, that records how to rerun formal checks, identify changes to covered code, interpret a failure, and bring the checks back into sync. Projects with another naming convention can choose a different skill name, and workflows discover matching skills by what they check.
 
 **Coverage record**:
 The record for a check that names its property, covered code, bounds, assumptions, command, and sync commit. It gives the next agent the starting point for examining a change.
