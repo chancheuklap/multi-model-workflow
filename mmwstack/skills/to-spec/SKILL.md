@@ -19,8 +19,6 @@ A spec is the text the operator checks before agents build from it unattended: w
 
 3. Write the spec using the template below. Use [principle-write-for-where-it-is-read](../principle-write-for-where-it-is-read/SKILL.md) and [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md). Use [technical-writing](../technical-writing/SKILL.md) and write the prose through it. The template is the structure. The User Stories section says how an observable result is written for the project's verification skill. [Review and publish the draft](#publish).
 
-4. Use [big-pics-little-words](../big-pics-little-words/SKILL.md) to visualize the whole spec.
-
 For a spec alone, stop after showing it. If the operator requests a plan, or the approach, dependencies or checks across phases still need planning, run [Multi-phase plan](../mmw-mode/playbooks/multi-phase-plan.md) with the work issue and reviewed spec. Pass the reviewed text when the spec is a draft. Tell the playbook if tickets were also requested. For tickets requested directly from the spec, give [to-tickets](../to-tickets/SKILL.md#split) the spec and work issue.
 
 ## Publish
