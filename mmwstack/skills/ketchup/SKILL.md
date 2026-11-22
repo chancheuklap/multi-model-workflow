@@ -1,6 +1,6 @@
 ---
 name: ketchup
-description: "Catch the user up on chat changes since their last message with plain words, small visuals, and self-contained pending decisions. Use for /ketchup."
+description: "Catch the user up on chat changes since their last message with plain words, small visuals, and self-contained action items. Use for /ketchup."
 ---
 
 # Ketchup

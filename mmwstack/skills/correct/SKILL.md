@@ -1,6 +1,6 @@
 ---
 name: correct
-description: "Harden a repo against repeated agent mistakes, run a session retro, or reflect durable session lessons into existing skills through one enforcement ladder. Use for /correct, retro, or reflect."
+description: "Harden a repo against repeated mistake classes, run a session retro, or reflect durable learnings into existing skills across levels of enforcement. Use for /correct, retro, or reflect."
 ---
 
 # Correct

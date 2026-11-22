@@ -1,6 +1,6 @@
 ---
 name: create-formal-verification-skill
-description: "Generate a project-local formal-verification skill for high-cost, hard-to-test code (concurrency, retries, state machines, parsers, unsafe code). Use for \"model-check this race\" or \"prove this invariant\"."
+description: "Generate a project-local formal verification skill for high-cost, hard-to-test code (concurrency, retries, state machines, parsers, unsafe code). Use for \"model-check this race\" or \"prove this invariant\"."
 ---
 
 # Create a formal verification skill

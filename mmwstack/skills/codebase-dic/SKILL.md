@@ -1,6 +1,6 @@
 ---
 name: codebase-dic
-description: "Deep-module vocabulary and principles for designing or reviewing module shape. Reference only, not a session to run."
+description: "Architecture vocabulary and deep-module principles for designing or reviewing module shape. Reference only, not a session to run."
 ---
 
 # codebase-dic

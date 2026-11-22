@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: "Open or update a GitHub work issue through completion; draft an execution ticket or split a spec or plan into verifiable tickets with blockers."
+description: "Open or update a GitHub work issue through completion. Draft an execution ticket or split a spec or plan into independently verifiable tickets with direct blockers."
 ---
 
 # To Tickets

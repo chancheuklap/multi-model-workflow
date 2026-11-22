@@ -1,6 +1,6 @@
 ---
 name: control-cli
-description: "Build or adapt an offline local harness inside a verification skill to drive, inspect, and profile CLIs or TUIs (UX, startup, leaks, hangs, prompts, demos)."
+description: "Build or adapt an offline terminal harness inside a verification skill to drive, inspect, and profile CLIs or TUIs (UX, startup, leaks, hangs, prompts, demos)."
 ---
 
 # Control CLI

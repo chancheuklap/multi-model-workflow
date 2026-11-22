@@ -1,6 +1,6 @@
 ---
 name: blast-radius
-description: "Trace what a change could break beyond the diff and prove safety by running real code. Use for 'blast radius', 'what could this break', or risky small diffs."
+description: "Trace what a change could break beyond the diff and prove the safety fact by running real code. Use for 'blast radius', 'what could this break', or risky small diffs."
 ---
 
 # Blast radius

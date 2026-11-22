@@ -1,6 +1,6 @@
 ---
 name: show-me-your-work
-description: "Keep a reviewable TSV decision log for long, autonomous, multi-phase, or unattended work."
+description: "Keep a reviewable TSV decision trail for long, autonomous, multi-phase, or unattended work a human reviews after stepping away. Use for /show-me-your-work."
 ---
 
 # Show me your work
@@ -53,7 +53,7 @@ Commit it only when the work is ambitious enough that a reviewer needs the trail
 
 ## Audit the log against the transcript
 
-At the end of the run, before handing back, check the log told the truth. Read the execution record for this run in the active workspace. If the record is unavailable, identify which claims you could not check. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
+At the end of the run, before handing back, check the log told the truth. Read this run's transcript in the active workspace. Do not search other projects' transcripts or unrelated private chats. If the transcript is unavailable, identify which claims you could not check. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
 
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
@@ -63,7 +63,7 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Independent review of the trail
 
-Before handing back, spawn a fresh read-only agent that did none of the work. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `arena cross-judge pool` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Pick from the pool per [Arena's cross-judge rule](../arena/SKILL.md#phase-c-cross-judge). The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before handing back, spawn a fresh read-only agent that did none of the work. Self-review is not a substitute. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.

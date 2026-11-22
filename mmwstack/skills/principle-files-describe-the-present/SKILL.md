@@ -1,6 +1,6 @@
 ---
 name: principle-files-describe-the-present
-description: "Apply when writing or editing code, comments, or docs; put change history in ADRs or changelogs."
+description: "Apply when writing or editing code, comments, or docs. Put change history in ADRs or changelogs."
 ---
 
 # Files Describe the Present

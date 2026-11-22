@@ -1,6 +1,6 @@
 ---
 name: exe-release
-description: "Build a Windows installer (Electron shell and compiled Python backend) over SSH from the current branch. Use for Release an install package or product onboarding."
+description: "Build a Windows install package (Electron shell and compiled Python backend) over SSH from the current branch. Use for Release an install package or product onboarding."
 ---
 
 # Release

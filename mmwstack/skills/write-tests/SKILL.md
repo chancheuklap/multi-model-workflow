@@ -1,6 +1,6 @@
 ---
 name: write-tests
-description: "Write tests while landing code for specified behavior, regressions, or refactors through user-facing interfaces."
+description: "Write tests while landing code for specified behavior, regressions, or refactors through a test seam."
 ---
 
 # Write tests
