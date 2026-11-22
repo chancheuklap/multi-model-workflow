@@ -11,7 +11,7 @@ Write the title, PR description and commits with [technical-writing](../../techn
 - `## Scope`: always name what the change covers and leaves out.
 - `## Tradeoffs`: include only rejected alternatives a reviewer would otherwise ask about.
 - `## Blast Radius`: open with `**Door:** <one-way or two-way>`, then name who or what the change touches.
-- `## Verification`: show the real run and its outcome, before and after. Include the `SUMMARY` line from `scripts/check` for repository checks per the [repo-checks moment rules](../../repo-checks/references/checks.md#moment-rules). For performance, give one primary number with its unit and link the full results. Attach screenshots or video when they prove a claim.
+- `## Verification`: show the real run and its outcome, before and after. Include the `SUMMARY` line from `scripts/check` for repository checks per the [repo-checks moment rules](../../repo-checks/references/checks.md#moment-rules). When `covered code` or guarded state changed, record each `formal check` command, its result, its bounds and assumptions, any `broken variant` check and `intended change to a promise` evidence, and the [statechart](../../statechart/SKILL.md) output for TLA+ models. For performance, give one primary number with its unit and link the full results. Attach screenshots or video when they prove a claim.
 
 Open one PR for the assigned code ticket. If the ticket already links an open PR for this work, continue on it. Stack follow-ups by base branch. Branch independent work from trunk. Base each dependent PR on its parent's exact tip. As the parent merges, move its child onto trunk per `playbooks/shipping.md` step 4.
 
