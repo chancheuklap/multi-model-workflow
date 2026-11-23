@@ -80,7 +80,7 @@ A decision-trail row with phase `start` that marks where a run adds to an existi
 A comparison of a run's decision rows with its transcript and the evidence each row points to. Missing decisions and unsupported claims get new rows. If the transcript is unavailable, the audit identifies the claims it could not check.
 
 **Attention**:
-The closing section of a report for a run that produced a decision trail. An independent reviewer who did none of the work checks the log and transcript for weak evidence, skipped verification, or risky choices. The section identifies the reviewer and its flags, records no flags, or says the independent review could not run.
+The closing section of an operator-facing handoff report for a run that produced a decision trail. Before handing back to the operator, the main chat or root coordinator spawns one independent reviewer who did none of the work to check the decision trail (or program trails) and transcript for weak evidence, skipped verification, or risky choices. The section identifies the reviewer and its flags, records no flags, or says the independent review could not run.
 
 [show-me-your-work](../../../skills/show-me-your-work/SKILL.md) · [Decision log header](../../../skills/show-me-your-work/references/decision-log-template.tsv)
 
