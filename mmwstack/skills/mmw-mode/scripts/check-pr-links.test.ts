@@ -71,7 +71,7 @@ const fakeGh = (reply?: PullRequestReply) => {
 
 type Decision =
 	| { decision: "allow" }
-	| { decision: "deny"; reason: string; fix: string }
+	| { decision: "deny"; reason: string; fix: string; retry?: Record<string, unknown>; retries?: Record<string, unknown>[] }
 	| { decision: "context"; text: string };
 
 type Env = Record<string, string | undefined>;
@@ -477,4 +477,56 @@ test("reads the saved PR before merge and allows a non-default base", () => {
 	expect(shell("gh pr merge 5 --squash", repo, "before", viewing("Closes #8", "feat/7-x", "main")).decision).toBe("deny");
 	expect(shell("origin pr merge 5", repo, "before", viewing("Closes #7", "feat/7-x", "main")).decision).toBe("allow");
 	expect(shell("gh pr merge 5", repo, "before", viewing("Refs #7")).decision).toBe("allow");
+});
+
+test("falls back to the checked-out branch after gh pr create when --head is shell-expanded in a local repo", () => {
+	const gh = fakeGh({ body: "Closes #7", baseRefName: "main", headRefName: "feat/7-x" });
+	expect(shell('BRANCH=feat/7-x && gh pr create --base main --head "$BRANCH" --fill', ticketedRepo, "after", gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([`pr view feat/7-x ${VIEW}`]);
+});
+
+test("denies once without saving an un-clearable retry when the selector cannot be determined after a PR command", () => {
+	const crossRepo = shell('gh pr create --repo owner/other --head "$BRANCH" --fill', ticketedRepo, "after");
+	expect(crossRepo.decision).toBe("deny");
+	if (crossRepo.decision === "deny") {
+		expect(crossRepo.reason).toContain("(unknown)");
+		expect(crossRepo.retry).toBeUndefined();
+		expect(crossRepo.retries).toEqual([]);
+	}
+
+	const dynamicEdit = shell('gh pr edit "$PR" --body "ok"', ticketedRepo, "after");
+	expect(dynamicEdit.decision).toBe("deny");
+	if (dynamicEdit.decision === "deny") {
+		expect(dynamicEdit.retry).toBeUndefined();
+		expect(dynamicEdit.retries).toEqual([]);
+	}
+
+	const compound = shell('gh pr edit 5 --body x && gh pr edit "$PR" --body y', repo, "after", viewing("Closes #8", "feat/7-x", "main"));
+	expect(compound).toMatchObject({ decision: "deny", retries: [{ selector: "5" }] });
+});
+
+test("self-heals persisted Stop-hook retry records with missing or flag selectors while still denying live PR tool events", () => {
+	for (const selector of [null, "", "--bad"]) {
+		const savedRetry = { kind: "pr", cwd: plainDirectory, repo: "owner/other", selector };
+		expect(decide(JSON.stringify(savedRetry)).decision).toBe("allow");
+	}
+
+	const liveAfter = { harness: "agy", phase: "after", kind: "pr", cwd: plainDirectory, repo: "owner/other", selector: null };
+	const liveAfterResult = decide(JSON.stringify(liveAfter));
+	expect(liveAfterResult.decision).toBe("deny");
+	if (liveAfterResult.decision === "deny") {
+		expect(liveAfterResult.retry).toBeUndefined();
+		expect(liveAfterResult.retries).toEqual([]);
+	}
+
+	const liveBefore = { harness: "agy", kind: "pr", cwd: plainDirectory, repo: "owner/other", selector: null };
+	expect(decide(JSON.stringify(liveBefore)).decision).toBe("deny");
+});
+
+test("verifies a persisted retry record after its original worktree cwd has been removed", () => {
+	const goneWorktree = join(root, "deleted-worktree");
+	const gh = viewing("Closes #7", "feat/7-x", "main");
+	const savedRetry = { kind: "pr", cwd: goneWorktree, repo: "owner/other", selector: "feat/7-x" };
+	expect(decide(JSON.stringify(savedRetry), gh).decision).toBe("allow");
+	expect(gh.calls()).toEqual([`pr view feat/7-x --repo owner/other ${VIEW}`]);
 });
