@@ -332,12 +332,17 @@ function denial(judgment, { action, phase, branch, ticket, head, selector }) {
 	return { decision: "deny", reason, fix };
 }
 
+const isValidSelector = (selector) => typeof selector === "string" && selector.length > 0 && !selector.startsWith("-");
+
 // The PR as GitHub holds it, or null when it cannot be read within the hook's budget.
 function readPullRequest(selector, target, dir) {
-	const args = ["pr", "view", ...(selector === undefined ? [] : [selector]), ...(target.flagged ? ["--repo", target.slug] : [])];
+	const existingDir = dir && fs.existsSync(dir) ? dir : null;
+	const cwd = existingDir ?? (target.repoDir && fs.existsSync(target.repoDir) ? target.repoDir : undefined);
+	const needsRepoFlag = target.flagged || (existingDir === null && typeof target.slug === "string");
+	const args = ["pr", "view", ...(selector === undefined ? [] : [selector]), ...(needsRepoFlag && target.slug ? ["--repo", target.slug] : [])];
 	try {
 		const output = execFileSync("gh", [...args, "--json", "body,baseRefName,headRefName,url"], {
-			cwd: dir ?? undefined,
+			cwd,
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "ignore"],
 			timeout: 1500,
@@ -350,14 +355,15 @@ function readPullRequest(selector, target, dir) {
 }
 
 function checkSavedPr(target, dir, selector) {
-	const retry = { kind: "pr", cwd: dir, repo: target.slug, selector };
+	const validSelector = isValidSelector(selector);
+	const retry = validSelector ? { kind: "pr", cwd: dir ?? target.repoDir, repo: target.slug, selector } : null;
 	const branch = defaultBranch(target.repoDir);
-	const pr = selector && !selector.startsWith("-") ? readPullRequest(selector, target, dir) : null;
+	const pr = validSelector ? readPullRequest(selector, target, dir) : null;
 	if (!branch || !pr) return {
 		decision: "deny",
 		reason: `The saved PR ${selector ?? "(unknown)"} could not be verified.`,
 		fix: "Read the PR from the forge and recheck its saved base, head and ticket link before handoff.",
-		retry,
+		...(retry ? { retry } : { retries: [] }),
 	};
 	if (pr.baseRefName !== branch) return ALLOW;
 	if (typeof pr.url === "string") retry.selector = pr.url;
@@ -379,7 +385,8 @@ function checkPr(action, args, { dir, phase, prUrl }) {
 		if (edit && given.base === undefined && given.body === undefined && given.bodyFile === undefined) return ALLOW;
 		const url = typeof prUrl === "string" && PR_URL.exec(prUrl);
 		if (url && url[1].toLowerCase() === target.slug) return checkSavedPr(target, dir, prUrl);
-		const selector = edit ? (given.selector === undefined ? currentBranch(dir) : given.selector) : createHead(given, dir);
+		const createSelector = createHead(given, dir) ?? (!target.flagged ? currentBranch(dir) : null);
+		const selector = edit ? (given.selector === undefined ? currentBranch(dir) : given.selector) : createSelector;
 		return checkSavedPr(target, dir, selector);
 	}
 	const branch = defaultBranch(target.repoDir);
@@ -407,8 +414,11 @@ function checkPr(action, args, { dir, phase, prUrl }) {
 
 function decide(event) {
 	if (event.kind === "pr" && typeof event.cwd === "string") {
+		const selector = event.selector == null ? null : String(event.selector);
+		const isSavedRetry = event.harness === undefined && event.phase !== "after";
+		if (isSavedRetry && !isValidSelector(selector)) return ALLOW;
 		const target = resolveTarget(event.repo ?? undefined, event.cwd);
-		return target ? checkSavedPr(target, event.cwd, event.selector == null ? null : String(event.selector)) : ALLOW;
+		return target ? checkSavedPr(target, event.cwd, selector) : ALLOW;
 	}
 	if (event.kind !== "shell" || typeof event.command !== "string" || typeof event.cwd !== "string") return ALLOW;
 	const phase = event.phase === "after" ? "after" : "before";
@@ -434,7 +444,7 @@ function decide(event) {
 		decision: "deny",
 		reason: failures.map(failure => failure.reason).join("\n"),
 		fix: failures.map(failure => failure.fix).join("\n"),
-		retries: failures.map(failure => failure.retry),
+		retries: failures.flatMap(failure => failure.retry ? [failure.retry] : []),
 	};
 	return ALLOW;
 }
