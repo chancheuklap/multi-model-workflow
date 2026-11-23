@@ -53,7 +53,7 @@ Commit it only when the work is ambitious enough that a reviewer needs the trail
 
 ## Audit the log against the transcript
 
-At the end of the run, before handing back, check the log told the truth. Read this run's transcript in the active workspace. Do not search other projects' transcripts or unrelated private chats. If the transcript is unavailable, identify which claims you could not check. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
+Before handing back to the operator, the main chat or root coordinator checks that its own stretches in the log told the truth. A delegate reporting back to another agent only logs its rows and skips this audit. Read this run's transcript in the active workspace. Do not search other projects' transcripts or unrelated private chats. If the transcript is unavailable, identify which claims you could not check. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
 
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
@@ -63,14 +63,14 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Independent review of the trail
 
-Before handing back, spawn a fresh read-only agent that did none of the work. Self-review is not a substitute. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before the final handoff to the operator, the main chat or root coordinator runs this review once by spawning a fresh read-only agent that did none of the work. A delegate reporting back to another agent, such as a PR owner, PR verifier, or nested subagent, skips this review. Self-review is not a substitute. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). The subagent reads the decision trail (or program trails) and the handing-off run's transcript, spot-checking linked subagent evidence when a row looks weak or contradictory, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.
 - Choices that look risky in hindsight (premature, scope-creeping, papering over a symptom).
 - Gaps the user would otherwise miss on a casual skim.
 
-Every reply for a run that produced a trail ends with an "Attention" section. If no configured reviewer could run, report the missing review. Otherwise lead with the reviewer's model on its own line (`reviewed by <model>`), then list each flag pointing to specific rows or moments. "No flags" is a valid value. The model name is not.
+Every operator-facing handoff reply for a run that produced a trail ends with an "Attention" section. If no configured reviewer could run, report the missing review. Otherwise lead with the reviewer's model on its own line (`reviewed by <model>`), then list each flag pointing to specific rows or moments. "No flags" is a valid value. The model name is not.
 
 ## Reviewing the trail
 
