@@ -18,7 +18,7 @@ Mechanics first, history second. Each skill's report tells you which sources it 
 /mmw-mode read this thread. restate the underlying issue in your own words, in plain english. don't change any code yet.
 ```
 
-A misreading shows up in the restatement, where it costs one message to correct. Keep your own theory to yourself until the agent has stated its own. [in-your-own-words](../../skills/in-your-own-words/SKILL.md) asks for the restatement alone, with no playbook.
+A misreading shows up in the restatement, where it costs one message to correct. Keep your own theory to yourself until the agent has stated its own. [bro](../../skills/bro/SKILL.md) asks for the restatement alone, with no playbook.
 
 ## Reframe a vague description before you ask
 

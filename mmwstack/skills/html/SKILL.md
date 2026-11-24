@@ -1,6 +1,6 @@
 ---
 name: html
-description: "Create or redesign standalone single-file HTML artifacts with a tailored visual direction (report, explainer, landing page, deck, tool, mixed or broad). Sole implicit HTML router. Delegate wireframe, interactive prototype, mockup, HTML plan, or HTML diagram requests to specialists. Not for app code."
+description: "Build engine and specialist router for standalone single-file HTML artifacts (called via big-pics-little-words or specialized skills). Explicit invoke or routed only. Never auto-trigger. Not for app code."
 ---
 
 # HTML
@@ -75,11 +75,11 @@ Requests can span forms. Read every reference that materially applies, then give
 - Keep the page body free of accidental horizontal overflow. Put intentionally broad content in a contained scrolling or pannable region.
 - Define a small set of CSS tokens for the chosen direction and use them consistently. Tokens are an implementation tool, not a predetermined palette.
 - Treat motion as explanation or feedback. If removing an animation loses no meaning or useful feedback, remove it.
-- Follow the user's or project's theme policy. When none exists, give durable utility artifacts considered light and dark themes if that improves their use. A deliberate single-theme concept is valid.
+- Follow the user's or project's theme policy. By default, include both `:root[data-theme="light"]` and `:root[data-theme="dark"]` token sets plus a `@media (prefers-color-scheme: dark)` fallback so the artifact follows host light and dark themes natively. A deliberate single-theme concept is valid when the subject requires it.
 
 ## Finish the work
 
-Write the file to the requested location or follow the operator's and host's HTML artifact delivery rules. When browser tooling is available, open it and inspect a wide and narrow viewport. Exercise its controls, check the console, and fix clipping, overlap, illegible text, broken states, and accidental overflow.
+Write the file to the requested location, or to the OS temp directory when unsaved, and open it in the host's built-in browser when available so the operator can inspect and annotate it directly. Inspect a wide and narrow viewport. Exercise its controls, check the console, and fix clipping, overlap, illegible text, broken states, and accidental overflow.
 
 Unless the page is a review page, run one originality check before delivery: if the subject were swapped for a neighboring topic, would the same visual concept still make just as much sense? If yes, the direction is too generic; revise the composition, type, color, imagery, or interaction so it belongs to this subject.
 

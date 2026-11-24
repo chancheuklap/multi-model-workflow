@@ -147,7 +147,7 @@ The result of sharpening a task before the operator sends it. It names the origi
 **Teaching explanation**:
 A plain account of what a change or subsystem is, how it works, and why it took that form. A subsystem explanation draws on the mechanics from [how](../../../skills/how/SKILL.md) and the evidence about intent from [why](../../../skills/why/SKILL.md). It preserves the degree of confidence in that evidence. Successive diagrams can introduce the moving parts one at a time.
 
-[mmw-help](../../../skills/mmw-help/SKILL.md) · [in-your-own-words](../../../skills/in-your-own-words/SKILL.md) · [bro](../../../skills/bro/SKILL.md) · [reframe](../../../skills/reframe/SKILL.md) · [sharpen](../../../skills/sharpen/SKILL.md) · [teach](../../../skills/teach/SKILL.md)
+[mmw-help](../../../skills/mmw-help/SKILL.md) · [bro](../../../skills/bro/SKILL.md) · [reframe](../../../skills/reframe/SKILL.md) · [sharpen](../../../skills/sharpen/SKILL.md) · [teach](../../../skills/teach/SKILL.md)
 
 ### Documentation and prose
 
