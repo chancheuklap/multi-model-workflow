@@ -1,6 +1,6 @@
 # Working on mmwstack
 
-When working on mmwstack, follow the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms.
+When working on mmwstack, follow the [mmwstack glossary map](mmwstack/docs/GLOSSARY-MAP.md) to the relevant definitions and use their terms. Read architectural decisions in [docs/adr/](docs/adr/) before changing skill routing or bundle structure.
 
 ## How mmwstack works with the Home Repo
 
