@@ -98,7 +98,7 @@ Read the linked leaf skill in full for any principle you apply. Each entry names
 
 **When a playbook step tells you to start a subagent, spawn `mmw-agent`.** The chat that receives `/mmw-mode` runs the playbook. A skill that spawns its own subagents gives them role-specific briefs. Respect what the skill prescribes.
 
-**Host-specific dispatch.** Before starting any subagent on Factory Droid or Antigravity (AGY), including `mmw-agent`, `advisor`, `comment-sicko`, readers, runners, and judges, read [host-dispatch.md](references/host-dispatch.md) and apply the current host's row.
+**Host-specific dispatch.** Before starting, resuming, or closing any subagent on Factory Droid or Antigravity (AGY), including `mmw-agent`, `advisor`, `comment-sicko`, readers, runners, and judges, read [host-dispatch.md](references/host-dispatch.md) and apply the current host's row.
 
 **Execution environment.** At task start, the main chat determines the [execution environment](../../docs/glossary/routing-and-delegation/GLOSSARY.md#people-and-instructions) (`local` or `cloud`) from the workspace its host assigned. Every skill, including one invoked directly, uses that value. Before starting a subagent, the dispatcher confirms the host runs the route in the task's execution environment. This includes replacements and nested dispatch.
 
@@ -109,6 +109,8 @@ Start each brief with `Read <path>/worker.md before anything else.`. Use the abs
 You own every subagent's work. Review the diff and write your own summary. For a second opinion, give the same question to a fresh agent. Compare its evidence with yours.
 
 **Fresh subagents by default.** Give new work, including fix rounds, follow-ups, retries and the next queue item, to a fresh subagent with the original brief, every later directive, and the prior agent's report and branch. Resume an existing subagent only when the work needs state costly to move, such as its uncommitted changes or a process it still runs. A stop or hold order to a running agent is not reuse.
+
+**Mission-scoped lifecycle.** One-shot `ephemeral` delegates close automatically on completion. Retained `gated` delegates, such as `advisor` and scoped implementation or fix workers, stay live for parent review or a bounded follow-up. They reuse their live session on authorized resume and close when their checkpoint settles. Long-lived `session` delegates, such as a `PR owner` or multi-phase `Feature` single owner, stay live across parent turns and close explicitly at mission end through [host dispatch](references/host-dispatch.md). Nested `ephemeral` and `gated` children under a `session`-tier parent close under their own lifecycle rules without waiting for the `session`-tier parent to close. Never force-close a `working`, human-blocked, or pinned delegate outside `Pause safely` or stuck-agent replacement.
 
 ## Writing the reply
 
