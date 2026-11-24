@@ -52,6 +52,7 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Do any non-trivial task with rigor | [mmw-mode](../mmw-mode/SKILL.md) |
 | Check that the agent understood their goal and the problem before it starts | [in-your-own-words](../in-your-own-words/SKILL.md) |
 | Get a prompt rewritten deeper, not bigger, before sending it: what a top professional would add, their raw material and methods, and an outside check. It returns the prompt and doesn't do the task | [sharpen](../sharpen/SKILL.md) |
+| Learn the expert words for what they're building, including words borrowed from neighboring fields, with every cited source checked, and get their description rewritten with them | [reframe](../reframe/SKILL.md) |
 | Know how code works now, or where new code should live | [how](../how/SKILL.md) |
 | Know why code is shaped this way, or where a number came from | [why](../why/SKILL.md) |
 | Understand a change or subsystem, explained plainly | [teach](../teach/SKILL.md) |
@@ -103,7 +104,8 @@ Close calls:
 - When a playbook hands the code to another agent, [architect](../architect/SKILL.md) returns the design to that playbook.
 - [blast-radius](../blast-radius/SKILL.md) looks for breakage outside the diff and proves the one fact that makes the change safe. [code-review](../code-review/SKILL.md) checks a finished project branch once, on three axes, and the Code review playbook repairs it once.
 - [recall](../recall/SKILL.md) rebuilds context across recent chats. [ketchup](../ketchup/SKILL.md) covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
-- [bro](../bro/SKILL.md) is the one entry for aligning understanding. It hands off to [ketchup](../ketchup/SKILL.md), [ketchup-video](../ketchup-video/SKILL.md), [recall](../recall/SKILL.md), [teach](../teach/SKILL.md), [big-pics-little-words](../big-pics-little-words/SKILL.md), or [sharpen](../sharpen/SKILL.md) when the user's words call for one, and each still works on its own.
+- [reframe](../reframe/SKILL.md) teaches the expert words for a vague description and rewrites it with those words. [sharpen](../sharpen/SKILL.md) assumes the problem is named and deepens the prompt with expert raw material, methods, and an outside check. [domain-modeling](../domain-modeling/SKILL.md) records the team's settled vocabulary in the project's glossary.
+- [bro](../bro/SKILL.md) is the one entry for aligning understanding. It hands off to [ketchup](../ketchup/SKILL.md), [ketchup-video](../ketchup-video/SKILL.md), [recall](../recall/SKILL.md), [teach](../teach/SKILL.md), [big-pics-little-words](../big-pics-little-words/SKILL.md), [reframe](../reframe/SKILL.md), or [sharpen](../sharpen/SKILL.md) when the user's words call for one, and each still works on its own.
 - [figure-it-out](../figure-it-out/SKILL.md) designs one rigorous run. The Autonomous run playbook drives one task to a finish condition.
 
 Other skill providers:
