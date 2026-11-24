@@ -5,7 +5,7 @@ Swap in the real paths, skills, and done checks. Informal wording works.
 ## Understand
 
 - `/mmw-mode read <thread>. restate the underlying issue in your own words, in plain english.`
-- `/in-your-own-words <long or messy ask>`
+- `/bro <long or messy ask>`
 - `/reframe <your rough description or files>`
 - `/sharpen <the prompt you're about to send>`
 - `/mmw-mode investigate why <symptom>. give me what we know, what data you used, and your best hypotheses. don't change any code yet.`
