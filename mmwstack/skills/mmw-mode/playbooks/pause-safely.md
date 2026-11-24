@@ -2,7 +2,7 @@
 
 **You own a clean stop. Leave a checkpoint a cold-start agent can resume from.** This is explicit only. On "keep going", "going to bed, keep going", or "don't stop", do not pause.
 
-1. Stop at a safe boundary. Finish the current atomic step or back out of it. Start nothing new, and cancel any nested subagents.
+1. Stop at a safe boundary. Finish the current atomic step or back out of it. Start nothing new, and force-close active nested subagents via [host dispatch](../references/host-dispatch.md).
 2. Take no irreversible action to pause. No PR and no push unless you already had one out.
 3. Make the work durable. Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost. If the tree is broken, say so in the commit body in one line.
 4. Write the resume note off-context. Capture intent, what you were doing, progress and what's verified, current state, next steps, key files, and gotchas. For compaction, a local note such as `/tmp/<slug>-resume.md` is enough. For a handoff to another environment, put the note where the next agent can read it. If a [show-me-your-work](../../show-me-your-work/SKILL.md) trail exists, point at it instead of duplicating it.
