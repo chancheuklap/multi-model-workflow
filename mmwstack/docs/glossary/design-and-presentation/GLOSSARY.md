@@ -7,7 +7,7 @@ These terms distinguish what a design settles, what a running product shows, and
 ### HTML artifacts
 
 **HTML artifact**:
-A self-contained HTML file that a person can open to read or use. For example, a visual explanation shows a system's structure or decisions in pictures with enough text to preserve their meaning. [html](../../../skills/html/SKILL.md) · [big-pics-little-words](../../../skills/big-pics-little-words/SKILL.md)
+A self-contained HTML file that a person can open to read or use. [big-pics-little-words](../../../skills/big-pics-little-words/SKILL.md) is the default entry for standalone HTML artifacts and delegates rendering and specialist routing to [html](../../../skills/html/SKILL.md).
 _Avoid_: HTML deliverable as a substitute for HTML artifact.
 
 **HTML artifact form**:

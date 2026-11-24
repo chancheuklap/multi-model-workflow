@@ -50,7 +50,6 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | The user wants to | Skill |
 |---|---|
 | Do any non-trivial task with rigor | [mmw-mode](../mmw-mode/SKILL.md) |
-| Check that the agent understood their goal and the problem before it starts | [in-your-own-words](../in-your-own-words/SKILL.md) |
 | Get a prompt rewritten deeper, not bigger, before sending it: what a top professional would add, their raw material and methods, and an outside check. It returns the prompt and doesn't do the task | [sharpen](../sharpen/SKILL.md) |
 | Learn the expert words for what they're building, including words borrowed from neighboring fields, with every cited source checked, and get their description rewritten with them | [reframe](../reframe/SKILL.md) |
 | Know how code works now, or where new code should live | [how](../how/SKILL.md) |
@@ -58,8 +57,8 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Understand a change or subsystem, explained plainly | [teach](../teach/SKILL.md) |
 | Catch up on their own recent work on a topic | [recall](../recall/SKILL.md) |
 | Catch up on what changed in this chat since their last message, in plain words and small visuals, with every item waiting on them listed and decidable from the reply alone | [ketchup](../ketchup/SKILL.md) |
-| Understand a subject through large visuals and the text needed to explain them | [big-pics-little-words](../big-pics-little-words/SKILL.md) |
-| Create a self-contained HTML plan, report, wireframe, mockup, interactive prototype, or diagram | [html](../html/SKILL.md) |
+| Create a standalone HTML visual explanation, diagram, plan, report, wireframe, mockup, or interactive prototype (unified HTML entry) | [big-pics-little-words](../big-pics-little-words/SKILL.md) |
+| Invoke the underlying standalone HTML engine and specialist router directly | [html](../html/SKILL.md) |
 | Catch up like [ketchup](../ketchup/SKILL.md), in a short subtitled video of slides, with the waiting calls as text under it | [ketchup-video](../ketchup-video/SKILL.md) |
 | Know what a small diff could break outside itself | [blast-radius](../blast-radius/SKILL.md) |
 | Settle types and module shape before code that crosses a function boundary | [architect](../architect/SKILL.md) |
