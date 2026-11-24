@@ -17,6 +17,7 @@
     "README.md",
     "archive/**",
     "deprecated/**",
+    "docs/adr/**",
     "docs/research/**",
     "upstream/**",
     "mmwstack/.cursor-plugin/plugin.json",
@@ -51,6 +52,7 @@
   "marker_exempt": [
     "archive/**",
     "deprecated/**",
+    "docs/adr/**",
     "docs/research/**",
     "README.md",
     "upstream/**",
