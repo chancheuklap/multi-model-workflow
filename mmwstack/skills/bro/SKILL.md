@@ -14,4 +14,5 @@ If what the user asks for after `/bro` is clearly one of these skills' jobs, ski
 - [recall](../recall/SKILL.md): rebuild what I was working on across my recent chats.
 - [teach](../teach/SKILL.md): make me really understand a change or subsystem.
 - [big-pics-little-words](../big-pics-little-words/SKILL.md): show me this as large pictures on a page.
+- [reframe](../reframe/SKILL.md): teach me the expert words for what I am building and rewrite my description with them.
 - [sharpen](../sharpen/SKILL.md): make my draft prompt better before I send it, by making the task deeper, not bigger.
