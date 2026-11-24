@@ -20,6 +20,14 @@ Mechanics first, history second. Each skill's report tells you which sources it 
 
 A misreading shows up in the restatement, where it costs one message to correct. Keep your own theory to yourself until the agent has stated its own. [in-your-own-words](../../skills/in-your-own-words/SKILL.md) asks for the restatement alone, with no playbook.
 
+## Reframe a vague description before you ask
+
+```text
+/reframe the settings page saves some fields right away and others only on submit, and people lose edits.
+```
+
+When your description could fit several problems, [reframe](../../skills/reframe/SKILL.md) names the candidates and how to tell them apart, then gives 8 to 12 expert terms with checked links, analogies from neighboring fields with where each breaks, and missing concerns. It hands back your description rewritten with those terms and doesn't do the task. Send the rewrite, or run [sharpen](../../skills/sharpen/SKILL.md) on it.
+
 ## Sharpen a prompt before you send it
 
 ```text
