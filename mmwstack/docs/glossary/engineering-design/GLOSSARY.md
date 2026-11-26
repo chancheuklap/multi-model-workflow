@@ -14,7 +14,7 @@ A decision already fixed by the material the work must follow. It can be an oper
 _Avoid_: baseline alone when it could mean a starting measurement or a reference screenshot.
 
 **First-Principles Thinking**:
-The rule for questioning the premises of an open proposal. A measured capacity or a contract can establish a constraint. A convention needs independent support before it can constrain the design.
+The rule for testing the framing and means of an open proposal while holding the operator's goal fixed. It checks factual, causal, controllability, and means-versus-goal assumptions, stress-tests implicit constants against reality, verifies decidability, and subtracts unnecessary steps before adding new ones. A measured fact or a contract can establish a constraint, whereas a convention needs independent support.
 
 **Foundational Thinking**:
 The rule for choosing data structures from the ways the code will use them, before writing the logic. Its *scaffold first* rule puts shared types, tests, or other setup first when every later phase benefits from them.
@@ -29,7 +29,7 @@ The rule for choosing the smallest change that solves the problem and keeping ea
 The rule for choosing among reuse, extension, and a new implementation. A suitable implementation in the repository can settle the choice. Where a gap remains, existing implementations elsewhere supply candidates for comparison.
 
 **Attack the Premise**:
-The rule for two or more fixes that assume the same thing and fail the same gate. The shared assumption becomes the subject of a check whose result would differ if the assumption were false.
+The rule for two or more fixes that assume the same thing and fail the same gate, or for patches and rules that accumulate without improving quality. The shared assumption becomes the subject of a check whose result would differ if the assumption were false, and stalled local edits step up an escalation ladder from parameter to rules and structure, goal and standard, or premise.
 
 **Lever**:
 A file that performs or verifies the work repeatably under Build the Lever. A codemod can apply a change to many callers. A shared skill can give delegates the same recipe and verification contract. A reviewer can rerun a script and compare the result with the expected change.
