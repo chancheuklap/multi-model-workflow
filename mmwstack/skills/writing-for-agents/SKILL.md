@@ -65,6 +65,7 @@ Splitting one document into two spends one of the two loads, so split only when 
 
 - **By sequence**: split a run of steps where the post-completion steps tempt the agent to rush the one in front of it. Keeping them out of view drives more legwork on the current task. Beware the reverse: merging sequences exposes each step's later steps to what follows, inviting premature completion.
 - **By invocation**, skill-specific: see [`skill-mechanics.md`](references/skill-mechanics.md).
+- **By actor (isolated subagent).** Split a step into a fresh subagent only when running it in the same context corrupts its goal, such as self-review bias, anchoring on a prior draft, conflicting objectives like faithful selection versus smooth writing, or distinct read and write permissions. Never split merely because a task has multiple steps or analytical angles. State what the isolated actor may read, what it must not read, what it decides, and the exact handoff output it returns.
 
 ## Leading words
 

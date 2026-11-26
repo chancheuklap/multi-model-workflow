@@ -14,6 +14,7 @@ Bundled skills live at `../<name>/SKILL.md` from this file. Resolve `playbooks/`
 In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
 - First message → restate the user's goal, the problem they are solving, and the smallest change that meets it, then proceed. If the evidence rules out the requested change, show it and stop. Open each PR's `## Why` and final report with the goal, except the reply to a fully specified one-line edit.
+- Open plan, design, recommendation, or stalled decision → apply [principle-first-principles-thinking](../principle-first-principles-thinking/SKILL.md) before refining the approach. Skip it for clear, bounded execution tasks.
 - Writing or changing tests → invoke [write-tests](../write-tests/SKILL.md) before editing them. When delegating that work, put "Invoke `write-tests`" and the expected behavior in the writer's brief.
 - Starting any agent → follow [Subagents](#subagents).
 - New repository task, including a read-only investigation or a directly named skill → the main chat uses Open in [to-tickets](../to-tickets/SKILL.md#open) before starting.
@@ -41,10 +42,10 @@ Read the linked leaf skill in full for any principle you apply. Each entry names
 
 - [principle-laziness-protocol](../principle-laziness-protocol/SKILL.md). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
 - [principle-foundational-thinking](../principle-foundational-thinking/SKILL.md). Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
-- [principle-first-principles-thinking](../principle-first-principles-thinking/SKILL.md). An unsettled plan, design, or recommendation. Test which requirements and constraints hold before refining the approach.
+- [principle-first-principles-thinking](../principle-first-principles-thinking/SKILL.md). An open plan, design, recommendation, or stalled decision. Hold the goal fixed, test assumptions and decidability, and subtract before adding.
 - [principle-redesign-from-first-principles](../principle-redesign-from-first-principles/SKILL.md). Integrating a new requirement into an existing design. Redesign as if it had been foundational from day one.
 - [principle-baseline-is-the-contract](../principle-baseline-is-the-contract/SKILL.md). Implementing or documenting a settled decision. Preserve what the spec, prototype, or operator actually fixed.
-- [principle-attack-the-premise](../principle-attack-the-premise/SKILL.md). Two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it.
+- [principle-attack-the-premise](../principle-attack-the-premise/SKILL.md). Two or more fixes fail the same gate, or patches and rules pile up without improving quality. Test the shared premise and step up the escalation ladder before patching again.
 - [principle-subtract-before-you-add](../principle-subtract-before-you-add/SKILL.md). Sequencing an addition, refactor, or rewrite. Remove dead weight first. A new guard needs an observed failure or a requirement to enforce.
 - [principle-minimize-reader-load](../principle-minimize-reader-load/SKILL.md). Reviewing code that's hard to trace or deciding whether to extract a helper. Collapse layers that cost more than they save and shrink the state the reader must hold.
 - [principle-outcome-oriented-execution](../principle-outcome-oriented-execution/SKILL.md). Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.

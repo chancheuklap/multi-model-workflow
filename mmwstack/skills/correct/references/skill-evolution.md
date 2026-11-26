@@ -16,6 +16,7 @@ Keep a finding as a **durable learning** only if it will still hold in six month
 - Drop one-offs and details that drift, such as SHAs, versions, and counts.
 - A **missed trigger** (a skill that was available and suited to the task but did not fire) gets its `description` tuned.
 - What a lint rule, script, type, or automated check could enforce does not go into skill prose. Route it to [Repo environment](repo-environment.md) as a repository **improvement candidate** instead.
+- When a target skill already accumulates colliding rules or repeated patches fail to stop the same failure class, stop adding prose rules and restructure one layer up in order: **Information** (separate raw evidence, inference, confirmed decisions, and deliverables), **Judgment** (order competing decision priorities), **Workflow** (clarify stage inputs, pass criteria, and rollback targets), and **Actor isolation** (split into a fresh subagent only when shared context corrupts the step, per [writing-for-agents](../../writing-for-agents/SKILL.md#when-to-split)).
 
 ## Propose and apply after approval
 
