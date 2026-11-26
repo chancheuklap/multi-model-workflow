@@ -17,6 +17,8 @@ Use this format for each question.
 
 Word each question so "yes" accepts your recommended answer.
 
+Keep `➡️` recommended answers for engineering choices grounded in the codebase, specs, or measurements. For tacit business, domain, or preference questions where you lack ground truth, omit the recommendation so you do not anchor the operator, and ask one concrete, non-leading question focused on a single object and a single judgment dimension.
+
 Each answer reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier before asking the next question. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
 Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), give a fresh general-purpose subagent the lookup, its context and the work issue URL. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Ask for the fact and its source. Don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report. Ask the next independent question while it runs. The _decisions_ are the user's: put each to them and wait.

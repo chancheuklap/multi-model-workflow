@@ -32,10 +32,10 @@ The core principles decide how much to build and when to rethink the design:
 
 - [principle-laziness-protocol](../../skills/principle-laziness-protocol/SKILL.md) prefers deletion and the smallest change that solves the problem.
 - [principle-foundational-thinking](../../skills/principle-foundational-thinking/SKILL.md) chooses the core data structures before writing logic.
-- [principle-first-principles-thinking](../../skills/principle-first-principles-thinking/SKILL.md) tests the assumptions behind an unsettled plan before you invest in it.
+- [principle-first-principles-thinking](../../skills/principle-first-principles-thinking/SKILL.md) keeps the operator's goal fixed while testing the assumptions, implicit constants, and decidability behind an open approach before refining it.
 - [principle-redesign-from-first-principles](../../skills/principle-redesign-from-first-principles/SKILL.md) integrates a new requirement as if it had been there from day one.
 - [principle-baseline-is-the-contract](../../skills/principle-baseline-is-the-contract/SKILL.md) preserves what an approved spec, prototype, or answer actually settled. A timing prototype can settle a timing decision without setting the UI.
-- [principle-attack-the-premise](../../skills/principle-attack-the-premise/SKILL.md) writes down the premise that two or more failed fixes shared and tests it directly before the next fix.
+- [principle-attack-the-premise](../../skills/principle-attack-the-premise/SKILL.md) tests the shared premise after repeated failed fixes and steps up the escalation ladder when patches or rules stop converging.
 - [principle-subtract-before-you-add](../../skills/principle-subtract-before-you-add/SKILL.md) removes dead weight first and asks which failure or requirement justifies a new guard.
 - [principle-minimize-reader-load](../../skills/principle-minimize-reader-load/SKILL.md) reduces the layers and hidden state a reader must trace. A helper earns its place through reuse, a complex boundary, or a name that makes the caller clearer.
 - [principle-outcome-oriented-execution](../../skills/principle-outcome-oriented-execution/SKILL.md) converges rewrites on the target design instead of preserving throwaway compatibility states.
