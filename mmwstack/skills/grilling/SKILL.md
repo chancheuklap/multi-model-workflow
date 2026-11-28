@@ -5,23 +5,29 @@ description: "Relentlessly stress-test a plan, decision, or idea while updating 
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Identify the whole frontier. Ask one question at a time and give your recommended answer. Wait for the operator’s answer before asking the next question.
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-Use this format for each question.
+Format a round like so:
 
 ```
 ❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+
+➡️ <your recommended answer>
+
+---
+
+❓ **Q2** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
 
 ➡️ <your recommended answer>
 ```
 
 Word each question so "yes" accepts your recommended answer.
 
-Keep `➡️` recommended answers for engineering choices grounded in the codebase, specs, or measurements. For tacit business, domain, or preference questions where you lack ground truth, omit the recommendation so you do not anchor the operator, and ask one concrete, non-leading question focused on a single object and a single judgment dimension.
+Keep `➡️` recommended answers for engineering choices grounded in the codebase, specs, or measurements. For each tacit business, domain, or preference question where you lack ground truth, omit the recommendation so you do not anchor the operator, and phrase that question concretely and neutrally around a single object and a single judgment dimension.
 
-Each answer reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier before asking the next question. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
+Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
-Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), give a fresh general-purpose subagent the lookup, its context and the work issue URL. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Ask for the fact and its source. Don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report. Ask the next independent question while it runs. The _decisions_ are the user's: put each to them and wait.
+Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), give a fresh general-purpose subagent the lookup, its context and the work issue URL. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Ask for the fact and its source. Don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
 
 If a decision you need in this round depends on the operator trying the options, run the [Prototype playbook](../mmw-mode/playbooks/prototype.md) in this chat. Resume the interview with their answer.
 

@@ -83,7 +83,7 @@ The default answer is [mmw-mode](../mmw-mode/SKILL.md), which runs most of the o
 | Vet a performance number before reporting or acting on it | [benchmark-checklist](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change, or one to review after stepping away | [figure-it-out](../figure-it-out/SKILL.md) |
 | Keep a decision log during a run, and review it afterward | [show-me-your-work](../show-me-your-work/SKILL.md) |
-| Discuss a design tree one decision at a time and update the project's glossary and ADRs inline | [grilling](../grilling/SKILL.md) |
+| Walk a design tree in whole-frontier rounds and update the project's glossary and ADRs inline | [grilling](../grilling/SKILL.md) |
 | Settle the project's domain terms and record them in its glossary | [domain-modeling](../domain-modeling/SKILL.md) |
 | Investigate a question against primary sources and return a cited report | [research](../research/SKILL.md) |
 | Turn an existing discussion or a Wayfinder map into a published spec | [to-spec](../to-spec/SKILL.md) |
