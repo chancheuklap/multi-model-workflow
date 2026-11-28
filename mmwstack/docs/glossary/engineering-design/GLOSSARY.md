@@ -130,7 +130,7 @@ The concepts, rules and relationships of the system being changed. [domain-model
 The record of an architectural choice and its reason. A decision warrants an ADR when it is hard to reverse, would surprise a future reader without context, and involved a real trade-off. [domain-modeling](../../../skills/domain-modeling/SKILL.md#offer-adrs-sparingly)
 
 **Design tree**:
-A design discussion organized by which decisions depend on which answers. Its *frontier* is the set of questions whose prerequisites are settled. The operator considers one question at a time. [grilling](../../../skills/grilling/SKILL.md)
+A design discussion organized by which decisions depend on which answers. Its *frontier* is the set of questions whose prerequisites are settled. Each round asks the whole frontier and waits for the operator's answers before recomputing the next round. [grilling](../../../skills/grilling/SKILL.md)
 _Avoid_: decision frontier for this set when discussing the separately claimable GitHub tickets on a Wayfinder map.
 
 **Boundary validation**:
