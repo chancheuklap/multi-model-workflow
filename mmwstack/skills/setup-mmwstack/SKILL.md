@@ -57,7 +57,7 @@ verifier: <model and settings>
 
 On Factory Droid, sync the project's native registrations in `.factory/droids/` before starting the next session. Bind `mmw-agent-light`, `mmw-agent-medium`, and `mmw-agent-heavy` to their Factory tier models and reasoning settings. Bind `advisor` and `comment-sicko` to the tiers from the `advisor` and `judgment and prose` entries in the rule file for that session. Sync again after a Factory tier binding changes or a model rule, including a supplied rule file, changes the tier of either specialist.
 
-On Antigravity (AGY), sync the native registrations for `mmw-agent`, `advisor`, and `comment-sicko` in `.agents/agents/` before starting the next session. Omit the `model` frontmatter field so `scripts/agy-delegate` can pass exact models and `# fallback:` rules from `## agy` while preserving each role's instructions and `tools:` allowlist.
+On Antigravity (AGY), install skills only, never create `.agents/agents/*.md` or `~/.gemini/config/agents/*.md`, and never install `mmwstack` as an AGY plugin exposing `mmwstack/agents/`, because custom and plugin agents trigger 4x quota billing. `scripts/agy-delegate --role <role>` runs on the `1.00x` default agent, reads `## agy` and `# fallback:` rules directly, injects the role prompt from `agents/`, and enforces role tool boundaries via `PreToolUse` hooks. Keep `mmwstack/agents/*.md` intact as the canonical role-prompt source across all hosts.
 
 ### 6. Confirm
 

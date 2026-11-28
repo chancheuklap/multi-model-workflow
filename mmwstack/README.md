@@ -14,7 +14,7 @@ fork it. improve it. make it yours. PRs are welcome!
 
 ## install
 
-use the local plugin installation available in your agent environment and select this copy of mmwstack. you can also start directly from [mmw-mode](./skills/mmw-mode/SKILL.md). keep the `skills/` and `agents/` directories together so the mode can find its playbooks, skills, and delegate instructions.
+use the local plugin installation available in your agent environment and select this copy of mmwstack. you can also start directly from [mmw-mode](./skills/mmw-mode/SKILL.md). keep the `skills/` and `agents/` directories together so the mode can find its playbooks, skills, and delegate role prompts. on Antigravity (AGY), install `skills/` only and dispatch via `scripts/agy-delegate --role` on the `1.00x` default agent. never create `.agents/agents/*.md` and never install mmwstack as an AGY plugin exposing `mmwstack/agents/`, because custom and plugin agents trigger 4x quota billing. `mmwstack/agents/*.md` remains the canonical role-prompt source across all hosts.
 
 ## get started
 

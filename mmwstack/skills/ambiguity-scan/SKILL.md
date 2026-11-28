@@ -5,7 +5,7 @@ description: "Review a draft spec, multi-phase plan, or execution ticket batch o
 
 # Ambiguity scan
 
-The main chat dispatches one fresh, read-only general-purpose reviewer for the stage under review. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file).
+The main chat dispatches one fresh, read-only general-purpose reviewer for the stage under review. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Use the model and settings from the current host's `judgment and prose` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file).
 
 ## Dispatch
 

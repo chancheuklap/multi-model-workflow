@@ -24,7 +24,7 @@ Each consult starts a separate agent. Go on without one when reading the sources
 ## How to consult
 
 1. Write the brief from the [briefing template](references/briefing-template.md).
-2. Start a fresh read-only `advisor` with the brief. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host's `advisor` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
+2. Start a fresh read-only `advisor` with the brief. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Use the model and settings from the current host's `advisor` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Do not restate its rules. Continue independent work while it runs, and wait for the verdict before you act on the decision.
 3. When the advisor asks for missing input, supply it once by resuming the advisor (a fresh one with the input added when the host cannot resume). Give a later checkpoint a fresh advisor.
 4. Act on the verdict.
    - `proceed`: go.
@@ -32,7 +32,7 @@ Each consult starts a separate agent. Go on without one when reading the sources
    - `stop`: leave the plan. Rethink it, or bring the disagreement to the operator when it is a product or scope question.
    - The advisor is a strong second opinion, so you stay accountable for the result. When it is wrong about the codebase, show it the evidence once, or overrule it and tell the operator why. A missing verdict is not agreement.
    - Keep approved baselines and authorization fixed. Pass a `For the operator` section to the operator as it stands.
-5. Report each consult in one or two lines: `Advisor: <verdict>. <one-line summary>. <what you did about it>.` Keep the full response out of the chat unless the operator asks. Record the verdict and what you did with it on the work issue, per [to-tickets](../to-tickets/SKILL.md#update). Close the advisor delegate via [host dispatch](../mmw-mode/references/host-dispatch.md) once the verdict settles or after the single follow-up turn completes.
+5. Report each consult in one or two lines: `Advisor: <verdict>. <one-line summary>. <what you did about it>.` Keep the full response out of the chat unless the operator asks. Record the verdict and what you did with it on the work issue, per [to-tickets](../to-tickets/SKILL.md#update). Close the advisor delegate via [host-dispatch](../host-dispatch/SKILL.md) once the verdict settles or after the single follow-up turn completes.
 
 Done when you have acted on the verdict and closed the advisor delegate, or told the operator why the consult could not complete.
 
