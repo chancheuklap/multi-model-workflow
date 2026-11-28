@@ -46,7 +46,7 @@ Choose the two seats in your saved `arena runners` list. To compare specific app
 
 ## Research in parallel
 
-Ask [research](../../skills/research/SKILL.md) to investigate the same question independently or give each researcher a direction. The configured `arena runners` entries supply the researchers. Each writes a separate cited report and the caller consolidates their findings.
+Ask [research](../../skills/research/SKILL.md) to investigate a broad or multi-angle topic. It decomposes the question into non-overlapping tracks, dispatches concurrent `reader` subagents with scoped search budgets, and synthesizes the final cited report directly in the main chat.
 
 ## Settle decisions across sessions
 
