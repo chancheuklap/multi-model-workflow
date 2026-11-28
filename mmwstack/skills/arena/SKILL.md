@@ -18,13 +18,13 @@ Every candidate gets the same prompt, so the prompt is the contract. When the ta
 
 ## Phase B: Fan out
 
-Spawn both runners in parallel, each in a fresh context. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
+Spawn both runners in parallel, each in a fresh context. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Give each only the task, the path to the shared grounding, its own output path, and instructions to produce the artifact and a short rationale naming the alternatives it considered and what it rejected.
 
 If a candidate produces no output, continue with the remaining candidate and note the dropout.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, spawn one fresh read-only judge that produced none of the candidates, following [Subagents](../mmw-mode/SKILL.md#subagents). Use the first available entry in pool order (including an explicitly inherited model) from the current host's `arena cross-judge pool` line in `~/.agents/mmwstack-models.md` (or the supplied rule file). If none runs, pick the base yourself in Phase D and say the judge did not run. While you read in Phase D, the judge scores each candidate by path label on each rubric criterion and recommends a base with rationale. Never spawn the judge while candidates are still writing.
+After all Phase B candidates complete, spawn one fresh read-only judge that produced none of the candidates, following [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Use the first available entry in pool order (including an explicitly inherited model) from the current host's `arena cross-judge pool` line in `~/.agents/mmwstack-models.md` (or the supplied rule file). If none runs, pick the base yourself in Phase D and say the judge did not run. While you read in Phase D, the judge scores each candidate by path label on each rubric criterion and recommends a base with rationale. Never spawn the judge while candidates are still writing.
 
 ## Phase D: Pick a base
 

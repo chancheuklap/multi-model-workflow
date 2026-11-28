@@ -15,7 +15,7 @@ Find the spec issue the branch's tickets draw on, and the execution tickets whos
 
 ## Fan out
 
-Reuse an existing clean checkout already at the reviewed commit, or create one detached-HEAD read-only checkout at that commit with no review branches. Spawn one fresh subagent for each axis in parallel and assign all three to that shared checkout. Follow [Subagents](../mmw-mode/SKILL.md#subagents). Use the model and settings from the current host’s `code review` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Give each the shared checkout path, the diff, the reviewed commit, the spec and the landed tickets, the standards files that govern the changed paths, and the reference for its axis. The reviewer leaves the reviewed files unchanged and pushes nothing.
+Reuse an existing clean checkout already at the reviewed commit, or create one detached-HEAD read-only checkout at that commit with no review branches. Spawn one fresh subagent for each axis in parallel and assign all three to that shared checkout. Follow [Subagents](../mmw-mode/SKILL.md#subagents) and [host-dispatch](../host-dispatch/SKILL.md). Use the model and settings from the current host’s `code review` entry in `~/.agents/mmwstack-models.md` (or the supplied rule file). Give each the shared checkout path, the diff, the reviewed commit, the spec and the landed tickets, the standards files that govern the changed paths, and the reference for its axis. The reviewer leaves the reviewed files unchanged and pushes nothing.
 
 | Axis | Reference |
 | --- | --- |
