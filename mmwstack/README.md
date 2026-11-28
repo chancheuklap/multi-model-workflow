@@ -124,7 +124,7 @@ to keep [mmw-mode](./skills/mmw-mode/SKILL.md) active across turns, use the sess
 | [code-review](./skills/code-review/SKILL.md) | a project branch is finished and you want one review of it on three axes: standards, spec and tests. the code review playbook repairs once and stops. |
 | [automate-me](./skills/automate-me/SKILL.md) | you want your own `-mode` skill, drafted from how you've actually worked. |
 | [make-bot-ui](./skills/make-bot-ui/SKILL.md) | you want a page or dashboard whose buttons wake a Grok Bot over a webhook, including the sender-key handoff and Tailscale. |
-| [grilling](./skills/grilling/SKILL.md) | work through a design question with the operator, one decision at a time, and update the project's glossary and ADRs inline with [domain-modeling](./skills/domain-modeling/SKILL.md). |
+| [grilling](./skills/grilling/SKILL.md) | interview the operator across a design tree in whole-frontier rounds, and update the project's glossary and ADRs inline with [domain-modeling](./skills/domain-modeling/SKILL.md). |
 | [domain-modeling](./skills/domain-modeling/SKILL.md) | sharpen the project's terms and record settled meanings and architectural decisions. |
 | [research](./skills/research/SKILL.md) | investigate a question against primary sources and return a cited report. |
 | [to-spec](./skills/to-spec/SKILL.md) | turn an existing discussion or map into a spec on its GitHub work issue. |
